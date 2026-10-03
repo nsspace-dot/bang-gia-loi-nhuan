@@ -4,6 +4,7 @@ import { linhVat, manTrong } from './ui/linh-vat.js';
 import { moCaiDat } from './ui/cai-dat.js';
 import { taoTabBangPhi } from './ui/tab-bang-phi.js';
 import { taoTabGiaVon } from './ui/tab-gia-von.js';
+import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
 import * as kho from './data/kho.js';
 
 const KHOA_TAB = 'bggl.tab.v1';
@@ -12,7 +13,7 @@ const daTao = new Set();
 const TAO_TAB = {
   'bang-phi': taoTabBangPhi,
   'gia-von': taoTabGiaVon,
-  'loi-nhuan': (el) => thayNoiDung(el, h('div', { class: 'the' }, manTrong('Tab Tính lợi nhuận', 'Sẽ có ở giai đoạn 2 — làm lại từ app cũ, sửa đủ 6 lỗi.'))),
+  'loi-nhuan': taoTabLoiNhuan,
   'set-gia': (el) => thayNoiDung(el, h('div', { class: 'the' }, manTrong('Tab Set giá', 'Sẽ có ở giai đoạn 3.'))),
   campaign: (el) => thayNoiDung(el, h('div', { class: 'the' }, manTrong('Tab Campaign', 'Sẽ có ở giai đoạn 4.'))),
 };
@@ -60,7 +61,7 @@ function khoiDong() {
   kho.dangKy(veTrangThai);
 
   let tab = location.hash.slice(1);
-  if (!TAO_TAB[tab]) { try { tab = localStorage.getItem(KHOA_TAB) || 'bang-phi'; } catch { tab = 'bang-phi'; } }
+  if (!TAO_TAB[tab]) { try { tab = localStorage.getItem(KHOA_TAB) || 'loi-nhuan'; } catch { tab = 'loi-nhuan'; } }
   moTab(tab);
   kho.khoiDong();
   if (!kho.layCaiDat().url) moCaiDat();

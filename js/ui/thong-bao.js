@@ -3,7 +3,7 @@ import { h } from './dom.js';
 
 let vung;
 
-/** kieu: 'ok' | 'loi' | 'tt' (thông tin). Lỗi hiển thị lâu hơn và có nút đóng. */
+/** kieu: 'ok' | 'loi' | 'tt' (thông tin). Lỗi hiển thị lâu hơn. Trả về { dong() } để tắt sớm. */
 export function thongBao(noiDung, kieu = 'ok') {
   if (!vung) {
     vung = h('div', { class: 'vung-thong-bao', 'aria-live': 'polite' });
@@ -16,4 +16,5 @@ export function thongBao(noiDung, kieu = 'ok') {
     h('button', { class: 'thong-bao-dong', 'aria-label': 'Đóng', onclick: () => the.remove() }, '×'));
   vung.append(the);
   setTimeout(() => the.remove(), kieu === 'loi' ? 9000 : 3500);
+  return { dong: () => the.remove() };
 }

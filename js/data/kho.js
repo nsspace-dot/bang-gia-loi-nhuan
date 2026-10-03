@@ -170,3 +170,34 @@ export function xoaCacheMay() {
   trangThai.luc = null;
   baoThayDoi();
 }
+
+// ---------- Bảng tính đã lưu (tab Tính lợi nhuận) ----------
+
+/** Lưu bảng tính + toàn bộ dòng. Chỉ cập nhật danh sách trên máy SAU KHI Apps Script xác nhận. */
+export async function luuBangTinh(bangTinh, dong) {
+  const r = await goiGhi({
+    action: 'luuBangTinh',
+    bangTinh: { ...bangTinh, so_dong: dong.length },
+    dong: dong.map((d, i) => ({ stt: i + 1, ten: d.ten, phan_loai: d.phan_loai, nganh: d.nganh, gia_von: d.gia_von, gia_ban: d.gia_ban })),
+  });
+  const ds = trangThai.duLieu.BANG_TINH;
+  const i = ds.findIndex((b) => b.id === r.banGhi.id);
+  if (i >= 0) ds[i] = r.banGhi; else ds.push(r.banGhi);
+  luuCache();
+  baoThayDoi();
+  return r.banGhi;
+}
+
+export async function docBangTinh(id) {
+  const r = await goiGet(layCaiDat().url, { action: 'docBangTinh', id });
+  return r.duLieu
+    .sort((a, b) => (a.stt ?? 0) - (b.stt ?? 0))
+    .map((d) => ({ ten: d.ten ?? '', phan_loai: d.phan_loai ?? '', nganh: d.nganh ?? '', gia_von: d.gia_von ?? null, gia_ban: d.gia_ban ?? null }));
+}
+
+export async function xoaBangTinh(id) {
+  await goiGhi({ action: 'xoaBangTinh', id });
+  trangThai.duLieu.BANG_TINH = trangThai.duLieu.BANG_TINH.filter((b) => b.id !== id);
+  luuCache();
+  baoThayDoi();
+}

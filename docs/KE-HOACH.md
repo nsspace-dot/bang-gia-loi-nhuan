@@ -8,8 +8,8 @@
 | GĐ | Nội dung | Trạng thái |
 |---|---|---|
 | GĐ0 | Đọc tài liệu + file mẫu, kế hoạch | ✅ Đã duyệt |
-| GĐ1 | Module công thức + test, Apps Script, tab Bảng phí, tab Giá vốn, Cài đặt | 🔄 Chờ duyệt |
-| GĐ2 | Tab Tính lợi nhuận (sửa 6 lỗi app cũ, có test) | |
+| GĐ1 | Module công thức + test, Apps Script, tab Bảng phí, tab Giá vốn, Cài đặt | ✅ Đã duyệt |
+| GĐ2 | Tab Tính lợi nhuận (sửa 6 lỗi app cũ, có test) | 🔄 Chờ duyệt |
 | GĐ3 | Tab Set giá | |
 | GĐ4 | Tab Campaign | |
 | GĐ5 | HUONG-DAN.md | |
@@ -29,12 +29,27 @@
 - **C7.** Campaign stock ghi dạng số.
 - Bộ 3 tấm nhận thêm kiểu ghi "30x40cm x 3 tấm".
 
-## Điểm mới cần duyệt (phát sinh ở GĐ1)
+## Đã duyệt thêm ở GĐ1
 
 - **Từ khóa ngoài phạm vi chỉ xét trong TÊN SẢN PHẨM**, không xét phân loại. Lý do: phân loại của decal thường là tên hoa văn ("… uống trà", "… trà sữa", "Hoa … thanh lịch"); nếu xét cả phân loại thì khoảng 10 SKU decal hợp lệ bị loại oan.
 - **"thanh lịch", "lịch sự", "lịch lãm"** cũng không bị coi là lịch (giống "lịch sử").
 - **"nẹp" (gỗ/nhựa) trong phân loại** được coi là dấu hiệu Liễn. Có sản phẩm tên ghi "Laminate tráng gương" nhưng phân loại ghi "Nẹp Nhựa" — đây là liễn.
 - **Bộ 3 tấm suy ra từ tên mà size không có trong bảng "Bộ 3 tấm đồng size"** (vd 50x100) → Cần gán, không tự đổi sang 1 tấm.
+
+## GĐ2 — Tab Tính lợi nhuận
+
+| Lỗi app cũ | Cách sửa | Test |
+|---|---|---|
+| 1. Giá bán trống bị lấy nhầm giá vốn | Đọc cột theo TÊN, không dùng cột dự phòng theo vị trí; giá bán trống = trống, chưa tính lãi | `tests/loi-nhuan.test.js`, `tests/giao-dien.test.js` |
+| 2. Tên có ngoặc kép làm vỡ ô nhập | Mọi giao diện dựng bằng `dom.js/h()` (textContent/thuộc tính), không ghép chuỗi vào innerHTML | test quét `js/ui/` + test trình duyệt thật |
+| 3. "45.000"/"45,000" đọc sai | `core/so.js/docSo` | `tests/loi-nhuan.test.js` |
+| 4. URL Apps Script ghi cứng, ghi không xác thực | URL nhập ở Cài đặt; mật khẩu kiểm tra ở Apps Script | test quét code + test Code.gs |
+| 5. Báo "đã lưu" khi chưa lưu | Chỉ báo sau khi Apps Script trả `ok:true`; lỗi → "CHƯA lưu được: …" | `tests/loi-nhuan.test.js` (fetch giả qua Code.gs), test trình duyệt |
+| 6. Danh sách chỉ lưu trên từng máy | Lưu "bảng tính" có tên lên Sheets (BANG_TINH + BANG_TINH_DONG), mở lại / xóa; bản nháp vẫn tự lưu trên máy | `tests/loi-nhuan.test.js`, test trình duyệt |
+
+Thêm: chọn tháng phí, chọn gian hiển thị, lọc dòng lỗ, sắp xếp theo lãi (bấm tiêu đề cột), tìm kiếm không dấu, phân trang 100 dòng, nhân bản/xóa dòng, xuất Excel (5 cột đầu nhập lại được + lãi & % từng gian + sheet Thông tin).
+
+Test trình duyệt (`tests/giao-dien.test.js`) dùng Playwright nếu máy có; không có thì tự bỏ qua.
 
 ## Kiến trúc
 

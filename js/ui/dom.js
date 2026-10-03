@@ -99,3 +99,23 @@ export function taiXuong(tenFile, du, kieu = 'application/octet-stream') {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
+/** Hộp thoại nhập 1 dòng chữ (Promise<string|null>). */
+export function nhapChu(cauHoi, macDinh = '', { nutDongY = 'Đồng ý' } = {}) {
+  return new Promise((resolve) => {
+    const o = h('input', { class: 'o-nhap o-nhap-rong', value: macDinh, maxlength: 120 });
+    const dong = (kq) => { dlg.close(); dlg.remove(); resolve(kq); };
+    const dlg = h('dialog', { class: 'hop-thoai hop-thoai-nho' },
+      h('form', { onsubmit: (e) => { e.preventDefault(); const t = o.value.trim(); if (t) dong(t); else o.focus(); } },
+        h('p', { class: 'hop-thoai-cau-hoi' }, cauHoi),
+        o,
+        h('div', { class: 'hang-nut' },
+          h('span', { class: 'gian-cach' }),
+          h('button', { type: 'button', class: 'nut', onclick: () => dong(null) }, 'Hủy'),
+          h('button', { type: 'submit', class: 'nut nut-chinh' }, nutDongY))));
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); dong(null); });
+    document.body.append(dlg);
+    dlg.showModal();
+    o.select();
+  });
+}
