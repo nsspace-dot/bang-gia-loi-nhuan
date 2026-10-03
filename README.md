@@ -6,7 +6,7 @@ Công cụ web tĩnh cho shop TikTok: tính lợi nhuận, set giá, chuẩn b�
 - Dữ liệu dùng chung (phí, giá vốn, campaign…) lưu trên Google Sheets của bạn qua Google Apps Script (`apps-script/Code.gs`).
 - Host bằng GitHub Pages, không cần bước build.
 
-Tài liệu: [docs/KE-HOACH.md](docs/KE-HOACH.md). Hướng dẫn cài đặt chi tiết: `HUONG-DAN.md` (giai đoạn 5).
+**Hướng dẫn cài đặt & sử dụng: [HUONG-DAN.md](HUONG-DAN.md)** · Thiết kế: [docs/KE-HOACH.md](docs/KE-HOACH.md)
 
 Chạy thử trên máy (Node 20+):
 

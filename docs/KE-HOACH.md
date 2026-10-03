@@ -11,8 +11,8 @@
 | GĐ1 | Module công thức + test, Apps Script, tab Bảng phí, tab Giá vốn, Cài đặt | ✅ Đã duyệt |
 | GĐ2 | Tab Tính lợi nhuận (sửa 6 lỗi app cũ, có test) | ✅ Đã duyệt |
 | GĐ3 | Tab Set giá | ✅ Đã duyệt |
-| GĐ4 | Tab Campaign | 🔄 Chờ duyệt |
-| GĐ5 | HUONG-DAN.md | |
+| GĐ4 | Tab Campaign | ✅ Đã duyệt |
+| GĐ5 | HUONG-DAN.md | 🔄 Chờ duyệt |
 
 ## Quyết định đã duyệt (GĐ0)
 
