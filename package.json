@@ -1,0 +1,9 @@
+{
+  "name": "bang-gia-loi-nhuan",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "thu": "node scripts/may-chu-thu.mjs 8080 --du-lieu-gia"
+  }
+}

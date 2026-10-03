@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng giá & Lợi nhuận</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/xlsx.full.min.js" defer></script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header class="dau-trang">
+  <div class="thuong-hieu">
+    <span id="logo-meo" aria-hidden="true"></span>
+    <div>
+      <h1>Bảng giá &amp; Lợi nhuận</h1>
+      <p class="chu-nhat">TikTok Shop · tranh, liễn, decal, sách</p>
+    </div>
+  </div>
+  <nav class="thanh-tab" role="tablist" aria-label="Chức năng">
+    <button role="tab" data-tab="loi-nhuan">🧮 Tính lợi nhuận</button>
+    <button role="tab" data-tab="set-gia">🏷️ Set giá</button>
+    <button role="tab" data-tab="campaign">🎯 Campaign</button>
+    <button role="tab" data-tab="gia-von">📦 Giá vốn</button>
+    <button role="tab" data-tab="bang-phi">💸 Bảng phí</button>
+  </nav>
+  <div class="dau-phai">
+    <button id="trang-thai-dong-bo" class="dong-bo" type="button" title="Bấm để đồng bộ lại">
+      <i class="cham"></i><span>Chưa kết nối</span>
+    </button>
+    <button id="nut-cai-dat" class="nut-tron" type="button" title="Cài đặt" aria-label="Cài đặt">⚙️</button>
+  </div>
+</header>
+<main id="noi-dung">
+  <section id="tab-loi-nhuan" class="tab" role="tabpanel" hidden></section>
+  <section id="tab-set-gia" class="tab" role="tabpanel" hidden></section>
+  <section id="tab-campaign" class="tab" role="tabpanel" hidden></section>
+  <section id="tab-gia-von" class="tab" role="tabpanel" hidden></section>
+  <section id="tab-bang-phi" class="tab" role="tabpanel" hidden></section>
+  <noscript><p>Cần bật JavaScript để dùng app.</p></noscript>
+</main>
+</body>
+</html>

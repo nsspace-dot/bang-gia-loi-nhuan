@@ -1,0 +1,172 @@
+// Kho dữ liệu dùng chung: cache localStorage + đồng bộ với Apps Script.
+
+import { goiGet, goiPost, LoiApi } from './api.js';
+
+const KHOA_CACHE = 'bggl.cache.v1';
+const KHOA_CAI_DAT = 'bggl.caidat.v1';
+const KHOA_MAT_KHAU = 'bggl.matkhau.v1';
+
+const KHOA_SHEET = {
+  DANH_MUC: ['loai', 'ten'],
+  BANG_PHI: ['gian', 'nganh', 'thang'],
+  GIA_VON: ['nhom', 'phan_loai'],
+  NOI_SKU: ['sku_id'],
+  CAMPAIGN: ['id'],
+  BANG_TINH: ['id'],
+};
+
+const rong = () => ({ DANH_MUC: [], BANG_PHI: [], GIA_VON: [], NOI_SKU: [], CAMPAIGN: [], BANG_TINH: [] });
+
+const trangThai = {
+  duLieu: rong(),
+  dongBo: 'chua', // chua | dang | xong | loi
+  loi: '',
+  luc: null,
+};
+const nguoiNghe = new Set();
+
+function docJSON(kho, khoa) {
+  try { return JSON.parse(kho.getItem(khoa) || 'null'); } catch { return null; }
+}
+function ghiJSON(kho, khoa, giaTri) {
+  try { kho.setItem(khoa, JSON.stringify(giaTri)); return true; } catch { return false; }
+}
+
+// ---------- Cài đặt ----------
+
+export function layCaiDat() {
+  return { url: '', ...(docJSON(localStorage, KHOA_CAI_DAT) || {}) };
+}
+
+export function luuCaiDat(cd) {
+  ghiJSON(localStorage, KHOA_CAI_DAT, { url: (cd.url || '').trim() });
+}
+
+export function layMatKhau() {
+  try { return sessionStorage.getItem(KHOA_MAT_KHAU) || localStorage.getItem(KHOA_MAT_KHAU) || ''; } catch { return ''; }
+}
+
+export function coNhoMatKhau() {
+  try { return !!localStorage.getItem(KHOA_MAT_KHAU); } catch { return false; }
+}
+
+export function luuMatKhau(mk, nho) {
+  try {
+    localStorage.removeItem(KHOA_MAT_KHAU);
+    sessionStorage.removeItem(KHOA_MAT_KHAU);
+    if (mk) (nho ? localStorage : sessionStorage).setItem(KHOA_MAT_KHAU, mk);
+  } catch { /* trình duyệt chặn bộ nhớ */ }
+}
+
+// ---------- Trạng thái ----------
+
+export function lay() { return trangThai; }
+export function duLieu() { return trangThai.duLieu; }
+
+export function dangKy(fn) {
+  nguoiNghe.add(fn);
+  return () => nguoiNghe.delete(fn);
+}
+
+function baoThayDoi() {
+  for (const fn of nguoiNghe) {
+    try { fn(trangThai); } catch (e) { console.error(e); }
+  }
+}
+
+function luuCache() {
+  ghiJSON(localStorage, KHOA_CACHE, { duLieu: trangThai.duLieu, luc: trangThai.luc });
+}
+
+export function khoiDong() {
+  const c = docJSON(localStorage, KHOA_CACHE);
+  if (c && c.duLieu) {
+    trangThai.duLieu = { ...rong(), ...c.duLieu };
+    trangThai.luc = c.luc || null;
+  }
+  baoThayDoi();
+  if (layCaiDat().url) return dongBo();
+  return Promise.resolve();
+}
+
+export async function dongBo() {
+  const { url } = layCaiDat();
+  if (!url) {
+    trangThai.dongBo = 'chua';
+    baoThayDoi();
+    return;
+  }
+  trangThai.dongBo = 'dang';
+  trangThai.loi = '';
+  baoThayDoi();
+  try {
+    const r = await goiGet(url, { action: 'docTatCa' });
+    trangThai.duLieu = { ...rong(), ...r.duLieu };
+    trangThai.dongBo = 'xong';
+    trangThai.luc = new Date().toISOString();
+    luuCache();
+  } catch (e) {
+    trangThai.dongBo = 'loi';
+    trangThai.loi = e.message;
+  }
+  baoThayDoi();
+}
+
+export async function kiemTraKetNoi(url, matKhau) {
+  const ping = await goiGet(url, { action: 'ping' });
+  let matKhauDung = null;
+  if (matKhau) {
+    try {
+      await goiPost(url, { action: 'kiemTraMatKhau', matKhau });
+      matKhauDung = true;
+    } catch (e) {
+      matKhauDung = e.message;
+    }
+  }
+  return { ...ping, matKhauDung };
+}
+
+// ---------- Ghi ----------
+
+function khoaCua(sheet, o) {
+  return KHOA_SHEET[sheet].map((k) => String(o[k] ?? '').trim()).join('|');
+}
+
+async function goiGhi(body) {
+  const { url } = layCaiDat();
+  const matKhau = layMatKhau();
+  if (!matKhau) throw new LoiApi('Chưa nhập mật khẩu (mở ⚙️ Cài đặt). Cần mật khẩu để lưu.');
+  return goiPost(url, { ...body, matKhau });
+}
+
+/** Ghi các bản ghi (upsert). Chỉ cập nhật dữ liệu trên máy SAU KHI Apps Script xác nhận. */
+export async function ghi(sheet, banGhi) {
+  if (!banGhi.length) return [];
+  const r = await goiGhi({ action: 'upsert', sheet, banGhi });
+  const ds = trangThai.duLieu[sheet];
+  const viTri = new Map(ds.map((o, i) => [khoaCua(sheet, o), i]));
+  for (const b of r.banGhi) {
+    const i = viTri.get(khoaCua(sheet, b));
+    if (i === undefined) { viTri.set(khoaCua(sheet, b), ds.length); ds.push(b); } else ds[i] = b;
+  }
+  luuCache();
+  baoThayDoi();
+  return r.banGhi;
+}
+
+export async function xoa(sheet, dsKhoa) {
+  if (!dsKhoa.length) return 0;
+  const r = await goiGhi({ action: 'xoa', sheet, khoa: dsKhoa });
+  const bo = new Set(dsKhoa.map((k) => khoaCua(sheet, k)));
+  trangThai.duLieu[sheet] = trangThai.duLieu[sheet].filter((o) => !bo.has(khoaCua(sheet, o)));
+  luuCache();
+  baoThayDoi();
+  return r.daXoa;
+}
+
+export function xoaCacheMay() {
+  try { localStorage.removeItem(KHOA_CACHE); } catch { /* bỏ qua */ }
+  trangThai.duLieu = rong();
+  trangThai.luc = null;
+  baoThayDoi();
+}
