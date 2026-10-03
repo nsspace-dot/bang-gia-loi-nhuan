@@ -419,3 +419,25 @@ main { max-width: 1560px; margin: 0 auto; padding: 22px 28px 60px; }
 .vung-tha-lon { padding: 26px 30px; }
 .vung-tha-lon .meo { width: 120px; height: 120px; }
 .vung-tha-lon b { font-size: 19px; }
+
+/* ---------- Tab Set giá ---------- */
+.luoi-cai-dat { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; border-top: 2px dashed var(--vien); padding-top: 14px; }
+.o-cai-dat { background: #fffafc; border: 2px solid var(--vien); border-radius: var(--bo-goc-nho); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.o-cai-dat-rong { grid-column: 1 / -1; }
+.nhan-buoc { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.so-buoc { width: 24px; height: 24px; border-radius: 50%; background: var(--chinh); color: #fff; display: grid; place-items: center; font-size: 13px; }
+.nhom-nut { display: inline-flex; align-self: flex-start; background: #fff; border: 2px solid var(--vien); border-radius: 999px; padding: 2px; gap: 2px; white-space: nowrap; }
+.nut-chon { border: 0; background: transparent; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-weight: 700; font-size: 13px; color: var(--chu-phu); }
+.nut-chon:hover { background: var(--nen-2); }
+.nut-chon.dang-chon { background: var(--chinh); color: #fff; }
+.o-nhap-so { width: 96px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.goi-y-sat { margin: 0; }
+.vung-tha-nho { padding: 8px 14px; }
+.vung-tha-nho .meo { width: 44px; height: 44px; }
+.vung-tha-nho b { font-size: 14px; }
+.o-tong-vang { background: var(--vang-nen); border-color: #f3d48a; }
+.bang-sg td, .bang-sg th { padding: 5px 10px; }
+.chu-de-xuat { color: var(--chinh-dam); }
+.chu-gach { color: var(--chu-nhat); text-decoration: line-through; font-weight: 600; }
+.dong-loi td { background: #fff6f7; }
+@media (max-width: 1100px) { .luoi-cai-dat { grid-template-columns: 1fr 1fr; } }

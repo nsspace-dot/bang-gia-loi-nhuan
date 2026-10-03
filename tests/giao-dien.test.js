@@ -135,3 +135,28 @@ test('LỖI 5 + 6 trên giao diện: sai mật khẩu → báo lỗi, không bá
   assert.equal(await p.inputValue('[aria-label="Giá bán dòng 2"]'), '');
   await p.close();
 });
+
+test('Set giá: chọn nhóm → có giá đề xuất, cảnh báo bậc giá, giá chốt tay, xuất file đúng mẫu nhập', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  await p.click('[data-tab="set-gia"]');
+  await p.click('.chip-loc:has-text("Bộ 1 tấm")');
+  await p.waitForSelector('.bang-sg tbody tr');
+  // dữ liệu giả có 60x90 vốn rẻ hơn 50x70 → giá đề xuất sai bậc → cảnh báo
+  assert.ok(await p.locator('.dong-canh-bao').count() >= 1);
+  const truoc = await p.locator('.dong-canh-bao').count();
+  // chốt tay giá 60x90 cao hơn 50x70 → hết cảnh báo cho dòng đó
+  await p.fill('[aria-label="Giá chốt Bộ 1 tấm 60x90"]', '999.000');
+  await p.press('[aria-label="Giá chốt Bộ 1 tấm 60x90"]', 'Tab');
+  await p.waitForTimeout(200);
+  assert.ok(await p.locator('.dong-canh-bao').count() < truoc);
+  const [tai] = await Promise.all([p.waitForEvent('download'), p.click('text=📤 Xuất file')]);
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const wb = ctx.XLSX.read(fs.readFileSync(await tai.path()), { type: 'buffer' });
+  const dong = JSON.parse(JSON.stringify(ctx.XLSX.utils.sheet_to_json(wb.Sheets['Sản phẩm'], { header: 1 })));
+  assert.deepEqual(dong[0], ['Tên sản phẩm', 'Phân loại', 'Ngành hàng', 'Giá vốn', 'Giá bán']);
+  assert.deepEqual(dong.find((d) => d[1] === '60x90').slice(0, 5), ['Bộ 1 tấm', '60x90', 'Tranh', 19011, 999000]);
+  assert.deepEqual(loi, []);
+  await p.close();
+});

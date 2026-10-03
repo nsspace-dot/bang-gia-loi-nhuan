@@ -9,8 +9,8 @@
 |---|---|---|
 | GĐ0 | Đọc tài liệu + file mẫu, kế hoạch | ✅ Đã duyệt |
 | GĐ1 | Module công thức + test, Apps Script, tab Bảng phí, tab Giá vốn, Cài đặt | ✅ Đã duyệt |
-| GĐ2 | Tab Tính lợi nhuận (sửa 6 lỗi app cũ, có test) | 🔄 Chờ duyệt |
-| GĐ3 | Tab Set giá | |
+| GĐ2 | Tab Tính lợi nhuận (sửa 6 lỗi app cũ, có test) | ✅ Đã duyệt |
+| GĐ3 | Tab Set giá | 🔄 Chờ duyệt |
 | GĐ4 | Tab Campaign | |
 | GĐ5 | HUONG-DAN.md | |
 
@@ -47,9 +47,20 @@
 | 5. Báo "đã lưu" khi chưa lưu | Chỉ báo sau khi Apps Script trả `ok:true`; lỗi → "CHƯA lưu được: …" | `tests/loi-nhuan.test.js` (fetch giả qua Code.gs), test trình duyệt |
 | 6. Danh sách chỉ lưu trên từng máy | Lưu "bảng tính" có tên lên Sheets (BANG_TINH + BANG_TINH_DONG), mở lại / xóa; bản nháp vẫn tự lưu trên máy | `tests/loi-nhuan.test.js`, test trình duyệt |
 
-Thêm: chọn tháng phí, chọn gian hiển thị, lọc dòng lỗ, sắp xếp theo lãi (bấm tiêu đề cột), tìm kiếm không dấu, phân trang 100 dòng, nhân bản/xóa dòng, xuất Excel (5 cột đầu nhập lại được + lãi & % từng gian + sheet Thông tin).
+Thêm: chọn gian hiển thị, lọc dòng lỗ, sắp xếp theo lãi (bấm tiêu đề cột), tìm kiếm không dấu, phân trang 100 dòng, nhân bản/xóa dòng, xuất Excel (5 cột đầu nhập lại được + lãi & % từng gian + sheet Thông tin).
 
 Test trình duyệt (`tests/giao-dien.test.js`) dùng Playwright nếu máy có; không có thì tự bỏ qua.
+
+Phí: KHÔNG có ô chọn tháng — luôn dùng bộ phí đang áp dụng tại thời điểm hiện tại (bộ mới nhất có tháng áp dụng ≤ tháng hiện tại). Áp dụng cho cả tab Tính lợi nhuận và Set giá.
+
+## GĐ3 — Tab Set giá
+
+- Nguồn giá vốn: chọn nhóm từ giá vốn đã lưu, hoặc thả file giá vốn (không lưu lên Sheets).
+- Cài đặt (nhớ lần trước): gian hàng, lãi mong muốn (% trên giá hoặc đ/đơn), kịch bản (Có QC / Không QC / Cả 2), làm tròn (lên 1.000 / đuôi 9.000 / không).
+- Mỗi size: giá đề xuất (giá thấp nhất đạt mức lãi, đã làm tròn), giá chốt tay (tùy chọn), lãi có QC & không QC (đ, %), giá hòa vốn (theo kịch bản), mức giảm tối đa còn hòa vốn (%, đ).
+- Kiểm tra bậc giá trên giá đang dùng (giá chốt nếu có, không thì giá đề xuất): size lớn hơn phải giá ≥ size nhỏ (cùng nhóm); Bộ 3 tấm phải rẻ hơn 3 × Bộ 1 tấm cùng size (Bộ 1 tấm lấy từ giá vốn đã lưu nếu không nằm trong lựa chọn).
+- Xuất file: sheet "Sản phẩm" đúng mẫu nhập tab Tính lợi nhuận (Giá bán = giá đang dùng), sheet "Chi tiết", sheet "Cài đặt".
+- Logic: `js/core/set-gia.js`, test: `tests/set-gia.test.js` + test trình duyệt.
 
 ## Kiến trúc
 
@@ -80,6 +91,8 @@ js/core/                   LOGIC THUẦN, có test, không đụng giao diện
   gia-von.js               đọc file giá vốn, so sánh khi nạp lại, cảnh báo
   nhan-dien.js             Decal / Liễn / Laminate / ngoài phạm vi / cần gán
   danh-muc.js              gian hàng, ngành, màu gian
+  bang-tinh.js             tab Tính lợi nhuận: đọc file, lãi theo gian, lọc, sắp xếp, xuất
+  set-gia.js               tab Set giá: giá đề xuất, hòa vốn, bậc giá
 js/data/api.js             gọi Apps Script, báo lỗi rõ ràng
 js/data/kho.js             cache localStorage + trạng thái đồng bộ
 js/excel/doc.js            đọc Excel (tự sửa vùng dữ liệu)

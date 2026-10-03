@@ -5,6 +5,7 @@ import { moCaiDat } from './ui/cai-dat.js';
 import { taoTabBangPhi } from './ui/tab-bang-phi.js';
 import { taoTabGiaVon } from './ui/tab-gia-von.js';
 import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
+import { taoTabSetGia } from './ui/tab-set-gia.js';
 import * as kho from './data/kho.js';
 
 const KHOA_TAB = 'bggl.tab.v1';
@@ -14,7 +15,7 @@ const TAO_TAB = {
   'bang-phi': taoTabBangPhi,
   'gia-von': taoTabGiaVon,
   'loi-nhuan': taoTabLoiNhuan,
-  'set-gia': (el) => thayNoiDung(el, h('div', { class: 'the' }, manTrong('Tab Set giá', 'Sẽ có ở giai đoạn 3.'))),
+  'set-gia': taoTabSetGia,
   campaign: (el) => thayNoiDung(el, h('div', { class: 'the' }, manTrong('Tab Campaign', 'Sẽ có ở giai đoạn 4.'))),
 };
 

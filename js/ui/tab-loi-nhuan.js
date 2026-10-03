@@ -20,7 +20,6 @@ const st = {
   ds: [],              // { _id, ten, phan_loai, nganh, gia_von, gia_ban }
   bangTinh: null,      // { id, ten } khi đang mở bảng tính đã lưu
   thayDoi: false,      // có thay đổi chưa lưu lên Sheets
-  thang: thangHienTai(),
   gianXem: null,       // null = tất cả gian
   nganhMacDinh: '',
   tim: '',
@@ -44,14 +43,14 @@ function docNhap() {
     const d = JSON.parse(localStorage.getItem(KHOA_NHAP) || 'null');
     if (!d) return;
     st.ds = (d.ds || []).map((r) => ({ ...r, _id: moiId() }));
-    Object.assign(st, { bangTinh: d.bangTinh || null, thayDoi: !!d.thayDoi, thang: chuanHoaThang(d.thang) || st.thang, gianXem: d.gianXem || null, nganhMacDinh: d.nganhMacDinh || '' });
+    Object.assign(st, { bangTinh: d.bangTinh || null, thayDoi: !!d.thayDoi, gianXem: d.gianXem || null, nganhMacDinh: d.nganhMacDinh || '' });
   } catch { /* bản nháp hỏng thì bỏ qua */ }
 }
 
 function luuNhap() {
   try {
     localStorage.setItem(KHOA_NHAP, JSON.stringify({
-      ds: st.ds.map(({ _id, ...r }) => r), bangTinh: st.bangTinh, thayDoi: st.thayDoi, thang: st.thang, gianXem: st.gianXem, nganhMacDinh: st.nganhMacDinh,
+      ds: st.ds.map(({ _id, ...r }) => r), bangTinh: st.bangTinh, thayDoi: st.thayDoi, gianXem: st.gianXem, nganhMacDinh: st.nganhMacDinh,
     }));
   } catch { /* hết bộ nhớ trình duyệt: vẫn dùng được, chỉ không giữ nháp */ }
 }
@@ -62,6 +61,9 @@ function daSua() {
 }
 
 // ---------- dữ liệu dẫn xuất ----------
+
+/** Luôn tính theo bộ phí đang áp dụng ở thời điểm hiện tại. */
+const thangNay = () => thangHienTai();
 
 const tatCaGian = () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN');
 const dsNganh = () => layDanhSach(kho.duLieu().DANH_MUC, 'NGANH');
@@ -110,8 +112,6 @@ function veDau() {
 
 function veDieuKhien(gians) {
   const tat = tatCaGian();
-  const oThang = h('input', { type: 'month', class: 'o-nhap', value: st.thang, 'aria-label': 'Tháng phí',
-    onchange: (e) => { const t = chuanHoaThang(e.target.value); if (t) { st.thang = t; luuNhap(); ve(); } else e.target.value = st.thang; } });
   const chonNganh = h('select', { class: 'o-nhap', 'aria-label': 'Ngành mặc định', onchange: (e) => { st.nganhMacDinh = e.target.value; luuNhap(); } },
     dsNganh().map((n) => h('option', { value: n, selected: n === nganhMacDinh() }, n)));
   const oTim = h('input', { type: 'search', class: 'o-nhap', placeholder: 'Tìm tên, phân loại…', value: st.tim, 'aria-label': 'Tìm', 'data-o': 'tim',
@@ -119,7 +119,6 @@ function veDieuKhien(gians) {
 
   return h('div', { class: 'dieu-khien' },
     h('div', { class: 'hang hang-dk' },
-      h('label', { class: 'nhan-ngang' }, 'Tháng phí ', oThang),
       h('span', { class: 'nhan-ngang' }, 'Gian hiển thị'),
       h('div', { class: 'ds-chip' }, tat.map((g) => {
         const bat = gians.includes(g);
@@ -162,13 +161,13 @@ function veTrong() {
 }
 
 function veTongKet(gians, dsPhi) {
-  const t = tongKet(st.ds, gians, dsPhi, st.thang);
+  const t = tongKet(st.ds, gians, dsPhi, thangNay());
   const tatGian = tatCaGian();
   return h('div', { class: 'luoi-tong-ket' },
     h('div', { class: 'o-tong' },
       h('div', { class: 'o-tong-nhan' }, 'Sản phẩm'),
       h('div', { class: 'o-tong-so' }, dinhDangTien(t.soDong)),
-      t.thieuGiaBan ? h('div', { class: 'chu-nhat' }, `${t.thieuGiaBan} dòng chưa có giá bán`) : h('div', { class: 'chu-nhat' }, `Phí tháng ${hienThiThang(st.thang)}`)),
+      t.thieuGiaBan ? h('div', { class: 'chu-nhat' }, `${t.thieuGiaBan} dòng chưa có giá bán`) : h('div', { class: 'chu-nhat' }, `Phí đang áp dụng (tháng ${hienThiThang(thangNay())})`)),
     h('div', { class: 'o-tong' },
       h('div', { class: 'o-tong-nhan' }, 'Tổng giá vốn'),
       h('div', { class: 'o-tong-so' }, dinhDangTien(t.tongVon), h('small', null, ' đ'))),
@@ -189,7 +188,7 @@ const lop = (x) => (x === null || x === undefined ? '' : x < 0 ? 'chu-lo' : 'chu
 
 function veBang(gians, dsPhi) {
   const tatGian = tatCaGian();
-  const chiSo = locVaSapXep(st.ds, { gians, dsPhi, thang: st.thang, chiLo: st.chiLo, tim: st.tim, sapXep: st.sapXep });
+  const chiSo = locVaSapXep(st.ds, { gians, dsPhi, thang: thangNay(), chiLo: st.chiLo, tim: st.tim, sapXep: st.sapXep });
   const soTrang = Math.max(1, Math.ceil(chiSo.length / MOI_TRANG));
   st.trang = Math.min(st.trang, soTrang - 1);
   const trangNay = chiSo.slice(st.trang * MOI_TRANG, (st.trang + 1) * MOI_TRANG);
@@ -263,7 +262,7 @@ function veDong(i, gians, dsPhi) {
 
   const oLai = (r, kichBan) => {
     if (r.trangThai === 'thieu-gia') return h('td', { class: 'so o-lai chu-nhat' }, '—');
-    if (r.trangThai === 'thieu-phi') return h('td', { class: 'so o-lai chu-nhat', title: `Chưa có bộ phí ${d.nganh} cho gian này (≤ ${hienThiThang(st.thang)})` }, 'chưa có phí');
+    if (r.trangThai === 'thieu-phi') return h('td', { class: 'so o-lai chu-nhat', title: `Chưa có bộ phí ${d.nganh} cho gian này (≤ ${hienThiThang(thangNay())})` }, 'chưa có phí');
     const lai = kichBan === 'qc' ? r.laiQC : r.laiKhongQC;
     const pt = kichBan === 'qc' ? r.ptQC : r.ptKhongQC;
     return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''] },
@@ -271,14 +270,14 @@ function veDong(i, gians, dsPhi) {
       h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt)));
   };
 
-  return h('tr', { class: gians.some((g) => { const r = laiTaiGian(d, g, dsPhi, st.thang); return r.trangThai === 'ok' && (r.laiQC < 0 || r.laiKhongQC < 0); }) ? 'dong-lo' : '' },
+  return h('tr', { class: gians.some((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return r.trangThai === 'ok' && (r.laiQC < 0 || r.laiKhongQC < 0); }) ? 'dong-lo' : '' },
     h('td', { class: 'so cot-stt chu-nhat' }, i + 1),
     h('td', null, oChu('ten', '190px')),
     h('td', null, oChu('phan_loai', '64px')),
     h('td', null, chonNganh),
     h('td', { class: 'so' }, oSo('gia_von', 'Giá vốn')),
     h('td', { class: 'so' }, oSo('gia_ban', 'Giá bán')),
-    gians.map((g) => { const r = laiTaiGian(d, g, dsPhi, st.thang); return [oLai(r, 'qc'), oLai(r, 'khongqc')]; }),
+    gians.map((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return [oLai(r, 'qc'), oLai(r, 'khongqc')]; }),
     h('td', { class: 'o-thao-tac' },
       h('button', { class: 'nut-icon', title: 'Nhân bản dòng', 'aria-label': `Nhân bản dòng ${i + 1}`, onclick: () => { st.ds.splice(i + 1, 0, { ...d, _id: moiId() }); daSua(); ve(); } }, '⧉'),
       h('button', { class: 'nut-icon', title: 'Xóa dòng', 'aria-label': `Xóa dòng ${i + 1}`, onclick: () => { st.ds.splice(i, 1); daSua(); ve(); } }, '🗑')));
@@ -334,13 +333,13 @@ function tenFileAnToan(s) {
 function xuatExcel(gians) {
   const X = globalThis.XLSX;
   const dsPhi = kho.duLieu().BANG_PHI;
-  const ws = X.utils.aoa_to_sheet(bangXuat(st.ds, gians, dsPhi, st.thang));
+  const ws = X.utils.aoa_to_sheet(bangXuat(st.ds, gians, dsPhi, thangNay()));
   ws['!cols'] = [{ wch: 36 }, { wch: 12 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, ...gians.flatMap(() => [{ wch: 14 }, { wch: 9 }, { wch: 14 }, { wch: 9 }])];
   ws['!freeze'] = { xSplit: 1, ySplit: 1 };
   const homNay = new Date();
   const thongTin = X.utils.aoa_to_sheet([
     ['Bảng tính', st.bangTinh ? st.bangTinh.ten : 'Bảng tính mới'],
-    ['Tháng phí', hienThiThang(st.thang)],
+    ['Bộ phí', `Đang áp dụng tại tháng ${hienThiThang(thangNay())} (ngày xuất)`],
     ['Gian', gians.join(', ')],
     ['Ngày xuất', homNay.toLocaleString('vi-VN')],
     ['Ghi chú', 'Sheet "Lợi nhuận": 5 cột đầu nhập lại được vào app. Lãi = Giá − Vốn − Phí cố định − Giá × tổng phí %.'],
@@ -364,13 +363,13 @@ async function luuLenSheets(banMoi) {
   if (!st.ds.length) return;
   let { bangTinh } = st;
   if (!bangTinh || banMoi) {
-    const ten = await nhapChu('Đặt tên cho bảng tính:', bangTinh && banMoi ? `${bangTinh.ten} (bản sao)` : `Bảng tính ${hienThiThang(st.thang)}`, { nutDongY: 'Lưu' });
+    const ten = await nhapChu('Đặt tên cho bảng tính:', bangTinh && banMoi ? `${bangTinh.ten} (bản sao)` : `Bảng tính ${hienThiThang(thangNay())}`, { nutDongY: 'Lưu' });
     if (!ten) return;
     bangTinh = { id: `bt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ten };
   }
   const dangLuu = thongBao(`Đang lưu "${bangTinh.ten}" (${st.ds.length} dòng)…`, 'tt');
   try {
-    const kq = await kho.luuBangTinh({ id: bangTinh.id, ten: bangTinh.ten, gian_hien_thi: gianDangXem().join(','), thang_phi: st.thang },
+    const kq = await kho.luuBangTinh({ id: bangTinh.id, ten: bangTinh.ten, gian_hien_thi: gianDangXem().join(','), thang_phi: thangNay() },
       st.ds.map(({ _id, ...r }) => r));
     st.bangTinh = { id: kq.id, ten: kq.ten };
     st.thayDoi = false;
@@ -392,11 +391,10 @@ function moDanhSach() {
       h('h2', { id: 'bt-tieu-de' }, '📂 Bảng tính đã lưu'),
       h('button', { class: 'nut-dong', 'aria-label': 'Đóng', onclick: () => dlg.close() }, '×')),
     ds.length ? h('div', { class: 'khung-bang khung-bang-vua' }, h('table', { class: 'bang' },
-      h('thead', null, h('tr', null, h('th', null, 'Tên'), h('th', { class: 'so' }, 'Số dòng'), h('th', null, 'Tháng phí'), h('th', null, 'Cập nhật'), h('th', null, ''))),
+      h('thead', null, h('tr', null, h('th', null, 'Tên'), h('th', { class: 'so' }, 'Số dòng'), h('th', null, 'Cập nhật'), h('th', null, ''))),
       h('tbody', null, ds.map((b) => h('tr', { class: st.bangTinh?.id === b.id ? 'dong-dang-mo' : '' },
         h('td', null, h('b', null, b.ten), st.bangTinh?.id === b.id ? h('span', { class: 'nhan-nho nhan-tim' }, 'đang mở') : null),
         h('td', { class: 'so' }, dinhDangTien(b.so_dong)),
-        h('td', null, hienThiThang(b.thang_phi)),
         h('td', { class: 'chu-nhat' }, ngay(b.cap_nhat_luc)),
         h('td', { class: 'o-thao-tac' },
           h('button', { class: 'nut nut-nho nut-chinh', onclick: () => moBangTinh(b, dlg) }, 'Mở'),
@@ -415,7 +413,7 @@ async function moBangTinh(b, dlg) {
     const gianLuu = String(b.gian_hien_thi || '').split(',').filter((g) => tat.includes(g));
     Object.assign(st, {
       ds: dong.map((r) => ({ ...r, _id: moiId() })), bangTinh: { id: b.id, ten: b.ten }, thayDoi: false,
-      thang: chuanHoaThang(b.thang_phi) || st.thang, gianXem: gianLuu.length && gianLuu.length < tat.length ? gianLuu : null,
+      gianXem: gianLuu.length && gianLuu.length < tat.length ? gianLuu : null,
       tim: '', chiLo: false, sapXep: null, trang: 0,
     });
     luuNhap();
