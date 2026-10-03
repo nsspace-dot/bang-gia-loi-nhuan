@@ -201,3 +201,21 @@ export async function xoaBangTinh(id) {
   luuCache();
   baoThayDoi();
 }
+
+// ---------- Campaign ----------
+
+/** Lưu campaign + kết quả (thay toàn bộ kết quả cũ của campaign này). */
+export async function luuCampaign(campaign, ketQua) {
+  const r = await goiGhi({ action: 'luuCampaign', campaign, ketQua });
+  const ds = trangThai.duLieu.CAMPAIGN;
+  const i = ds.findIndex((c) => c.id === r.banGhi.id);
+  if (i >= 0) ds[i] = r.banGhi; else ds.push(r.banGhi);
+  luuCache();
+  baoThayDoi();
+  return r.banGhi;
+}
+
+export async function docCampaignKQ(id) {
+  const r = await goiGet(layCaiDat().url, { action: 'docCampaignKQ', id });
+  return r.duLieu;
+}

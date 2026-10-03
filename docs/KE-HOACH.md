@@ -10,8 +10,8 @@
 | GĐ0 | Đọc tài liệu + file mẫu, kế hoạch | ✅ Đã duyệt |
 | GĐ1 | Module công thức + test, Apps Script, tab Bảng phí, tab Giá vốn, Cài đặt | ✅ Đã duyệt |
 | GĐ2 | Tab Tính lợi nhuận (sửa 6 lỗi app cũ, có test) | ✅ Đã duyệt |
-| GĐ3 | Tab Set giá | 🔄 Chờ duyệt |
-| GĐ4 | Tab Campaign | |
+| GĐ3 | Tab Set giá | ✅ Đã duyệt |
+| GĐ4 | Tab Campaign | 🔄 Chờ duyệt |
 | GĐ5 | HUONG-DAN.md | |
 
 ## Quyết định đã duyệt (GĐ0)
@@ -62,13 +62,30 @@ Phí: KHÔNG có ô chọn tháng — luôn dùng bộ phí đang áp dụng t�
 - Xuất file: sheet "Sản phẩm" đúng mẫu nhập tab Tính lợi nhuận (Giá bán = giá đang dùng), sheet "Chi tiết", sheet "Cài đặt".
 - Logic: `js/core/set-gia.js`, test: `tests/set-gia.test.js` + test trình duyệt.
 
+## GĐ4 — Tab Campaign
+
+- **Danh sách campaign** (sheet CAMPAIGN): xem lại (tải kết quả), nhân bản cài đặt sang campaign mới.
+- **Chạy campaign**: tên, gian, ngày bắt đầu – kết thúc, tháng phí (mặc định theo ngày bắt đầu, sửa được); thả file prefill + một/nhiều file sản phẩm; chiến lược A/B/C (+X% cho A), lãi tối thiểu (nhập mỗi lần), bước làm tròn 100/500/1.000. App nhớ gian, chiến lược, X%, bước làm tròn.
+- **Đọc file**: prefill đọc theo tên cột (dòng tiêu đề tìm trong 6 dòng đầu); ô Campaign price/stock có sẵn (trống/công thức/số) đều bị bỏ qua và ghi đè. File sản phẩm: sheet Template, dòng 1 là khóa, dữ liệu từ dòng 6, ghép theo SKU ID. SKU không có trong file sản phẩm → nhận diện theo tên trong prefill + cảnh báo.
+- **Chiến lược**: A = giá bán lẻ × (1 − X) làm tròn xuống, vượt trần thì hạ sát dưới trần + ghi chú; B = giá thấp nhất đạt lãi tối thiểu ở cả 2 kịch bản, làm tròn lên; C = số làm tròn lớn nhất < trần (và < giá bán lẻ).
+- **Vào được** khi: trong khoảng giá, < giá bán lẻ, lãi có QC và không QC ≥ lãi tối thiểu (phí đúng ngành của SKU), đủ tồn. Số lượng mặc định = mức tối thiểu của "Campaign stock range", không vượt tồn.
+- **Lý do loại**: Lỗ / Dưới lãi tối thiểu / Vượt trần không đủ lãi (kể cả ở giá cao nhất được phép vẫn không đủ lãi) / Thiếu tồn / Bỏ chọn tay / khoảng giá. Ngoài phạm vi chỉ đếm.
+- **Màn duyệt**: 4 nhóm (Vào được / Bị loại / Cần gán / Ngoài phạm vi), sắp xếp L30D giảm dần, tìm kiếm, phân trang 100 dòng; sửa giá / số lượng từng dòng (tính lại ngay), bỏ chọn; nhãn "suy ra từ tên", "gán tay".
+- **Cần gán**: chọn nhóm + size + số tranh/tấm → lưu NOI_SKU theo SKU ID (cần mật khẩu, chỉ áp dụng khi Sheets xác nhận); "Áp dụng cùng phân loại"; "Gán cho cả sản phẩm" (cùng Product ID, mỗi SKU giữ size riêng nếu đọc được).
+- **Cảnh báo**: giá bán lẻ không chia hết 1.000; SKU đang ở campaign khác cùng gian có thời gian chồng lấn với giá khác; SKU lần trước (campaign trước cùng gian) vào được mà lần này không, kèm lý do.
+- **File đăng ký** `<tên>_dang-ky.xlsx`: sửa thẳng XML file gốc (`js/excel/prefill.js`) — giữ dòng ghi chú, ô gộp, tiêu đề, thứ tự & độ rộng cột, giá trị các cột khác; Campaign price ghi SỐ (bỏ công thức kể cả công thức dùng chung), Campaign stock ghi số; xóa dòng không vào được; cập nhật vùng dữ liệu / bộ lọc, bỏ calcChain.
+- **File báo cáo** `<tên>_bao-cao.xlsx`: Tổng hợp, Vào được, Bị loại, Cần gán.
+- Tên file bỏ dấu tiếng Việt (một số trình duyệt đổi tên file có dấu thành "download").
+- **Lưu**: CAMPAIGN + CAMPAIGN_KQ (không lưu dòng ngoài phạm vi, chỉ đếm trong tong_hop).
+- Logic `js/core/campaign.js`; test `tests/campaign.test.js` + test trình duyệt; chạy thử trên file thật: `node scripts/chay-thu-campaign.mjs [A|B|C] [lãi%] [X%]` (chỉ in ra màn hình, file ghi vào mau/).
+
 ## Kiến trúc
 
 - **Web tĩnh, không cần build**, host bằng **GitHub Pages** (Settings → Pages → Deploy from a branch → chọn nhánh → thư mục `/ (root)`). File `.nojekyll` để GitHub phục vụ nguyên trạng.
 - HTML + CSS + JavaScript module (`<script type="module">`), mỗi phần một file.
 - **Thư viện lưu trong repo** (`vendor/`, ghim phiên bản, không phụ thuộc CDN):
   - SheetJS 0.20.3 — đọc/ghi Excel. Lấy từ gói npm `@e965/xlsx@0.20.3` (bản đóng gói lại của SheetJS trên npm, vì trang tải chính thức cdn.sheetjs.com bị chặn trong môi trường phát triển). SHA-256 của `vendor/xlsx.full.min.js`: `cc015130aa8521e7f088f88898eba949ccdcbfb38df0bd129b44b7273c3a6f41`.
-  - JSZip (GĐ4) — sửa trực tiếp XML file prefill để giữ nguyên 100% định dạng.
+  - JSZip 3.10.1 (npm `jszip`) — sửa trực tiếp XML file prefill để giữ nguyên định dạng. SHA-256 `vendor/jszip.min.js`: `acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e`.
   - Font Quicksand (SIL OFL) trong `fonts/`, có bộ ký tự tiếng Việt.
 - **File người dùng không rời trình duyệt.** Chỉ dữ liệu dùng chung đi lên Google Sheets qua Apps Script.
 - **File TikTok "all_information" ghi sai vùng dữ liệu** (khai báo 5 dòng dù có hàng nghìn dòng) → `js/excel/doc.js` tự tính lại vùng dữ liệu khi đọc.
@@ -80,7 +97,7 @@ index.html                 khung 5 tab + Cài đặt
 .nojekyll                  để GitHub Pages phục vụ nguyên trạng
 css/app.css, css/fonts.css
 fonts/                     Quicksand (woff2)
-vendor/                    xlsx.full.min.js (+ jszip ở GĐ4)
+vendor/                    xlsx.full.min.js, jszip.min.js
 js/app.js                  khởi động, chuyển tab, trạng thái đồng bộ
 js/core/                   LOGIC THUẦN, có test, không đụng giao diện
   cong-thuc.js             CÔNG THỨC DUY NHẤT
@@ -93,9 +110,11 @@ js/core/                   LOGIC THUẦN, có test, không đụng giao diện
   danh-muc.js              gian hàng, ngành, màu gian
   bang-tinh.js             tab Tính lợi nhuận: đọc file, lãi theo gian, lọc, sắp xếp, xuất
   set-gia.js               tab Set giá: giá đề xuất, hòa vốn, bậc giá
+  campaign.js              tab Campaign: đọc prefill, chiến lược, điều kiện vào được, cảnh báo, báo cáo
 js/data/api.js             gọi Apps Script, báo lỗi rõ ràng
 js/data/kho.js             cache localStorage + trạng thái đồng bộ
 js/excel/doc.js            đọc Excel (tự sửa vùng dữ liệu)
+js/excel/prefill.js        ghi file đăng ký campaign (sửa XML file gốc)
 js/ui/                     dom.js (tạo phần tử an toàn), linh-vat.js, thong-bao.js, cai-dat.js, tab-*.js
 apps-script/Code.gs        dán vào Google Apps Script
 tests/                     test (dữ liệu giả) + giả lập Apps Script

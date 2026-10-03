@@ -441,3 +441,40 @@ main { max-width: 1560px; margin: 0 auto; padding: 22px 28px 60px; }
 .chu-gach { color: var(--chu-nhat); text-decoration: line-through; font-weight: 600; }
 .dong-loi td { background: #fff6f7; }
 @media (max-width: 1100px) { .luoi-cai-dat { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- Tab Campaign ---------- */
+.luoi-cp { grid-template-columns: 1fr 1fr 1.25fr; }
+.nhan-nho-o { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--chu-phu); }
+.nhan-nho-o.hang { flex-direction: row; align-items: center; gap: 6px; }
+.nhan-nho-o .o-nhap { font-weight: 600; color: var(--chu); }
+.nut-lon { padding: 11px 26px; font-size: 16px; }
+.vung-tha-xong { border-style: solid; border-color: #9fdcbf; background: #f3fbf7; }
+.vung-tha-xong b { color: var(--lai); }
+.ds-chien-luoc { display: flex; flex-direction: column; gap: 6px; }
+.chien-luoc {
+  text-align: left; border: 2px solid var(--vien); background: #fff; border-radius: 12px; padding: 7px 12px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 1px; color: var(--chu);
+}
+.chien-luoc small { color: var(--chu-nhat); font-weight: 500; font-size: 12px; }
+.chien-luoc.dang-chon { border-color: var(--chinh); background: var(--chinh-nhat); }
+.chien-luoc.dang-chon b { color: var(--chinh-dam); }
+.luoi-nhom-cp { grid-template-columns: repeat(4, 1fr); }
+.o-nhom { cursor: pointer; text-align: left; font: inherit; }
+.o-nhom.dang-chon { outline: 3px solid var(--chinh); outline-offset: -1px; }
+.o-nhom-vao .o-tong-so { color: var(--lai); }
+.o-nhom-loai .o-tong-so { color: var(--lo); }
+.o-nhom-gan .o-tong-so { color: var(--vang); }
+.o-nhom-ngoai .o-tong-so { color: var(--chu-nhat); }
+.bang-cp { font-size: 13px; }
+.bang-cp td { vertical-align: top; }
+.o-sp { max-width: 330px; }
+.o-sp-ten { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.o-khoang { white-space: nowrap; font-size: 12px; }
+.o-so-nho { width: 52px !important; min-width: 52px !important; }
+.hang-sl { flex-wrap: nowrap; gap: 4px; justify-content: flex-end; }
+.o-ly-do { min-width: 200px; max-width: 320px; font-size: 12.5px; }
+.chu-vang { color: var(--vang); }
+.o-chon-sku { width: 17px; height: 17px; accent-color: var(--lai); }
+.o-nhap-nho { padding: 4px 8px; font-size: 13px; }
+.thanh-xuat { flex-direction: row; align-items: center; gap: 10px; position: sticky; bottom: 10px; z-index: 5; flex-wrap: wrap; }
+@media (max-width: 1100px) { .luoi-cp, .luoi-nhom-cp { grid-template-columns: 1fr; } }

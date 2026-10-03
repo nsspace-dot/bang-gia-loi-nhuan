@@ -160,3 +160,89 @@ test('Set giá: chọn nhóm → có giá đề xuất, cảnh báo bậc giá, 
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Campaign: thả prefill + file sản phẩm → tính → gán tay → xuất file đăng ký & lưu', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  // file prefill giả: dòng 1 ghi chú (gộp A1:J1), dòng 2 tiêu đề, Campaign price là công thức
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const X = ctx.XLSX;
+  const TD = ['Product ID', 'Product Name', 'SKU ID', 'SKU Name', 'Retail price', 'Campaign Price Range', 'Campaign price', 'Campaign Price Reason', 'Available stock', 'Campaign stock range', 'Campaign stock', 'Product Category', 'Brands Name', 'L30D sales', 'Region', 'Error Msg'];
+  const d = (pid, sku, retail, tran, l30) => [pid, 'Tên giả', sku, 'default_sku_name', String(retail), `>=1 and <${tran}`, '', '', '50', '>5', '6', 'x', 'x', String(l30), '', ''];
+  const mang = [['Ghi chú giả'], TD, d('P1', 'S1', 99000, 99000, 5), d('P1', 'S2', 129000, 129000, 9), d('P2', 'S3', 80000, 80000, 1), d('P3', 'S4', 150000, 150000, 0)];
+  const ws = X.utils.aoa_to_sheet(mang);
+  for (let r = 3; r <= 6; r++) ws[`G${r}`] = { t: 'n', f: `E${r}*80%`, v: 0 };
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
+  let wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, 'Sheet1');
+  const fPre = path.join(tmp, 'prefill.xlsx');
+  fs.writeFileSync(fPre, X.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  // file sản phẩm giả (sheet Template: dòng 1 khóa, dữ liệu từ dòng 6)
+  const sp = [['product_id', 'category', 'product_name', 'sku_id', 'variation_value', 'seller_sku'], ['V4'], ['Tên'], ['x'], ['x'],
+    ['P1', 'c', 'Tranh Tráng Gương Thử', 'S1', 'Mẫu 1, 30x40cm', ''],
+    ['P1', 'c', 'Tranh Tráng Gương Thử', 'S2', 'Mẫu 1, 40x60cm', ''],
+    ['P2', 'c', 'Tranh Tròn Tráng Gương Thử', 'S3', 'Mẫu 1, ĐK 20cm', ''],
+    ['P3', 'c', 'Lịch Treo Tường Thử', 'S4', 'Mẫu 1', '']];
+  wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(sp), 'Template');
+  const fSP = path.join(tmp, 'all_information.xlsx');
+  fs.writeFileSync(fSP, X.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+
+  await p.click('[data-tab="campaign"]');
+  await p.click('text=＋ Campaign mới');
+  await p.fill('[data-o=ten]', 'Thử nghiệm');
+  await p.press('[data-o=ten]', 'Tab');
+  await p.fill('input[type=date] >> nth=0', '2026-10-10');
+  await p.dispatchEvent('input[type=date] >> nth=0', 'change');
+  await p.fill('input[type=date] >> nth=1', '2026-10-12');
+  await p.dispatchEvent('input[type=date] >> nth=1', 'change');
+  let [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click('#tab-campaign .vung-tha >> nth=0')]);
+  await fc.setFiles(fPre);
+  await p.waitForSelector('.vung-tha-xong');
+  [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click('#tab-campaign .vung-tha >> nth=1')]);
+  await fc.setFiles(fSP);
+  await p.waitForSelector('text=Tìm thấy 4 / 4 SKU');
+  await p.click('.chien-luoc:has-text("C. Sát dưới trần")');
+  await p.fill('[data-o=laiMin]', '10');
+  await p.press('[data-o=laiMin]', 'Tab');
+  await p.click('.nut-lon');
+  await p.waitForSelector('.o-nhom');
+  const so = async (n) => (await p.textContent(`.o-nhom-${n} .o-tong-so`)).trim();
+  assert.deepEqual([await so('vao'), await so('loai'), await so('gan'), await so('ngoai')], ['2', '0', '1', '1']);
+  // sắp xếp L30D giảm dần: S2 (9) trước S1 (5)
+  assert.match(await p.textContent('.bang-cp tbody tr:first-child'), /SKU S2/);
+  // gán tay S3 → Bộ 1 tấm 30x40
+  await p.click('.o-nhom-gan');
+  await p.selectOption('select[aria-label="Nhóm SKU S3"]', 'Bộ 1 tấm');
+  await p.selectOption('select[aria-label="Size SKU S3"]', '30x40');
+  await p.click('tbody button:has-text("Gán")');
+  await p.waitForFunction(() => document.querySelector('.o-nhom-vao .o-tong-so')?.textContent.trim() === '3');
+  // xuất + lưu
+  await p.click('.o-nhom-vao');
+  const tai = [];
+  p.on('download', (x) => tai.push(x));
+  await p.click('text=✅ Xuất cả 2 file & lưu');
+  await p.waitForSelector('.chuc-mung >> text=lưu campaign');
+  await p.waitForTimeout(500);
+  const dk = tai.find((x) => x.suggestedFilename() === 'Thu nghiem_dang-ky.xlsx');
+  assert.ok(dk, `tên file: ${tai.map((x) => x.suggestedFilename())}`);
+  assert.ok(tai.some((x) => x.suggestedFilename() === 'Thu nghiem_bao-cao.xlsx'));
+  const out = X.read(fs.readFileSync(await dk.path()), { type: 'buffer' });
+  const s = out.Sheets.Sheet1;
+  const dong = JSON.parse(JSON.stringify(X.utils.sheet_to_json(s, { header: 1, defval: '' })));
+  assert.equal(dong.length, 5);
+  assert.equal(dong[0][0], 'Ghi chú giả');
+  assert.deepEqual(dong[1], TD);
+  assert.deepEqual(dong.slice(2).map((x) => x[2]), ['S1', 'S2', 'S3']); // giữ thứ tự gốc
+  assert.equal(s.G3.t, 'n');
+  assert.equal(s.G3.f, undefined);
+  assert.equal(s.G3.v, 98000);
+  assert.equal(s.K3.v, 6);
+  assert.deepEqual(JSON.parse(JSON.stringify(s['!merges'])), [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }]);
+  // danh sách campaign có campaign vừa lưu
+  await p.click('text=‹ Danh sách campaign');
+  assert.match(await p.textContent('.bang'), /Thử nghiệm/);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
