@@ -1,6 +1,8 @@
 // Tab Tính lợi nhuận: bảng sản phẩm, lãi có QC / không QC theo từng gian, tổng kết,
 // nhập/xuất Excel, lưu "bảng tính" lên Google Sheets.
-import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong, nhapChu } from './dom.js';
+import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong, nhapChu, veGiu, treLai } from './dom.js';
+import { oSo, oChu, dangGoDo } from './o-so.js';
+import { baoDuLieuMoi, boChoTaiLai } from './du-lieu-moi.js';
 import { thongBao } from './thong-bao.js';
 import { manTrong, linhVat, chucMung } from './linh-vat.js';
 import * as kho from '../data/kho.js';
@@ -32,8 +34,12 @@ let goc;
 export function taoTabLoiNhuan(phanTu) {
   goc = phanTu;
   docNhap();
-  kho.dangKy(() => ve());
-  ve();
+  kho.dangKy((_, ct) => {
+    if (!ct.duLieuDoi) return;
+    if (dangGoDo(goc) && ct.nguon !== 'cache') { baoDuLieuMoi('loi-nhuan', veLai); return; }
+    veLai();
+  });
+  veLai();
 }
 
 // ---------- lưu tạm trên máy (bản nháp) ----------
@@ -58,6 +64,13 @@ function luuNhap() {
 function daSua() {
   st.thayDoi = true;
   luuNhap();
+  capNhatNhanLuu();
+}
+
+/** Vẽ lại tab, giữ vị trí cuộn, ô đang focus và con trỏ. */
+function veLai() {
+  boChoTaiLai('loi-nhuan');
+  veGiu(goc, ve);
 }
 
 // ---------- dữ liệu dẫn xuất ----------
@@ -80,19 +93,32 @@ function nganhMacDinh() {
 // ---------- vẽ ----------
 
 function ve() {
-  const oDangGo = document.activeElement?.dataset?.o; // giữ con trỏ khi vẽ lại
   const gians = gianDangXem();
   const dsPhi = kho.duLieu().BANG_PHI;
 
   const the = h('div', { class: 'the' }, veDau(), veDieuKhien(gians));
   ganKeoTha(the, napFile);
   thayNoiDung(goc, the, st.ds.length ? [veTongKet(gians, dsPhi), veBang(gians, dsPhi)] : veTrong());
+}
 
-  const o = oDangGo && goc.querySelector(`[data-o="${oDangGo}"]`);
-  if (o) {
-    o.focus();
-    if (o.setSelectionRange && o.type !== 'number') { const n = o.value.length; o.setSelectionRange(n, n); }
-  }
+/** Nhãn "chưa lưu / đã lưu" — luôn chiếm chỗ cố định, chỉ đổi chữ, không đẩy bố cục. */
+function capNhatNhanLuu() {
+  const el = goc.querySelector('.nhan-trang-thai-luu');
+  if (!el) return;
+  el.textContent = st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : '';
+  el.className = ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'].join(' ');
+}
+
+/** Sau khi sửa 1 dòng: chỉ thay dòng đó + ô tổng kết. Không lọc / sắp xếp lại (dòng không nhảy chỗ). */
+function capNhatDong(i) {
+  const d = st.ds[i];
+  const gians = gianDangXem();
+  const dsPhi = kho.duLieu().BANG_PHI;
+  const tr = goc.querySelector(`tr[data-id="${d._id}"]`);
+  if (!tr) { veLai(); return; }
+  veGiu(tr.parentElement, () => tr.replaceWith(veDong(i, gians, dsPhi)));
+  const tk = goc.querySelector('.luoi-tong-ket');
+  if (tk) tk.replaceWith(veTongKet(gians, dsPhi));
 }
 
 function veDau() {
@@ -101,7 +127,7 @@ function veDau() {
     h('div', null,
       h('h2', null, 'Tính lợi nhuận'),
       h('p', { class: 'mo-ta' }, '📄 ', h('b', null, ten),
-        st.thayDoi ? h('span', { class: 'nhan-nho nhan-vang' }, 'chưa lưu lên Sheets') : st.bangTinh ? h('span', { class: 'nhan-nho nhan-xanh' }, 'đã lưu') : null,
+        h('span', { class: ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'] }, st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : ''),
         h('span', { class: 'chu-nhat' }, ` · ${st.ds.length} dòng · bản nháp tự lưu trên máy này`))),
     h('div', { class: 'hang-nut' },
       h('button', { class: 'nut', onclick: moDanhSach }, '📂 Mở bảng tính'),
@@ -115,7 +141,7 @@ function veDieuKhien(gians) {
   const chonNganh = h('select', { class: 'o-nhap', 'aria-label': 'Ngành mặc định', onchange: (e) => { st.nganhMacDinh = e.target.value; luuNhap(); } },
     dsNganh().map((n) => h('option', { value: n, selected: n === nganhMacDinh() }, n)));
   const oTim = h('input', { type: 'search', class: 'o-nhap', placeholder: 'Tìm tên, phân loại…', value: st.tim, 'aria-label': 'Tìm', 'data-o': 'tim',
-    oninput: (e) => { st.tim = e.target.value; st.trang = 0; ve(); } });
+    oninput: (e) => { st.tim = e.target.value; st.trang = 0; treLai(veLai); } });
 
   return h('div', { class: 'dieu-khien' },
     h('div', { class: 'hang hang-dk' },
@@ -130,7 +156,7 @@ function veDieuKhien(gians) {
             st.gianXem = moi.length === tat.length ? null : moi;
             if (st.sapXep && !moi.includes(st.sapXep.gian)) st.sapXep = null;
             luuNhap();
-            ve();
+            veLai();
           },
         }, bat ? '✓ ' : '', g);
       })),
@@ -144,10 +170,10 @@ function veDieuKhien(gians) {
       h('span', { class: 'gian-cach' }),
       oTim,
       h('label', { class: 'hop-kiem hop-kiem-ngang' },
-        h('input', { type: 'checkbox', checked: st.chiLo, onchange: (e) => { st.chiLo = e.target.checked; st.trang = 0; ve(); } }), ' Chỉ dòng lỗ'),
+        h('input', { type: 'checkbox', checked: st.chiLo, onchange: (e) => { st.chiLo = e.target.checked; st.trang = 0; veLai(); } }), ' Chỉ dòng lỗ'),
       st.sapXep ? h('span', { class: 'chip chip-sap-xep' },
         `Sắp xếp: ${st.sapXep.gian} · ${st.sapXep.kichBan === 'qc' ? 'có QC' : 'không QC'} ${st.sapXep.chieu < 0 ? '↓' : '↑'}`,
-        h('button', { class: 'chip-xoa', 'aria-label': 'Bỏ sắp xếp', onclick: () => { st.sapXep = null; ve(); } }, '×')) : null));
+        h('button', { class: 'chip-xoa', 'aria-label': 'Bỏ sắp xếp', onclick: () => { st.sapXep = null; veLai(); } }, '×')) : null));
 }
 
 function veTrong() {
@@ -203,7 +229,7 @@ function veBang(gians, dsPhi) {
       onclick: () => {
         st.sapXep = dang === 0 ? { gian: g, kichBan, chieu: -1 } : dang < 0 ? { gian: g, kichBan, chieu: 1 } : null;
         st.trang = 0;
-        ve();
+        veLai();
       },
     }, nhan, ' ', h('span', { class: 'mui-ten' }, dang < 0 ? '↓' : dang > 0 ? '↑' : '↕')));
   };
@@ -224,37 +250,33 @@ function veBang(gians, dsPhi) {
   const soCot = 7 + gians.length * 2;
 
   return h('div', { class: 'the the-bang' },
-    h('div', { class: 'khung-bang khung-bang-cao' },
+    h('div', { class: 'khung-bang khung-bang-cao', 'data-cuon': 'loi-nhuan', 'data-dieu-huong': '' },
       h('table', { class: 'bang bang-ln' }, dauBang,
         h('tbody', null, hang.length ? hang : h('tr', null, h('td', { colspan: soCot, class: 'o-trong' }, st.chiLo ? 'Không có dòng lỗ nào 🎉' : 'Không có dòng nào khớp.'))))),
     h('div', { class: 'hang hang-trang' },
       h('span', { class: 'chu-nhat' }, chiSo.length === st.ds.length ? `${st.ds.length} dòng` : `Đang hiện ${chiSo.length} / ${st.ds.length} dòng`),
       h('span', { class: 'gian-cach' }),
       soTrang > 1 ? [
-        h('button', { class: 'nut nut-nho', disabled: st.trang === 0, onclick: () => { st.trang--; ve(); } }, '‹ Trước'),
+        h('button', { class: 'nut nut-nho', disabled: st.trang === 0, onclick: () => { st.trang--; veLai(); } }, '‹ Trước'),
         h('span', { class: 'chu-nhat' }, `Trang ${st.trang + 1} / ${soTrang}`),
-        h('button', { class: 'nut nut-nho', disabled: st.trang >= soTrang - 1, onclick: () => { st.trang++; ve(); } }, 'Sau ›'),
+        h('button', { class: 'nut nut-nho', disabled: st.trang >= soTrang - 1, onclick: () => { st.trang++; veLai(); } }, 'Sau ›'),
       ] : null));
 }
 
 function veDong(i, gians, dsPhi) {
   const d = st.ds[i];
-  const doi = (truong, giaTri) => { d[truong] = giaTri; daSua(); ve(); };
-  const oChu = (truong, rong) => h('input', {
-    class: 'o-bang', type: 'text', value: d[truong] ?? '', title: d[truong] ?? '', 'data-o': `${d._id}:${truong}`, style: { minWidth: rong },
+  // Sửa 1 ô → chỉ cập nhật dòng này (không vẽ lại cả bảng)
+  const doi = (truong, giaTri) => { d[truong] = giaTri; daSua(); capNhatDong(i); };
+  const oTen = (truong, rong) => oChu({
+    class: 'o-bang', giaTri: d[truong] ?? '', title: d[truong] ?? '', 'data-o': `${d._id}:${truong}`, style: { width: rong },
     'aria-label': `${truong === 'ten' ? 'Tên' : 'Phân loại'} dòng ${i + 1}`,
-    onchange: (e) => doi(truong, e.target.value.trim()),
+    khiLuu: (moi) => doi(truong, moi),
   });
-  const oSo = (truong, nhan) => h('input', {
-    class: ['o-so', truong === 'gia_ban' && !Number.isFinite(d.gia_ban) && 'o-thieu'], type: 'text', inputmode: 'numeric',
-    value: Number.isFinite(d[truong]) ? dinhDangTien(d[truong]) : '', placeholder: truong === 'gia_ban' ? 'nhập giá' : '',
+  const oTien = (truong, nhan) => oSo({
+    class: truong === 'gia_ban' && !Number.isFinite(d.gia_ban) && 'o-thieu', kieu: 'tien',
+    giaTri: Number.isFinite(d[truong]) ? d[truong] : null, placeholder: truong === 'gia_ban' ? 'nhập giá' : '',
     'data-o': `${d._id}:${truong}`, 'aria-label': `${nhan} dòng ${i + 1}`,
-    onchange: (e) => {
-      const tho = e.target.value.trim();
-      const so = tho === '' ? null : docSo(tho);
-      if (tho !== '' && (so === null || so < 0)) { e.target.classList.add('o-loi'); thongBao(`"${tho}" không phải số hợp lệ.`, 'loi'); return; }
-      doi(truong, so);
-    },
+    khiLuu: (so) => doi(truong, so),
   });
   const nganhs = dsNganh();
   const chonNganh = h('select', { class: 'o-bang o-chon', 'data-o': `${d._id}:nganh`, 'aria-label': `Ngành dòng ${i + 1}`, onchange: (e) => doi('nganh', e.target.value) },
@@ -270,17 +292,17 @@ function veDong(i, gians, dsPhi) {
       h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt)));
   };
 
-  return h('tr', { class: gians.some((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return r.trangThai === 'ok' && (r.laiQC < 0 || r.laiKhongQC < 0); }) ? 'dong-lo' : '' },
+  return h('tr', { 'data-id': d._id, class: gians.some((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return r.trangThai === 'ok' && (r.laiQC < 0 || r.laiKhongQC < 0); }) ? 'dong-lo' : '' },
     h('td', { class: 'so cot-stt chu-nhat' }, i + 1),
-    h('td', null, oChu('ten', '190px')),
-    h('td', null, oChu('phan_loai', '64px')),
+    h('td', null, oTen('ten', '190px')),
+    h('td', null, oTen('phan_loai', '64px')),
     h('td', null, chonNganh),
-    h('td', { class: 'so' }, oSo('gia_von', 'Giá vốn')),
-    h('td', { class: 'so' }, oSo('gia_ban', 'Giá bán')),
+    h('td', { class: 'so' }, oTien('gia_von', 'Giá vốn')),
+    h('td', { class: 'so' }, oTien('gia_ban', 'Giá bán')),
     gians.map((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return [oLai(r, 'qc'), oLai(r, 'khongqc')]; }),
     h('td', { class: 'o-thao-tac' },
-      h('button', { class: 'nut-icon', title: 'Nhân bản dòng', 'aria-label': `Nhân bản dòng ${i + 1}`, onclick: () => { st.ds.splice(i + 1, 0, { ...d, _id: moiId() }); daSua(); ve(); } }, '⧉'),
-      h('button', { class: 'nut-icon', title: 'Xóa dòng', 'aria-label': `Xóa dòng ${i + 1}`, onclick: () => { st.ds.splice(i, 1); daSua(); ve(); } }, '🗑')));
+      h('button', { class: 'nut-icon', title: 'Nhân bản dòng', 'aria-label': `Nhân bản dòng ${i + 1}`, onclick: () => { st.ds.splice(i + 1, 0, { ...d, _id: moiId() }); daSua(); veLai(); } }, '⧉'),
+      h('button', { class: 'nut-icon', title: 'Xóa dòng', 'aria-label': `Xóa dòng ${i + 1}`, onclick: () => { st.ds.splice(i, 1); daSua(); veLai(); } }, '🗑')));
 }
 
 // ---------- thao tác ----------
@@ -292,7 +314,7 @@ function themDong() {
   st.sapXep = null;
   st.trang = Math.floor((st.ds.length - 1) / MOI_TRANG);
   daSua();
-  ve();
+  veLai();
   const o = goc.querySelector(`[data-o="${st.ds.at(-1)._id}:ten"]`);
   if (o) { o.focus(); o.select(); }
 }
@@ -308,7 +330,7 @@ async function napFile(files) {
   if (!kq.dong.length) { thongBao('File không có dòng sản phẩm nào.', 'tt'); return; }
   st.ds.push(...kq.dong.map((r) => ({ ...r, _id: moiId() })));
   daSua();
-  ve();
+  veLai();
   chucMung(`Đã nhập ${kq.dong.length} sản phẩm!`);
   kq.canhBao.slice(0, 4).forEach((c) => thongBao(c, 'tt'));
 }
@@ -356,7 +378,7 @@ async function taoMoi() {
   if (st.thayDoi && st.ds.length && !(await xacNhan('Bảng hiện tại có thay đổi chưa lưu lên Sheets. Bỏ và tạo bảng mới?', { nutDongY: 'Bỏ thay đổi', nguyHiem: true }))) return;
   Object.assign(st, { ds: [], bangTinh: null, thayDoi: false, tim: '', chiLo: false, sapXep: null, trang: 0 });
   luuNhap();
-  ve();
+  veLai();
 }
 
 async function luuLenSheets(banMoi) {
@@ -374,7 +396,7 @@ async function luuLenSheets(banMoi) {
     st.bangTinh = { id: kq.id, ten: kq.ten };
     st.thayDoi = false;
     luuNhap();
-    ve();
+    veLai();
     chucMung(`Đã lưu "${kq.ten}" lên Google Sheets!`);
   } catch (e) {
     thongBao(`CHƯA lưu được: ${e.message}`, 'loi');
@@ -418,7 +440,7 @@ async function moBangTinh(b, dlg) {
     });
     luuNhap();
     dlg.close();
-    ve();
+    veLai();
     thongBao(`Đã mở "${b.ten}" (${dong.length} dòng).`);
   } catch (e) {
     thongBao(`Không mở được: ${e.message}`, 'loi');
@@ -429,7 +451,7 @@ async function xoaBangTinh(b, dlg) {
   if (!(await xacNhan(`Xóa bảng tính "${b.ten}" khỏi Google Sheets? Thao tác được ghi vào LICH_SU.`, { nutDongY: 'Xóa', nguyHiem: true }))) return;
   try {
     await kho.xoaBangTinh(b.id);
-    if (st.bangTinh?.id === b.id) { st.bangTinh = null; st.thayDoi = st.ds.length > 0; luuNhap(); ve(); }
+    if (st.bangTinh?.id === b.id) { st.bangTinh = null; st.thayDoi = st.ds.length > 0; luuNhap(); veLai(); }
     dlg.close();
     thongBao(`Đã xóa "${b.ten}".`);
     moDanhSach();

@@ -67,6 +67,18 @@ function khoiDong() {
   moTab(tab);
   kho.khoiDong();
   if (!kho.layCaiDat().url) moCaiDat();
+
+  // Đồng bộ nền định kỳ (5 phút) và khi quay lại tab trình duyệt sau ≥ 2 phút.
+  // Các tab tự quyết: đang sửa dở thì KHÔNG vẽ lại, chỉ hiện "Có dữ liệu mới, tải lại?".
+  const DINH_KY = 5 * 60 * 1000;
+  const canDongBo = (toiThieu) => {
+    const ts = kho.lay();
+    if (!kho.layCaiDat().url || document.visibilityState !== 'visible' || ts.dongBo === 'dang') return;
+    if (ts.luc && Date.now() - new Date(ts.luc).getTime() < toiThieu) return;
+    kho.dongBo();
+  };
+  setInterval(() => canDongBo(DINH_KY - 5000), 60 * 1000);
+  document.addEventListener('visibilitychange', () => canDongBo(2 * 60 * 1000));
 }
 
 // Chờ thư viện Excel (script defer) rồi mới chạy

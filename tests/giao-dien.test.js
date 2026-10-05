@@ -246,3 +246,132 @@ test('Campaign: thả prefill + file sản phẩm → tính → gán tay → xu�
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Bảng phí KHÔNG giựt: sửa liên tục 10 ô, lăn chuột, ↑↓, đồng bộ nền khi đang sửa, Esc, Enter, Lưu', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  await p.setViewportSize({ width: 1280, height: 620 });
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('.vien-gian:has-text("Tường Vip")');
+  await p.fill('input[type=month]', '2026-10');
+  await p.dispatchEvent('input[type=month]', 'change');
+  await p.waitForSelector('[aria-label="Phí sàn — Tranh"]');
+  // cuộn xuống sao cho bảng nằm ngay dưới thanh tiêu đề (mọi ô cần sửa đều đang nhìn thấy)
+  await p.evaluate(() => {
+    const dau = document.querySelector('.dau-trang').offsetHeight;
+    window.scrollTo(0, document.querySelector('.bang-phi').getBoundingClientRect().top + window.scrollY - dau - 8);
+  });
+  const y0 = await p.evaluate(() => window.scrollY);
+  assert.ok(y0 > 100, `trang phải cuộn được (y=${y0})`);
+  await p.evaluate(() => { document.querySelector('.bang-phi').__danhDau = 'cu'; });
+  const bangCu = () => p.evaluate(() => document.querySelector('.bang-phi')?.__danhDau === 'cu');
+  const yNay = () => p.evaluate(() => window.scrollY);
+  // Đặt con trỏ vào ô mà KHÔNG cuộn (giống người dùng bấm vào ô đang nhìn thấy; p.click của Playwright tự cuộn)
+  const vaoO = (s) => p.evaluate((s) => { const el = document.querySelector(s); el.focus({ preventScroll: true }); el.select(); }, s);
+
+  // 1) Sửa liên tục 10 ô (gõ + Tab) → không vẽ lại bảng, không nhảy cuộn
+  const o = [
+    ['Phí sàn — Tranh', '23,8'], ['Phí sàn — Decal', '22.6'], ['Chi phí QC — Tranh', '8,14'], ['Chi phí QC — Decal', '8.14'],
+    ['AFF có QC — Tranh', '5'], ['AFF có QC — Decal', '5,5'], ['AFF không QC — Tranh', '10'], ['AFF không QC — Decal', '15'],
+    ['Phí bồi hoàn V/C — Tranh', '2008'], ['Phí bồi hoàn V/C — Decal', '2.008'],
+  ];
+  for (const [nhan, gt] of o) {
+    const sel = `[aria-label="${nhan}"]`;
+    await vaoO(sel);
+    await p.keyboard.press('Delete');
+    await p.keyboard.type(gt);
+    // trong lúc gõ: KHÔNG định dạng lại (con trỏ không nhảy)
+    assert.equal(await p.inputValue(sel), gt);
+    await p.press(sel, 'Tab');
+    assert.equal(await yNay(), y0, `cuộn bị nhảy sau khi sửa ${nhan}`);
+    assert.ok(await bangCu(), `bảng bị vẽ lại sau khi sửa ${nhan}`);
+  }
+  // rời ô mới chuẩn hóa: "22.6" → "22,6", "2008" → "2.008", "2.008" giữ "2.008"
+  assert.equal(await p.inputValue('[aria-label="Phí sàn — Decal"]'), '22,6');
+  assert.equal(await p.inputValue('[aria-label="Chi phí QC — Decal"]'), '8,14');
+  assert.equal(await p.inputValue('[aria-label="Phí bồi hoàn V/C — Tranh"]'), '2.008');
+  assert.equal(await p.inputValue('[aria-label="Phí bồi hoàn V/C — Decal"]'), '2.008');
+  assert.match(await p.textContent('.hang-luu'), /Sẽ lưu phí tháng 10\/2026 cho: Tranh, Decal/);
+
+  // 2) Lăn chuột trên ô đang focus + phím ↑↓ → số KHÔNG đổi
+  const sel = '[aria-label="Phí sàn — Tranh"]';
+  await vaoO(sel);
+  const truoc = await p.inputValue(sel);
+  const hop = await p.locator(sel).boundingBox();
+  await p.mouse.move(hop.x + 10, hop.y + 10);
+  await p.mouse.wheel(0, 120);
+  await p.mouse.wheel(0, -120);
+  await p.keyboard.press('ArrowUp');
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.inputValue(sel), truoc);
+  await p.waitForTimeout(600); // chờ hiệu ứng cuộn mượt của bánh xe chuột kết thúc
+  await p.evaluate((y) => window.scrollTo(0, y), y0);
+  assert.equal(await yNay(), y0);
+
+  // 3) Esc hủy phần đang gõ; Enter chuyển sang ô kế tiếp
+  await p.keyboard.type('99');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.inputValue(sel), truoc);
+  await p.keyboard.press('Enter');
+  assert.equal(await p.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Phí sàn — Lịch');
+
+  // 4) Đồng bộ nền mang dữ liệu mới về khi đang có ô sửa chưa lưu → KHÔNG vẽ lại, chỉ hiện "Có dữ liệu mới"
+  await fetch(`${URL_APP}/gas`, { method: 'POST', body: JSON.stringify({ action: 'upsert', matKhau: 'mat-khau-thu', sheet: 'BANG_PHI', banGhi: [{ gian: 'Nhà Sách', nganh: 'Sách', thang: '2026-09', phi_san: 11, phi_vc: 1, phi_xl: 1, phi_qc: 1, aff_qc: 1, aff_noqc: 1 }] }) });
+  await p.keyboard.type('21,5'); // đang gõ dở trong ô Phí sàn — Lịch
+  await p.evaluate(() => document.getElementById('trang-thai-dong-bo').dispatchEvent(new MouseEvent('click'))); // = đồng bộ nền, không mất focus
+  await p.waitForSelector('.du-lieu-moi');
+  assert.ok(await bangCu(), 'đồng bộ nền không được vẽ lại bảng khi đang sửa');
+  assert.equal(await yNay(), y0);
+  assert.equal(await p.inputValue('[aria-label="Phí sàn — Lịch"]'), '21,5');
+  assert.equal(await p.inputValue('[aria-label="Phí sàn — Decal"]'), '22,6');
+  // Bấm "Tải lại": vẽ lại nhưng giữ số đang sửa + vị trí cuộn
+  await p.evaluate(() => [...document.querySelectorAll('.du-lieu-moi button')].find((b) => b.textContent === 'Tải lại').click());
+  assert.ok(!(await bangCu()));
+  assert.equal(await yNay(), y0);
+  assert.equal(await p.inputValue('[aria-label="Phí sàn — Decal"]'), '22,6');
+  assert.equal(await p.inputValue('[aria-label="Phí sàn — Lịch"]'), '21,5');
+
+  // 5) Lưu → cập nhật tại chỗ, giữ vị trí cuộn
+  await p.evaluate(() => document.querySelector('.hang-luu .nut-chinh').click());
+  await p.waitForSelector('.thong-bao-ok >> text=Đã lưu bộ phí');
+  assert.equal(await yNay(), y0);
+  assert.equal(await p.inputValue('[aria-label="Phí sàn — Decal"]'), '22,6');
+  assert.equal(await p.inputValue('[aria-label="Chi phí QC — Tranh"]'), '8,14');
+  assert.match(await p.textContent('.hang-luu'), /Chưa có thay đổi/);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Tính lợi nhuận: sửa giá 1 dòng chỉ cập nhật dòng đó (không vẽ lại bảng, dòng không nhảy khi đang sắp xếp)', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const X = ctx.XLSX;
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([['Tên sản phẩm', 'Ngành hàng', 'Giá vốn', 'Giá bán'],
+    ...Array.from({ length: 40 }, (_, i) => [`SP ${i + 1}`, 'Tranh', 10000 + i * 100, 60000 + i * 1000])]), 'Sản phẩm');
+  const f = path.join(tmp, 'ds40.xlsx');
+  fs.writeFileSync(f, X.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  await p.setViewportSize({ width: 1280, height: 700 });
+  const [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click('#tab-loi-nhuan .vung-tha')]);
+  await fc.setFiles(f);
+  await p.waitForSelector('.bang-ln tbody tr');
+  await p.click('.th-sap-xep >> nth=0'); // sắp xếp theo lãi
+  await p.evaluate(() => { window.scrollTo(0, 300); document.querySelector('.khung-bang[data-cuon]').scrollTop = 80; document.querySelector('.bang-ln').__danhDau = 'cu'; });
+  const cuonBang0 = await p.evaluate(() => document.querySelector('.khung-bang[data-cuon]').scrollTop);
+  const y0 = await p.evaluate(() => window.scrollY);
+  const tenDong3 = await p.inputValue('.bang-ln tbody tr:nth-child(3) [aria-label^="Tên"]');
+  await p.evaluate(() => { const el = document.querySelector('.bang-ln tbody tr:nth-child(3) [aria-label^="Giá bán"]'); el.focus({ preventScroll: true }); el.select(); });
+  await p.keyboard.type('1000'); // giá rất thấp → lẽ ra xuống cuối nếu sắp xếp lại
+  await p.keyboard.press('Enter');
+  assert.equal(await p.evaluate(() => document.querySelector('.bang-ln').__danhDau), 'cu', 'bảng không được vẽ lại');
+  assert.equal(await p.evaluate(() => window.scrollY), y0);
+  assert.equal(await p.evaluate(() => document.querySelector('.khung-bang[data-cuon]').scrollTop), cuonBang0);
+  assert.equal(await p.inputValue('.bang-ln tbody tr:nth-child(3) [aria-label^="Tên"]'), tenDong3, 'dòng không được nhảy chỗ');
+  assert.equal(await p.inputValue('.bang-ln tbody tr:nth-child(3) [aria-label^="Giá bán"]'), '1.000');
+  assert.ok(await p.locator('.bang-ln tbody tr:nth-child(3).dong-lo').count());
+  // Enter đã chuyển con trỏ sang ô kế tiếp
+  assert.match(await p.evaluate(() => document.activeElement.getAttribute('aria-label') || ''), /dòng/);
+  assert.deepEqual(loi, []);
+  await p.close();
+});

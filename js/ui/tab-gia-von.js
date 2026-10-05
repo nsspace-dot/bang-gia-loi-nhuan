@@ -1,5 +1,7 @@
 // Tab Giá vốn: xem, nạp file (xem trước thay đổi), sửa, xóa, cảnh báo.
-import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong } from './dom.js';
+import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong, veGiu, treLai } from './dom.js';
+import { oSo, dangGoDo } from './o-so.js';
+import { baoDuLieuMoi, boChoTaiLai } from './du-lieu-moi.js';
 import { thongBao } from './thong-bao.js';
 import { manTrong, linhVat, chucMung } from './linh-vat.js';
 import { moCaiDat } from './cai-dat.js';
@@ -14,8 +16,20 @@ let goc;
 
 export function taoTabGiaVon(phanTu) {
   goc = phanTu;
-  kho.dangKy(() => ve());
+  kho.dangKy((_, ct) => {
+    if (!ct.duLieuDoi || dangLuu) return;
+    if ((st.dangSua || dangGoDo(goc)) && ct.nguon !== 'cache') { baoDuLieuMoi('gia-von', veLai); return; }
+    veLai();
+  });
   ve();
+}
+
+let dangLuu = false;
+
+/** Vẽ lại tab, giữ vị trí cuộn, ô đang focus và con trỏ. */
+function veLai() {
+  boChoTaiLai('gia-von');
+  veGiu(goc, ve);
 }
 
 function dienTich(r) {
@@ -85,8 +99,8 @@ function veBang(ds, nhoms) {
   const hien = sapXep(ds).filter((r) => (!st.nhom || r.nhom === st.nhom) && (!tim || `${r.nhom} ${r.phan_loai} ${r.nganh}`.toLowerCase().includes(tim)));
   const canhBao = new Set(canhBaoBacVon(ds).flatMap((c) => [khoaVon(c.lon.nhom, c.lon.phan_loai)]));
 
-  const oTim = h('input', { class: 'o-nhap', type: 'search', placeholder: 'Tìm size, nhóm…', value: st.tim, 'aria-label': 'Tìm',
-    oninput: (e) => { st.tim = e.target.value; const vt = e.target.selectionStart; ve(); const o = goc.querySelector('input[type=search]'); o.focus(); o.setSelectionRange(vt, vt); } });
+  const oTim = h('input', { class: 'o-nhap', type: 'search', placeholder: 'Tìm size, nhóm…', value: st.tim, 'aria-label': 'Tìm', 'data-o': 'tim-von',
+    oninput: (e) => { st.tim = e.target.value; treLai(veLai); } });
 
   let nhomTruoc = null;
   const hang = [];
@@ -101,12 +115,12 @@ function veBang(ds, nhoms) {
   return h('div', { class: 'the' },
     h('div', { class: 'hang hang-loc' },
       h('div', { class: 'ds-chip' },
-        h('button', { class: ['chip chip-loc', !st.nhom && 'dang-chon'], onclick: () => { st.nhom = ''; ve(); } }, `Tất cả (${ds.length})`),
-        nhoms.map((n) => h('button', { class: ['chip chip-loc', st.nhom === n && 'dang-chon'], onclick: () => { st.nhom = n; ve(); } }, `${n} (${dem.get(n)})`))),
+        h('button', { class: ['chip chip-loc', !st.nhom && 'dang-chon'], onclick: () => { st.nhom = ''; veLai(); } }, `Tất cả (${ds.length})`),
+        nhoms.map((n) => h('button', { class: ['chip chip-loc', st.nhom === n && 'dang-chon'], onclick: () => { st.nhom = n; veLai(); } }, `${n} (${dem.get(n)})`))),
       h('span', { class: 'gian-cach' }),
       oTim),
-    h('div', { class: 'khung-bang khung-bang-cao' },
-      h('table', { class: 'bang' },
+    h('div', { class: 'khung-bang khung-bang-cao', 'data-cuon': 'gia-von', 'data-dieu-huong': '' },
+      h('table', { class: 'bang bang-von' },
         h('thead', null, h('tr', null,
           h('th', { scope: 'col' }, 'Nhóm'), h('th', { scope: 'col' }, 'Phân loại'), h('th', { scope: 'col' }, 'Ngành'),
           h('th', { scope: 'col', class: 'so' }, 'Giá vốn (đ)'), h('th', { scope: 'col', class: 'so' }, 'Giá bán (đ)'),
@@ -117,28 +131,38 @@ function veBang(ds, nhoms) {
 function veDong(r, coCanhBao) {
   const khoa = khoaVon(r.nhom, r.phan_loai);
   const dangSua = st.dangSua === khoa;
+  // Bật / tắt chế độ sửa: chỉ thay ĐÚNG dòng này, không vẽ lại cả bảng
+  const doiCheDo = (k) => {
+    st.dangSua = k;
+    const tr = goc.querySelector(`tr[data-khoa="${CSS.escape(khoa)}"]`);
+    const moi = veDong(r, coCanhBao);
+    if (tr) tr.replaceWith(moi); else veLai();
+    if (k) { const o = moi.querySelector('input'); o.focus({ preventScroll: true }); o.select(); }
+  };
   let oVon;
-  const luuSua = async () => {
-    const so = docSo(oVon.value);
-    if (so === null || so < 0) { oVon.classList.add('o-loi'); oVon.focus(); return; }
-    if (so === r.gia_von) { st.dangSua = null; ve(); return; }
+  const luuSua = async (so) => {
+    if (so === null || so === r.gia_von) { doiCheDo(null); return; }
     oVon.disabled = true;
+    dangLuu = true;
     try {
       await kho.ghi('GIA_VON', [{ nhom: r.nhom, phan_loai: r.phan_loai, gia_von: so }]);
       st.dangSua = null;
       thongBao(`Đã lưu giá vốn ${r.nhom} ${r.phan_loai}: ${dinhDangTien(so)} đ.`);
+      veLai(); // cập nhật tại chỗ, giữ vị trí cuộn
     } catch (e) {
       oVon.disabled = false;
       thongBao(`Chưa lưu được: ${e.message}`, 'loi');
+    } finally {
+      dangLuu = false;
     }
   };
-  const oGia = dangSua
-    ? (oVon = h('input', { class: 'o-so', type: 'text', inputmode: 'numeric', value: Number.isFinite(r.gia_von) ? dinhDangTien(r.gia_von) : '', 'aria-label': `Giá vốn ${r.nhom} ${r.phan_loai}`,
-      onkeydown: (e) => { if (e.key === 'Enter') luuSua(); if (e.key === 'Escape') { st.dangSua = null; ve(); } } }))
-    : h('span', { class: !Number.isFinite(r.gia_von) ? 'chu-loi' : '' }, Number.isFinite(r.gia_von) ? dinhDangTien(r.gia_von) : 'trống');
-  if (dangSua) queueMicrotask(() => { oVon.focus(); oVon.select(); });
+  if (dangSua) {
+    oVon = oSo({ giaTri: Number.isFinite(r.gia_von) ? r.gia_von : null, kieu: 'tien', choPhepTrong: false, 'aria-label': `Giá vốn ${r.nhom} ${r.phan_loai}`, 'data-o': `von:${khoa}`, khiLuu: luuSua });
+    oVon.addEventListener('keydown', (e) => { if (e.key === 'Escape') doiCheDo(null); });
+  }
+  const oGia = dangSua ? oVon : h('span', { class: !Number.isFinite(r.gia_von) ? 'chu-loi' : '' }, Number.isFinite(r.gia_von) ? dinhDangTien(r.gia_von) : 'trống');
 
-  return h('tr', { class: coCanhBao ? 'dong-canh-bao' : '' },
+  return h('tr', { class: coCanhBao ? 'dong-canh-bao' : '', 'data-khoa': khoa },
     h('td', null, r.nhom),
     h('td', null, h('b', null, r.phan_loai), coCanhBao ? h('span', { class: 'nhan-nho nhan-vang', title: 'Size lớn hơn mà vốn rẻ hơn size nhỏ' }, '⚠ bậc vốn') : null),
     h('td', null, r.nganh || '—'),
@@ -146,8 +170,9 @@ function veDong(r, coCanhBao) {
     h('td', { class: 'so' }, Number.isFinite(r.gia_ban) ? dinhDangTien(r.gia_ban) : '—'),
     h('td', { class: 'chu-nhat' }, ngayGio(r.cap_nhat_luc)),
     h('td', { class: 'o-thao-tac' }, dangSua
-      ? [h('button', { class: 'nut nut-nho nut-chinh', onclick: luuSua }, 'Lưu'), h('button', { class: 'nut nut-nho', onclick: () => { st.dangSua = null; ve(); } }, 'Hủy')]
-      : [h('button', { class: 'nut-icon', title: 'Sửa giá vốn', 'aria-label': `Sửa ${r.nhom} ${r.phan_loai}`, onclick: () => { st.dangSua = khoa; ve(); } }, '✏️'),
+      ? [h('button', { class: 'nut nut-nho nut-chinh', onmousedown: (e) => e.preventDefault(), onclick: () => { const so = docSo(oVon.value); if (so !== null && so >= 0) luuSua(so); else oVon.focus(); } }, 'Lưu'),
+        h('button', { class: 'nut nut-nho', onmousedown: (e) => e.preventDefault(), onclick: () => doiCheDo(null) }, 'Hủy')]
+      : [h('button', { class: 'nut-icon', title: 'Sửa giá vốn', 'aria-label': `Sửa ${r.nhom} ${r.phan_loai}`, onclick: () => doiCheDo(khoa) }, '✏️'),
         h('button', { class: 'nut-icon', title: 'Xóa', 'aria-label': `Xóa ${r.nhom} ${r.phan_loai}`, onclick: () => xoaDong(r) }, '🗑')]));
 }
 

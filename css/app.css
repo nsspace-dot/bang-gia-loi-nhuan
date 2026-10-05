@@ -478,3 +478,32 @@ main { max-width: 1560px; margin: 0 auto; padding: 22px 28px 60px; }
 .o-nhap-nho { padding: 4px 8px; font-size: 13px; }
 .thanh-xuat { flex-direction: row; align-items: center; gap: 10px; position: sticky; bottom: 10px; z-index: 5; flex-wrap: wrap; }
 @media (max-width: 1100px) { .luoi-cp, .luoi-nhom-cp { grid-template-columns: 1fr; } }
+
+/* ---------- Chống "giựt" màn hình ---------- */
+/* Thanh trạng thái đồng bộ: độ rộng cố định, chữ đổi không làm header xê dịch / xuống dòng */
+.dong-bo { width: 190px; justify-content: flex-start; overflow: hidden; }
+.dong-bo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 1101px) { .dau-trang { flex-wrap: nowrap; } }
+/* Không để trình duyệt tự "neo" cuộn khi nội dung thay đổi (app tự giữ vị trí cuộn) */
+main { overflow-anchor: none; }
+/* Nhãn trạng thái luôn chiếm chỗ (ẩn bằng visibility), không đẩy chữ bên cạnh */
+.nhan-an { visibility: hidden; }
+.nhan-trang-thai-luu { display: inline-block; min-width: 132px; text-align: center; }
+/* Bảng phí: cột cố định, không co giãn theo số vừa gõ */
+.bang-phi { table-layout: fixed; }
+.bang-phi col.cot-ten-phi { width: 230px; }
+.bang-phi td { min-width: 0; }
+.bang-phi tfoot td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Ô số / ô lãi: chữ số đều nhau, độ rộng tối thiểu cố định */
+.o-so, .o-lai, .bang .so { font-variant-numeric: tabular-nums; }
+.bang-ln td.o-lai { min-width: 86px; width: 86px; }
+.ghi-chu { min-height: 42px; }
+/* Dòng campaign vừa đổi nhóm sau khi sửa tay (vẫn giữ chỗ cho tới khi chuyển trang / lọc lại) */
+.dong-da-chuyen td { background: #f7f3ff; }
+/* Thông báo "Có dữ liệu mới" — vị trí cố định, không đẩy nội dung */
+.du-lieu-moi {
+  position: fixed; left: 20px; bottom: 20px; z-index: 95; display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 2px solid #cbbcf3; border-radius: 16px; padding: 8px 10px 8px 14px;
+  box-shadow: 0 10px 30px rgba(120, 70, 100, .18); font-size: 14px; font-weight: 600; color: var(--tim);
+}
+.du-lieu-moi .nut-dong { width: 28px; height: 28px; font-size: 17px; }

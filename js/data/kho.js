@@ -68,11 +68,17 @@ export function dangKy(fn) {
   return () => nguoiNghe.delete(fn);
 }
 
-function baoThayDoi() {
+/**
+ * Báo cho các tab. chiTiet.duLieuDoi = true khi DỮ LIỆU thay đổi (cần vẽ lại);
+ * false khi chỉ đổi trạng thái đồng bộ (thanh trạng thái) → các tab KHÔNG vẽ lại.
+ * chiTiet.nguon: 'dong-bo' (tải từ Google Sheets) | 'ghi' (máy này vừa lưu) | 'cache'.
+ */
+function baoThayDoi(chiTiet = { duLieuDoi: false }) {
   for (const fn of nguoiNghe) {
-    try { fn(trangThai); } catch (e) { console.error(e); }
+    try { fn(trangThai, chiTiet); } catch (e) { console.error(e); }
   }
 }
+const DA_GHI = { duLieuDoi: true, nguon: 'ghi' };
 
 function luuCache() {
   ghiJSON(localStorage, KHOA_CACHE, { duLieu: trangThai.duLieu, luc: trangThai.luc });
@@ -84,32 +90,42 @@ export function khoiDong() {
     trangThai.duLieu = { ...rong(), ...c.duLieu };
     trangThai.luc = c.luc || null;
   }
-  baoThayDoi();
+  baoThayDoi({ duLieuDoi: true, nguon: 'cache' });
   if (layCaiDat().url) return dongBo();
   return Promise.resolve();
 }
 
-export async function dongBo() {
-  const { url } = layCaiDat();
-  if (!url) {
-    trangThai.dongBo = 'chua';
+let dangDongBo = null;
+
+/** Tải dữ liệu từ Google Sheets. Chỉ báo "dữ liệu đổi" khi dữ liệu THẬT SỰ khác bản đang có. */
+export function dongBo() {
+  if (dangDongBo) return dangDongBo; // không chạy chồng 2 lần
+  dangDongBo = (async () => {
+    const { url } = layCaiDat();
+    if (!url) {
+      trangThai.dongBo = 'chua';
+      baoThayDoi();
+      return;
+    }
+    trangThai.dongBo = 'dang';
+    trangThai.loi = '';
     baoThayDoi();
-    return;
-  }
-  trangThai.dongBo = 'dang';
-  trangThai.loi = '';
-  baoThayDoi();
-  try {
-    const r = await goiGet(url, { action: 'docTatCa' });
-    trangThai.duLieu = { ...rong(), ...r.duLieu };
-    trangThai.dongBo = 'xong';
-    trangThai.luc = new Date().toISOString();
-    luuCache();
-  } catch (e) {
-    trangThai.dongBo = 'loi';
-    trangThai.loi = e.message;
-  }
-  baoThayDoi();
+    let doi = false;
+    try {
+      const r = await goiGet(url, { action: 'docTatCa' });
+      const moi = { ...rong(), ...r.duLieu };
+      doi = JSON.stringify(moi) !== JSON.stringify(trangThai.duLieu);
+      if (doi) trangThai.duLieu = moi;
+      trangThai.dongBo = 'xong';
+      trangThai.luc = new Date().toISOString();
+      luuCache();
+    } catch (e) {
+      trangThai.dongBo = 'loi';
+      trangThai.loi = e.message;
+    }
+    baoThayDoi({ duLieuDoi: doi, nguon: 'dong-bo' });
+  })();
+  return dangDongBo.finally(() => { dangDongBo = null; });
 }
 
 export async function kiemTraKetNoi(url, matKhau) {
@@ -150,7 +166,7 @@ export async function ghi(sheet, banGhi) {
     if (i === undefined) { viTri.set(khoaCua(sheet, b), ds.length); ds.push(b); } else ds[i] = b;
   }
   luuCache();
-  baoThayDoi();
+  baoThayDoi(DA_GHI);
   return r.banGhi;
 }
 
@@ -160,7 +176,7 @@ export async function xoa(sheet, dsKhoa) {
   const bo = new Set(dsKhoa.map((k) => khoaCua(sheet, k)));
   trangThai.duLieu[sheet] = trangThai.duLieu[sheet].filter((o) => !bo.has(khoaCua(sheet, o)));
   luuCache();
-  baoThayDoi();
+  baoThayDoi(DA_GHI);
   return r.daXoa;
 }
 
@@ -168,7 +184,7 @@ export function xoaCacheMay() {
   try { localStorage.removeItem(KHOA_CACHE); } catch { /* bỏ qua */ }
   trangThai.duLieu = rong();
   trangThai.luc = null;
-  baoThayDoi();
+  baoThayDoi({ duLieuDoi: true, nguon: 'cache' });
 }
 
 // ---------- Bảng tính đã lưu (tab Tính lợi nhuận) ----------
@@ -184,7 +200,7 @@ export async function luuBangTinh(bangTinh, dong) {
   const i = ds.findIndex((b) => b.id === r.banGhi.id);
   if (i >= 0) ds[i] = r.banGhi; else ds.push(r.banGhi);
   luuCache();
-  baoThayDoi();
+  baoThayDoi(DA_GHI);
   return r.banGhi;
 }
 
@@ -199,7 +215,7 @@ export async function xoaBangTinh(id) {
   await goiGhi({ action: 'xoaBangTinh', id });
   trangThai.duLieu.BANG_TINH = trangThai.duLieu.BANG_TINH.filter((b) => b.id !== id);
   luuCache();
-  baoThayDoi();
+  baoThayDoi(DA_GHI);
 }
 
 // ---------- Campaign ----------
@@ -211,7 +227,7 @@ export async function luuCampaign(campaign, ketQua) {
   const i = ds.findIndex((c) => c.id === r.banGhi.id);
   if (i >= 0) ds[i] = r.banGhi; else ds.push(r.banGhi);
   luuCache();
-  baoThayDoi();
+  baoThayDoi(DA_GHI);
   return r.banGhi;
 }
 

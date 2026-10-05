@@ -119,6 +119,13 @@ Làm trên **mỗi máy** sẽ dùng app.
 
 App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấy "**CHƯA lưu được: …**" nghĩa là chưa lưu — đọc lý do và làm lại.
 
+### Nhập số nhanh (mọi bảng)
+- Gõ số kiểu nào cũng được: `8,14` hoặc `8.14` (%), `2.008` hoặc `2008` (đ). App tự chuẩn hóa khi bạn **rời ô** hoặc bấm **Enter**.
+- **Enter** hoặc **Tab**: sang ô kế tiếp · **Shift + Enter**: về ô trước · **Esc**: hủy phần đang gõ.
+- Lăn chuột hay bấm ↑↓ trong ô **không** làm đổi số.
+- Ô tô vàng = đã sửa, chưa lưu. Ô tô đỏ = nhập sai (rê chuột để xem lý do).
+- App tự đồng bộ với Google Sheets 5 phút/lần. Nếu bạn đang sửa dở, app **không** tự làm mới bảng mà hiện thông báo nhỏ góc trái dưới **"Có dữ liệu mới từ Google Sheets — Tải lại"**. Bấm **Tải lại** khi tiện; số bạn đang sửa vẫn được giữ.
+
 ### 💸 Bảng phí
 - Chọn **gian** → chọn **tháng áp dụng** → sửa → **Lưu**.
 - Phí tháng mới **không** xóa phí tháng cũ. Khi tính, app dùng **bộ phí mới nhất có tháng áp dụng ≤ tháng đang tính**.

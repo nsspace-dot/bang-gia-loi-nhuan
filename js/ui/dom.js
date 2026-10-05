@@ -119,3 +119,43 @@ export function nhapChu(cauHoi, macDinh = '', { nutDongY = 'Đồng ý' } = {}) 
     o.select();
   });
 }
+
+/**
+ * Vẽ lại một vùng mà GIỮ NGUYÊN: vị trí cuộn trang, vị trí cuộn của các khung có [data-cuon],
+ * ô đang focus (theo data-o) và vị trí con trỏ trong ô.
+ */
+export function veGiu(vung, ve) {
+  const x = window.scrollX, y = window.scrollY;
+  const cuon = [...vung.querySelectorAll('[data-cuon]')].map((el) => [el.dataset.cuon, el.scrollTop, el.scrollLeft]);
+  const a = document.activeElement;
+  const coFocus = a && a !== document.body && vung.contains(a);
+  const khoa = coFocus ? a.dataset?.o : null;
+  let chon = null;
+  try { chon = coFocus && a.setSelectionRange ? [a.selectionStart, a.selectionEnd, a.selectionDirection] : null; } catch { chon = null; }
+  const giaTriDangGo = coFocus && 'value' in a ? a.value : null;
+  // Giữ chiều cao tối thiểu trong lúc thay nội dung để trang không bị co lại (tránh nhảy cuộn)
+  const caoCu = vung.offsetHeight;
+  vung.style.minHeight = `${caoCu}px`;
+  ve();
+  for (const [k, t, l] of cuon) {
+    const el = vung.querySelector(`[data-cuon="${CSS.escape(k)}"]`);
+    if (el) { el.scrollTop = t; el.scrollLeft = l; }
+  }
+  if (khoa) {
+    const moi = vung.querySelector(`[data-o="${CSS.escape(khoa)}"]`);
+    if (moi) {
+      if (giaTriDangGo !== null && moi.value !== giaTriDangGo && moi.dataset.goc !== undefined && giaTriDangGo !== a.dataset.goc) moi.value = giaTriDangGo;
+      moi.focus({ preventScroll: true });
+      try { if (chon && moi.setSelectionRange) moi.setSelectionRange(...chon); } catch { /* ô không hỗ trợ chọn */ }
+    }
+  }
+  vung.style.minHeight = '';
+  if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
+}
+
+const henGio = new WeakMap();
+/** Chờ người dùng ngừng gõ (mặc định 180 ms) rồi mới chạy fn — dùng cho ô tìm kiếm. */
+export function treLai(fn, ms = 180) {
+  clearTimeout(henGio.get(fn));
+  henGio.set(fn, setTimeout(fn, ms));
+}

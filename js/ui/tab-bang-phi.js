@@ -1,5 +1,7 @@
 // Tab Bảng phí: gian hàng × ngành × tháng áp dụng.
-import { h, thayNoiDung, xacNhan, chonFile, taiXuong } from './dom.js';
+import { h, thayNoiDung, xacNhan, chonFile, taiXuong, veGiu } from './dom.js';
+import { oSo, dangGoDo } from './o-so.js';
+import { baoDuLieuMoi, boChoTaiLai } from './du-lieu-moi.js';
 import { thongBao } from './thong-bao.js';
 import { manTrong } from './linh-vat.js';
 import { moCaiDat } from './cai-dat.js';
@@ -12,11 +14,23 @@ import { docBang } from '../excel/doc.js';
 
 const st = { gian: null, thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
 let goc;
+let dangLuu = false;
 
 export function taoTabBangPhi(phanTu) {
   goc = phanTu;
-  kho.dangKy(() => ve());
+  kho.dangKy((_, ct) => {
+    if (!ct.duLieuDoi || dangLuu) return; // chỉ đổi trạng thái đồng bộ / tab này đang tự lưu → không vẽ lại ở đây
+    // Đang sửa dở (chưa lưu) mà dữ liệu đến từ đồng bộ nền / tab khác → KHÔNG vẽ lại, chỉ báo
+    if ((coThayDoi() || dangGoDo(goc)) && ct.nguon !== 'cache') { baoDuLieuMoi('bang-phi', veLai); return; }
+    veLai();
+  });
   ve();
+}
+
+/** Vẽ lại tab, giữ vị trí cuộn, ô đang focus và con trỏ. */
+function veLai() {
+  boChoTaiLai('bang-phi');
+  veGiu(goc, ve);
 }
 
 function dsGian() { return layDanhSach(kho.duLieu().DANH_MUC, 'GIAN'); }
@@ -93,7 +107,7 @@ async function doiGianThang(gian, thang) {
   st.gian = gian;
   st.thang = thang;
   st.nhap = {};
-  ve();
+  veLai();
 }
 
 function veChonThang() {
@@ -141,13 +155,24 @@ function veBang() {
   const hang = KHOAN_PHI.map((k) => h('tr', null,
     h('th', { scope: 'row' }, k.ten, h('span', { class: 'don-vi' }, ` (${k.donVi})`)),
     nganhs.map((n) => {
-      const inp = h('input', {
-        class: 'o-so', type: 'text', inputmode: 'decimal', value: giaTriO(n, k.khoa),
+      const r = nguon(n);
+      const inp = oSo({
+        giaTri: r ? r[k.khoa] ?? null : null,
+        giaTriGo: st.nhap[n]?.[k.khoa],
+        kieu: k.donVi === '%' ? 'phantram' : 'tien',
+        kiemTra: (so) => loiO(k.khoa, so),
         'aria-label': `${k.ten} — ${n}`,
-        oninput: (e) => {
-          (st.nhap[n] ||= {})[k.khoa] = e.target.value;
+        'data-o': `phi:${n}:${k.khoa}`,
+        // Gõ: chỉ cập nhật ô này + dòng tổng + nút Lưu. KHÔNG vẽ lại bảng.
+        khiGo: (_so, _hopLe, chuoi) => {
+          (st.nhap[n] ||= {})[k.khoa] = chuoi;
           danhDau(inp, n, k.khoa);
           capNhatTong(n);
+          capNhatNutLuu();
+        },
+        khiLuu: () => {
+          (st.nhap[n] ||= {})[k.khoa] = inp.value;
+          danhDau(inp, n, k.khoa);
           capNhatNutLuu();
         },
       });
@@ -160,8 +185,9 @@ function veBang() {
   ].map(([ten, i]) => h('tr', { class: 'hang-tong' }, h('th', { scope: 'row' }, ten),
     nganhs.map((n) => { const td = h('td', { class: 'so' }); (oTong[n] ||= [])[i] = td; return td; })));
 
-  const bang = h('div', { class: 'khung-bang' },
+  const bang = h('div', { class: 'khung-bang', 'data-cuon': 'bang-phi', 'data-dieu-huong': '' },
     h('table', { class: 'bang bang-phi' },
+      h('colgroup', null, h('col', { class: 'cot-ten-phi' }), nganhs.map(() => h('col'))),
       h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Khoản phí'), dauCot)),
       h('tbody', null, hang),
       h('tfoot', null, hangTong)));
@@ -175,7 +201,7 @@ function danhDau(inp, nganh, khoa) {
   const loi = loiO(khoa, so);
   const r = nguon(nganh);
   const doi = n !== undefined && so !== (r ? r[khoa] ?? 0 : null);
-  inp.classList.toggle('o-loi', !!loi);
+  if (n !== undefined) inp.classList.toggle('o-loi', !!loi);
   inp.classList.toggle('o-doi', doi && !loi);
   inp.title = loi || (doi ? `Cũ: ${r ? dinhDangSo(r[khoa] ?? 0) : 'chưa có'}` : '');
 }
@@ -204,7 +230,7 @@ function veHangLuu() {
   const coDungThang = kho.duLieu().BANG_PHI.some((p) => p.gian === st.gian && p.thang === st.thang);
   const hang = h('div', { class: 'hang-nut hang-luu' },
     nutLuu,
-    h('button', { class: 'nut', onclick: () => { st.nhap = {}; ve(); } }, 'Hoàn tác'),
+    h('button', { class: 'nut', onclick: () => { st.nhap = {}; veLai(); } }, 'Hoàn tác'),
     chuLuu,
     h('span', { class: 'gian-cach' }),
     coDungThang ? h('button', { class: 'nut nut-nho nut-vien-do', onclick: xoaThang }, `Xóa bộ phí tháng ${hienThiThang(st.thang)}`) : null);
@@ -218,27 +244,34 @@ async function luu() {
   const banGhi = ds.map((n) => ({ gian: st.gian, nganh: n, thang: st.thang, ...boPhiDangNhap(n) }));
   nutLuu.disabled = true;
   nutLuu.textContent = 'Đang lưu…';
+  dangLuu = true;
   try {
     await kho.ghi('BANG_PHI', banGhi);
     st.nhap = {};
     thongBao(`Đã lưu bộ phí tháng ${hienThiThang(st.thang)} — ${st.gian} (${ds.join(', ')}).`);
-    ve();
+    veLai(); // cập nhật tại chỗ, giữ vị trí cuộn
   } catch (e) {
     thongBao(`Chưa lưu được: ${e.message}`, 'loi');
     nutLuu.textContent = `💾 Lưu bộ phí tháng ${hienThiThang(st.thang)}`;
     capNhatNutLuu();
+  } finally {
+    dangLuu = false;
   }
 }
 
 async function xoaThang() {
   const ds = kho.duLieu().BANG_PHI.filter((p) => p.gian === st.gian && p.thang === st.thang);
   if (!(await xacNhan(`Xóa bộ phí tháng ${hienThiThang(st.thang)} của ${st.gian} (${ds.length} ngành)? Các tháng khác không bị ảnh hưởng. Thao tác được ghi vào LICH_SU.`, { nutDongY: 'Xóa', nguyHiem: true }))) return;
+  dangLuu = true;
   try {
     await kho.xoa('BANG_PHI', ds.map((p) => ({ gian: p.gian, nganh: p.nganh, thang: p.thang })));
     st.nhap = {};
     thongBao(`Đã xóa bộ phí tháng ${hienThiThang(st.thang)} của ${st.gian}.`);
+    veLai();
   } catch (e) {
     thongBao(`Chưa xóa được: ${e.message}`, 'loi');
+  } finally {
+    dangLuu = false;
   }
 }
 

@@ -79,6 +79,15 @@ Phí: KHÔNG có ô chọn tháng — luôn dùng bộ phí đang áp dụng t�
 - **Lưu**: CAMPAIGN + CAMPAIGN_KQ (không lưu dòng ngoài phạm vi, chỉ đếm trong tong_hop).
 - Logic `js/core/campaign.js`; test `tests/campaign.test.js` + test trình duyệt; chạy thử trên file thật: `node scripts/chay-thu-campaign.mjs [A|B|C] [lãi%] [X%]` (chỉ in ra màn hình, file ghi vào mau/).
 
+## Sửa lỗi "màn hình tự giựt" khi nhập liệu
+
+- **Ô nhập số dùng chung** `js/ui/o-so.js` cho mọi tab: `type="text"` + `inputmode="decimal"` (không dùng `type="number"`); lăn chuột / ↑↓ không đổi số; chấp nhận "8,14"/"8.14" và "2.008"/"2008"; chỉ chuẩn hóa khi rời ô hoặc Enter (không định dạng lại lúc đang gõ). Enter / Tab sang ô kế tiếp, Shift+Enter về ô trước, Esc hủy phần đang gõ.
+- **Không vẽ lại khi gõ**: Bảng phí chỉ cập nhật ô + dòng tổng + nút Lưu; Tính lợi nhuận / Campaign sửa 1 dòng chỉ thay dòng đó + ô tổng kết (dòng không nhảy chỗ kể cả khi đang sắp xếp/lọc); Set giá chỉ tính lại khi rời ô lãi / giá chốt.
+- **Khi buộc vẽ lại** (lưu xong, đổi gian/tháng, tìm kiếm…): `veGiu()` giữ vị trí cuộn trang, cuộn của bảng, ô đang focus và con trỏ.
+- **Đồng bộ nền**: tự đồng bộ 5 phút/lần và khi quay lại trình duyệt (≥ 2 phút). Chỉ báo "dữ liệu đổi" khi dữ liệu thật sự khác. Đang có ô sửa chưa lưu → không vẽ lại, hiện thông báo cố định "Có dữ liệu mới từ Google Sheets — Tải lại" (tải lại vẫn giữ số đang sửa). Màn chạy Campaign không bị đồng bộ nền vẽ lại.
+- **Bố cục cố định**: thanh trạng thái đồng bộ rộng cố định; nhãn "chưa lưu/đã lưu" chừa sẵn chỗ; toast & thông báo dữ liệu mới ở vị trí cố định; bảng phí `table-layout: fixed`; ô số dùng chữ số đều nhau.
+- Test trình duyệt: sửa liên tục 10 ô, lăn chuột, ↑↓, Esc, Enter, đồng bộ nền khi đang sửa, Lưu → vị trí cuộn không đổi, bảng không bị vẽ lại; Tính lợi nhuận sửa giá khi đang sắp xếp → dòng không nhảy.
+
 ## Kiến trúc
 
 - **Web tĩnh, không cần build**, host bằng **GitHub Pages** (Settings → Pages → Deploy from a branch → chọn nhánh → thư mục `/ (root)`). File `.nojekyll` để GitHub phục vụ nguyên trạng.

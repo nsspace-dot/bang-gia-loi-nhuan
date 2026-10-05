@@ -1,5 +1,7 @@
 // Tab Set giá: từ giá vốn → giá đề xuất theo mức lãi mong muốn, kiểm tra bậc giá, xuất file.
-import { h, thayNoiDung, chonFile, ganKeoTha, taiXuong } from './dom.js';
+import { h, thayNoiDung, chonFile, ganKeoTha, taiXuong, veGiu } from './dom.js';
+import { oSo, dangGoDo } from './o-so.js';
+import { baoDuLieuMoi, boChoTaiLai } from './du-lieu-moi.js';
 import { thongBao } from './thong-bao.js';
 import { manTrong, linhVat, chucMung } from './linh-vat.js';
 import * as kho from '../data/kho.js';
@@ -29,8 +31,18 @@ let goc;
 export function taoTabSetGia(phanTu) {
   goc = phanTu;
   try { Object.assign(st, JSON.parse(localStorage.getItem(KHOA_CD) || '{}')); } catch { /* bỏ qua */ }
-  kho.dangKy(() => ve());
+  kho.dangKy((_, ct) => {
+    if (!ct.duLieuDoi) return;
+    if (dangGoDo(goc) && ct.nguon !== 'cache') { baoDuLieuMoi('set-gia', veLai); return; }
+    veLai();
+  });
   ve();
+}
+
+/** Vẽ lại tab, giữ vị trí cuộn, ô đang focus và con trỏ. */
+function veLai() {
+  boChoTaiLai('set-gia');
+  veGiu(goc, ve);
 }
 
 function luuCaiDat() {
@@ -41,7 +53,7 @@ function luuCaiDat() {
 }
 
 const thangNay = () => thangHienTai();
-const doi = (thayDoi) => { Object.assign(st, thayDoi); luuCaiDat(); ve(); };
+const doi = (thayDoi) => { Object.assign(st, thayDoi); luuCaiDat(); veLai(); };
 
 function thuTuNhom(ds) {
   const m = new Map();
@@ -64,7 +76,6 @@ function giaTriLai() {
 // ---------- vẽ ----------
 
 function ve() {
-  const oDangGo = document.activeElement?.dataset?.o;
   const gians = layDanhSach(kho.duLieu().DANH_MUC, 'GIAN');
   if (!gians.includes(st.gian)) st.gian = gians.includes('Tường Vip') ? 'Tường Vip' : gians[0];
   const daLuu = kho.duLieu().GIA_VON;
@@ -94,8 +105,6 @@ function ve() {
       veCaiDat(gians, cacNhom, lai)),
     ketQua.length ? [veTongKet(ketQua, giaCua, canhBao), veBang(ketQua, giaCua, canhBao)] : veTrong(daLuu, lai));
 
-  const o = oDangGo && goc.querySelector(`[data-o="${oDangGo}"]`);
-  if (o) { o.focus(); if (o.setSelectionRange) { const n = o.value.length; o.setSelectionRange(n, n); } }
 }
 
 function nhomNut(tuyChon, giaTri, khiChon, nhan) {
@@ -104,10 +113,14 @@ function nhomNut(tuyChon, giaTri, khiChon, nhan) {
 }
 
 function veCaiDat(gians, cacNhom, lai) {
-  const oLai = h('input', {
-    class: ['o-nhap', 'o-nhap-so', lai === null && 'o-loi'], type: 'text', inputmode: 'decimal', value: st.lai, 'data-o': 'lai', 'aria-label': 'Mức lãi mong muốn',
-    oninput: (e) => { st.lai = e.target.value; luuCaiDat(); ve(); },
+  // Gõ mức lãi: không tính lại từng phím; chỉ tính khi rời ô / Enter
+  const oLai = oSo({
+    class: ['o-nhap', 'o-nhap-so'], kieu: st.kieuLai === 'pt' ? 'so' : 'tien', giaTri: docSo(st.lai), choPhepTrong: false,
+    kiemTra: (so) => (st.kieuLai === 'pt' && so >= 100 ? 'Phải nhỏ hơn 100%' : null),
+    'data-o': 'lai', 'aria-label': 'Mức lãi mong muốn',
+    khiLuu: () => doi({ lai: oLai.value }),
   });
+  if (lai === null) oLai.classList.add('o-loi');
 
   const vungFile = h('button', { class: 'vung-tha vung-tha-nho', onclick: async () => { const f = await chonFile(); if (f) napFile([f]); } },
     linhVat('nho'),
@@ -191,7 +204,7 @@ function veBang(ketQua, giaCua, canhBao) {
     canhBao.size ? h('details', { class: 'canh-bao', open: true },
       h('summary', null, `⚠️ ${[...canhBao.values()].flat().length} cảnh báo bậc giá`),
       h('ul', null, [...canhBao.values()].flat().map((c) => h('li', null, c)))) : null,
-    h('div', { class: 'khung-bang khung-bang-cao' },
+    h('div', { class: 'khung-bang khung-bang-cao', 'data-cuon': 'set-gia', 'data-dieu-huong': '' },
       h('table', { class: 'bang bang-ln bang-sg' },
         h('thead', null, h('tr', null,
           h('th', { scope: 'col' }, 'Phân loại'), h('th', { scope: 'col' }, 'Ngành'),
@@ -216,13 +229,12 @@ function veDong(d, giaCua, canhBao) {
   const gia = giaCua(d);
   const ct = chiTietTaiGia(d, gia);
   const coChot = st.giaChot[k] !== undefined;
-  const oChot = h('input', {
-    class: ['o-so', coChot && 'o-doi'], type: 'text', inputmode: 'numeric', value: coChot ? dinhDangTien(st.giaChot[k]) : '',
+  const oChot = oSo({
+    class: coChot && 'o-doi', kieu: 'tien', giaTri: coChot ? st.giaChot[k] : null,
+    kiemTra: (so) => (so <= 0 ? 'Giá phải lớn hơn 0' : null),
     placeholder: dinhDangTien(d.giaDeXuat), 'data-o': `chot:${k}`, 'aria-label': `Giá chốt ${d.nhom} ${d.phan_loai}`,
-    onchange: (e) => {
-      const tho = e.target.value.trim();
-      const so = tho === '' ? null : docSo(tho);
-      if (tho !== '' && (so === null || so <= 0)) { e.target.classList.add('o-loi'); thongBao(`"${tho}" không phải giá hợp lệ.`, 'loi'); return; }
+    // Bậc giá phụ thuộc mọi dòng → tính lại bảng, nhưng giữ vị trí cuộn + ô đang focus
+    khiLuu: (so) => {
       const moi = { ...st.giaChot };
       if (so === null || so === d.giaDeXuat) delete moi[k]; else moi[k] = so;
       doi({ giaChot: moi });

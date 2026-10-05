@@ -1,5 +1,6 @@
 // Tab Campaign (Laminate + Liễn + Decal): danh sách campaign, chạy campaign mới, màn duyệt, xuất file, lưu.
-import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong } from './dom.js';
+import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong, veGiu, treLai } from './dom.js';
+import { oSo } from './o-so.js';
 import { thongBao } from './thong-bao.js';
 import { manTrong, linhVat, chucMung } from './linh-vat.js';
 import * as kho from '../data/kho.js';
@@ -49,15 +50,18 @@ function luuNho() {
 export function taoTabCampaign(phanTu) {
   goc = phanTu;
   st = moi();
-  kho.dangKy(() => { if (st.man === 'ds') ve(); });
+  // Màn chạy campaign KHÔNG vẽ lại khi đồng bộ nền (kết quả chỉ đổi khi bấm Tính lại)
+  kho.dangKy((_, ct) => { if (ct.duLieuDoi && st.man === 'ds') veLai(); });
   ve();
 }
 
 function ve() {
-  const oDangGo = document.activeElement?.dataset?.o;
   thayNoiDung(goc, st.man === 'ds' ? veDanhSach() : veChay());
-  const o = oDangGo && goc.querySelector(`[data-o="${CSS.escape(oDangGo)}"]`);
-  if (o) { o.focus(); if (o.setSelectionRange && o.type === 'text') { const n = o.value.length; o.setSelectionRange(n, n); } }
+}
+
+/** Vẽ lại tab, giữ vị trí cuộn, ô đang focus và con trỏ. */
+function veLai() {
+  veGiu(goc, ve);
 }
 
 // =====================================================================
@@ -74,7 +78,7 @@ function veDanhSach() {
     h('div', { class: 'the' },
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Campaign'), h('p', { class: 'mo-ta' }, 'Laminate + Liễn + Decal · mỗi campaign là một phiên: tính giá, duyệt, xuất file đăng ký và báo cáo')),
-        h('button', { class: 'nut nut-chinh', onclick: () => { st = moi(); st.man = 'chay'; ve(); } }, '＋ Campaign mới'))),
+        h('button', { class: 'nut nut-chinh', onclick: () => { st = moi(); st.man = 'chay'; veLai(); } }, '＋ Campaign mới'))),
     ds.length
       ? h('div', { class: 'the the-bang' }, h('div', { class: 'khung-bang' }, h('table', { class: 'bang' },
         h('thead', null, h('tr', null, ['Tên', 'Gian', 'Thời gian', 'Tháng phí', 'Chiến lược', 'Lãi tối thiểu', 'Vào / Loại / Gán', 'Xuất lúc', ''].map((t) => h('th', { scope: 'col' }, t)))),
@@ -105,7 +109,7 @@ function nhanBan(c) {
   st.tt.ten = `${c.ten} (bản sao)`;
   st.tt.gian = c.gian;
   st.cd = { chienLuoc: c.chien_luoc || 'B', giamPT: ts.giamPT ?? '20', laiMin: c.lai_toi_thieu !== null && c.lai_toi_thieu !== undefined ? String(c.lai_toi_thieu) : '', buoc: ts.buoc || 1000 };
-  ve();
+  veLai();
   thongBao(`Đã nhân bản cài đặt từ "${c.ten}". Nhập ngày, thả file rồi bấm Tính.`, 'tt');
 }
 
@@ -179,13 +183,13 @@ function doiTT(thayDoi, tinhLai = true) {
   if ('bat_dau' in thayDoi && st.tt.thangTuDong && thayDoi.bat_dau) st.tt.thang_phi = thayDoi.bat_dau.slice(0, 7);
   luuNho();
   if (tinhLai && st.ketQua) tinh(false);
-  else ve();
+  else veLai();
 }
 function doiCD(thayDoi) {
   Object.assign(st.cd, thayDoi);
   luuNho();
   if (st.ketQua && !thieuGi().length) tinh(false);
-  else ve();
+  else veLai();
 }
 
 function nhomNut(tuyChon, giaTri, khiChon, nhan) {
@@ -203,10 +207,10 @@ function veChay() {
         h('div', null,
           h('button', { class: 'nut nut-nho', onclick: async () => {
             if (st.ketQua && !st.daLuu && !(await xacNhan('Campaign này chưa lưu. Quay lại danh sách?', { nutDongY: 'Quay lại', nguyHiem: true }))) return;
-            st.man = 'ds'; ve();
+            st.man = 'ds'; veLai();
           } }, '‹ Danh sách campaign'),
-          h('h2', { style: { marginTop: '8px' } }, st.tt.ten || 'Campaign mới')),
-        st.daLuu ? h('span', { class: 'nhan-nho nhan-xanh' }, 'đã lưu lên Sheets') : null),
+          h('h2', { class: 'tieu-de-cp', style: { marginTop: '8px' } }, st.tt.ten || 'Campaign mới')),
+        h('span', { class: ['nhan-nho', 'nhan-xanh', 'nhan-da-luu-cp', !st.daLuu && 'nhan-an'] }, 'đã lưu lên Sheets')),
       h('div', { class: 'luoi-cai-dat luoi-cp' }, veThongTin(gians), veFile(), veCaiDatGia()),
       h('div', { class: 'hang-nut' },
         h('button', { class: 'nut nut-chinh nut-lon', disabled: thieu.length > 0, onclick: () => tinh(true) }, st.ketQua ? '🔄 Tính lại' : '🧮 Tính giá campaign'),
@@ -220,7 +224,7 @@ function veThongTin(gians) {
   return h('div', { class: 'o-cai-dat' },
     h('div', { class: 'nhan-buoc' }, h('span', { class: 'so-buoc' }, '1'), 'Thông tin campaign'),
     h('label', { class: 'nhan-nho-o' }, 'Tên campaign',
-      o({ type: 'text', value: st.tt.ten, placeholder: 'vd: Siêu sale 11.11', 'data-o': 'ten', oninput: (e) => { st.tt.ten = e.target.value; capNhatNutTinh(); }, onchange: () => ve() })),
+      o({ type: 'text', value: st.tt.ten, placeholder: 'vd: Siêu sale 11.11', 'data-o': 'ten', oninput: (e) => { st.tt.ten = e.target.value; capNhatNutTinh(); }, onchange: () => { const t = goc.querySelector('.tieu-de-cp'); if (t) t.textContent = st.tt.ten || 'Campaign mới'; } })),
     h('div', { class: 'nhan-nho-o' }, 'Gian hàng',
       h('div', { class: 'ds-chip' }, gians.map((g) => h('button', { class: ['chip-gian', `gian-${mauGian(g, gians)}`, g === st.tt.gian && 'dang-bat'], onclick: () => doiTT({ gian: g }) }, g)))),
     h('div', { class: 'hang' },
@@ -261,14 +265,23 @@ function veFile() {
     st.filePrefill && st.fileSP.length
       ? h('p', { class: timThay === st.filePrefill.pre.dong.length ? 'chu-lai' : 'chu-lo' }, `Tìm thấy ${dinhDangTien(timThay)} / ${dinhDangTien(st.filePrefill.pre.dong.length)} SKU trong file sản phẩm`)
       : st.filePrefill ? h('p', { class: 'goi-y goi-y-sat' }, 'Chưa có file sản phẩm: sẽ nhận diện theo tên trong file prefill (kém chính xác).') : null,
-    st.fileSP.length ? h('button', { class: 'nut nut-nho', onclick: () => { st.fileSP = []; st.banDoSP = new Map(); if (st.ketQua) tinh(false); else ve(); } }, 'Bỏ các file sản phẩm') : null);
+    st.fileSP.length ? h('button', { class: 'nut nut-nho', onclick: () => { st.fileSP = []; st.banDoSP = new Map(); if (st.ketQua) tinh(false); else veLai(); } }, 'Bỏ các file sản phẩm') : null);
 }
 
 function veCaiDatGia() {
-  const oLai = h('input', { class: ['o-nhap', 'o-nhap-so', st.cd.laiMin !== '' && giaTriLaiMin() === null && 'o-loi'], type: 'text', inputmode: 'decimal', value: st.cd.laiMin, placeholder: 'vd 10', 'data-o': 'laiMin',
-    oninput: (e) => { st.cd.laiMin = e.target.value; capNhatNutTinh(); }, onchange: () => doiCD({}) });
-  const oGiam = h('input', { class: ['o-nhap', 'o-nhap-so', giaTriGiam() === null && 'o-loi'], type: 'text', inputmode: 'decimal', value: st.cd.giamPT, 'data-o': 'giamPT',
-    oninput: (e) => { st.cd.giamPT = e.target.value; capNhatNutTinh(); }, onchange: () => doiCD({}) });
+  // Gõ: chỉ cập nhật nút Tính (không vẽ lại). Rời ô / Enter: tính lại nếu đã có kết quả.
+  const oLai = oSo({
+    class: ['o-nhap', 'o-nhap-so'], kieu: 'so', giaTri: docSo(st.cd.laiMin), placeholder: 'vd 10', 'data-o': 'laiMin', 'aria-label': 'Lãi tối thiểu (%)',
+    kiemTra: (so) => (so >= 100 ? 'Phải nhỏ hơn 100%' : null),
+    khiGo: (_so, _ok, chuoi) => { st.cd.laiMin = chuoi; capNhatNutTinh(); },
+    khiLuu: () => { st.cd.laiMin = oLai.value; doiCD({}); },
+  });
+  const oGiam = oSo({
+    class: ['o-nhap', 'o-nhap-so'], kieu: 'so', giaTri: docSo(st.cd.giamPT), 'data-o': 'giamPT', 'aria-label': 'Giảm X%',
+    kiemTra: (so) => (so <= 0 || so >= 100 ? 'Từ 0 đến 100%' : null), choPhepTrong: false,
+    khiGo: (_so, _ok, chuoi) => { st.cd.giamPT = chuoi; capNhatNutTinh(); },
+    khiLuu: () => { st.cd.giamPT = oGiam.value; doiCD({}); },
+  });
   return h('div', { class: 'o-cai-dat' },
     h('div', { class: 'nhan-buoc' }, h('span', { class: 'so-buoc' }, '3'), 'Cài đặt giá'),
     h('div', { class: 'nhan-nho-o' }, 'Chiến lược giá',
@@ -298,7 +311,7 @@ async function napPrefill(files) {
     st.sua = new Map();
     st.daLuu = false;
     if (!st.tt.ten) st.tt.ten = f.name.replace(/\.xlsx$/i, '').replace(/^Processing_result_Campaign_prefill_template_?/i, '') || '';
-    ve();
+    veLai();
     thongBao(`Đã đọc ${pre.dong.length} SKU từ file prefill.`);
   } catch (e) {
     thongBao(`Không đọc được file prefill: ${e.message}`, 'loi');
@@ -319,13 +332,13 @@ async function napSanPham(files) {
     }
   }
   if (them) thongBao(`Đã đọc ${them} SKU từ ${files.length} file sản phẩm.`);
-  if (st.ketQua) tinh(false); else ve();
+  if (st.ketQua) tinh(false); else veLai();
 }
 
 // ---------- tính ----------
 
 function tinh(lanDau) {
-  if (thieuGi().length) { ve(); return; }
+  if (thieuGi().length) { veLai(); return; }
   const d = kho.duLieu();
   const ganTay = new Map(d.NOI_SKU.map((r) => [String(r.sku_id), r]));
   const cd = cdTinh();
@@ -339,7 +352,7 @@ function tinh(lanDau) {
     st.xem = 'VAO';
     chucMung(`Đã tính ${dinhDangTien(ds.length)} SKU!`);
   }
-  ve();
+  veLai();
   taiSoSanh();
 }
 
@@ -348,7 +361,7 @@ async function taiSoSanh() {
   const cacCp = kho.duLieu().CAMPAIGN.filter((c) => c.gian === st.tt.gian && c.id !== st.tt.id);
   const chong = cacCp.filter((c) => chongLan(st.tt.bat_dau, st.tt.ket_thuc, c.bat_dau, c.ket_thuc));
   const truoc = cacCp.filter((c) => c.bat_dau && c.bat_dau < st.tt.bat_dau).sort((a, b) => String(b.bat_dau).localeCompare(String(a.bat_dau)))[0];
-  if (!chong.length && !truoc) { st.them = { chongLan: new Map(), lanTruoc: new Map(), ghiChu: ['Chưa có campaign nào khác cùng gian để so sánh.'], dangTai: false }; ve(); return; }
+  if (!chong.length && !truoc) { st.them = { chongLan: new Map(), lanTruoc: new Map(), ghiChu: ['Chưa có campaign nào khác cùng gian để so sánh.'], dangTai: false }; veLai(); return; }
   st.them.dangTai = true;
   try {
     const cacChong = [];
@@ -369,7 +382,7 @@ async function taiSoSanh() {
   } catch (e) {
     st.them = { chongLan: new Map(), lanTruoc: new Map(), dangTai: false, ghiChu: [`Không tải được campaign khác để so sánh: ${e.message}`] };
   }
-  ve();
+  veLai();
 }
 
 // =====================================================================
@@ -397,7 +410,7 @@ function veDuyet() {
     h('div', { class: 'luoi-tong-ket luoi-nhom-cp' },
       ['VAO', 'LOAI', 'GAN', 'NGOAI'].map((n) => h('button', {
         class: ['o-tong', 'o-nhom', `o-nhom-${n.toLowerCase()}`, st.xem === n && 'dang-chon'], 'aria-pressed': String(st.xem === n),
-        onclick: () => { st.xem = n; st.trang = 0; ve(); },
+        onclick: () => { st.xem = n; st.trang = 0; veLai(); },
       }, h('div', { class: 'o-tong-nhan' }, NHAN_NHOM[n]), h('div', { class: 'o-tong-so' }, dinhDangTien(dem[n])),
       h('div', { class: 'chu-nhat' }, {
         VAO: th.laiTB ? `Lãi TB: QC ${dinhDangPhanTram(th.laiTB.ptQC)} · không QC ${dinhDangPhanTram(th.laiTB.ptKhongQC)}` : '—',
@@ -407,18 +420,18 @@ function veDuyet() {
       }[n])))),
     h('div', { class: 'the the-bang' },
       h('div', { class: 'hang hang-dk' },
-        h('input', { type: 'search', class: 'o-nhap', placeholder: 'Tìm SKU, tên, phân loại…', value: st.tim, 'data-o': 'tim-cp', oninput: (e) => { st.tim = e.target.value; st.trang = 0; ve(); } }),
-        h('label', { class: 'hop-kiem hop-kiem-ngang' }, h('input', { type: 'checkbox', checked: st.chiCanhBao, onchange: (e) => { st.chiCanhBao = e.target.checked; st.trang = 0; ve(); } }), ` Chỉ dòng có cảnh báo (${coCanhBao})`),
+        h('input', { type: 'search', class: 'o-nhap', placeholder: 'Tìm SKU, tên, phân loại…', value: st.tim, 'data-o': 'tim-cp', oninput: (e) => { st.tim = e.target.value; st.trang = 0; treLai(veLai); } }),
+        h('label', { class: 'hop-kiem hop-kiem-ngang' }, h('input', { type: 'checkbox', checked: st.chiCanhBao, onchange: (e) => { st.chiCanhBao = e.target.checked; st.trang = 0; veLai(); } }), ` Chỉ dòng có cảnh báo (${coCanhBao})`),
         h('span', { class: 'gian-cach' }),
         h('span', { class: 'chu-nhat' }, st.them.dangTai ? '⏳ Đang so với campaign khác…' : st.them.ghiChu.join(' '))),
-      h('div', { class: 'khung-bang khung-bang-cao' }, st.xem === 'GAN' ? veBangGan(trang) : veBangGia(trang)),
+      h('div', { class: 'khung-bang khung-bang-cao', 'data-cuon': 'campaign', 'data-dieu-huong': '' }, st.xem === 'GAN' ? veBangGan(trang) : veBangGia(trang)),
       h('div', { class: 'hang hang-trang' },
         h('span', { class: 'chu-nhat' }, `${dinhDangTien(loc.length)} dòng · sắp xếp theo L30D sales giảm dần`),
         h('span', { class: 'gian-cach' }),
         soTrang > 1 ? [
-          h('button', { class: 'nut nut-nho', disabled: st.trang === 0, onclick: () => { st.trang--; ve(); } }, '‹ Trước'),
+          h('button', { class: 'nut nut-nho', disabled: st.trang === 0, onclick: () => { st.trang--; veLai(); } }, '‹ Trước'),
           h('span', { class: 'chu-nhat' }, `Trang ${st.trang + 1} / ${soTrang}`),
-          h('button', { class: 'nut nut-nho', disabled: st.trang >= soTrang - 1, onclick: () => { st.trang++; ve(); } }, 'Sau ›'),
+          h('button', { class: 'nut nut-nho', disabled: st.trang >= soTrang - 1, onclick: () => { st.trang++; veLai(); } }, 'Sau ›'),
         ] : null)),
     h('div', { class: 'the thanh-xuat' },
       h('div', null, h('b', null, `File đăng ký sẽ có ${dinhDangTien(dem.VAO)} SKU`), h('div', { class: 'chu-nhat' }, `Xóa ${dinhDangTien(ds.length - dem.VAO)} dòng không vào được (kể cả ngoài phạm vi). Campaign price ghi số, không công thức.`)),
@@ -443,16 +456,70 @@ function oSanPham(r) {
     h('div', { class: 'chu-nhat' }, r.sp.variation_value || '—', r.sp.seller_sku ? ` · ${r.sp.seller_sku}` : '', ` · SKU ${r.sku_id}`));
 }
 
+/** Sửa 1 dòng (giá / số lượng / bỏ chọn): chỉ thay dòng đó + các ô đếm, KHÔNG vẽ lại bảng, dòng không nhảy chỗ. */
+function suaMotDong(r, thayDoi) {
+  const cd = cdTinh();
+  const cu = st.sua.get(r.sku_id) || {};
+  st.sua.set(r.sku_id, { ...cu, ...thayDoi });
+  const i = st.ketQua.indexOf(r);
+  const moi = suaDong(r, thayDoi, cd);
+  st.ketQua[i] = moi;
+  st.daLuu = false;
+  const tr = goc.querySelector(`tr[data-sku="${CSS.escape(r.sku_id)}"]`);
+  if (!tr) { veLai(); return; }
+  veGiu(tr.parentElement, () => tr.replaceWith(veDongGia(moi, cd)));
+  // cập nhật các ô đếm + thanh xuất (cùng kích thước, không đẩy bố cục)
+  const dem = goc.querySelector('.luoi-nhom-cp');
+  const xuat = goc.querySelector('.thanh-xuat');
+  const [demMoi, , xuatMoi] = veDuyet();
+  if (dem) dem.replaceWith(demMoi);
+  if (xuat) xuat.replaceWith(xuatMoi);
+  const nhanLuu = goc.querySelector('.nhan-da-luu-cp');
+  if (nhanLuu) nhanLuu.classList.add('nhan-an');
+}
+
+function veDongGia(r, cd) {
+  const cb = canhBaoCua(r);
+  if (st.xem === 'NGOAI') {
+    return h('tr', { 'data-sku': r.sku_id }, h('td', { class: 'so' }, r.l30d), h('td', null, oSanPham(r)), h('td', null, r.lyDo), h('td', { class: 'chu-nhat' }, cb.join(' · ')));
+  }
+  const coThe = !!r.phi;
+  const oGia = oSo({
+    class: st.sua.get(r.sku_id)?.gia !== undefined && 'o-doi', kieu: 'tien', disabled: !coThe, choPhepTrong: false,
+    giaTri: Number.isFinite(r.gia) ? r.gia : null, kiemTra: (so) => (so <= 0 ? 'Giá phải lớn hơn 0' : null),
+    'data-o': `gia:${r.sku_id}`, 'aria-label': `Giá campaign SKU ${r.sku_id}`,
+    khiLuu: (so) => suaMotDong(r, { gia: so }),
+  });
+  const oSL = oSo({
+    class: ['o-so-nho', st.sua.get(r.sku_id)?.soLuong !== undefined && 'o-doi'], kieu: 'tien', disabled: !coThe, choPhepTrong: false,
+    giaTri: r.soLuong ?? null, kiemTra: (so) => (!Number.isInteger(so) ? 'Phải là số nguyên' : null),
+    'data-o': `sl:${r.sku_id}`, 'aria-label': `Số lượng SKU ${r.sku_id}`,
+    khiLuu: (so) => suaMotDong(r, { soLuong: so }),
+  });
+  const oLai = (lai, pt) => h('td', { class: ['so', 'o-lai', Number.isFinite(pt) && pt < cd.laiMin && 'o-lo'] },
+    Number.isFinite(lai) ? [h('div', { class: lai < 0 ? 'chu-lo' : 'chu-lai' }, dinhDangTien(lai)), h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt))] : '—');
+  const daChuyen = r.nhom !== st.xem;
+  return h('tr', { 'data-sku': r.sku_id, class: [cb.length && 'dong-canh-bao', daChuyen && 'dong-da-chuyen'] },
+    h('td', null, h('input', { type: 'checkbox', class: 'o-chon-sku', 'aria-label': `Chọn SKU ${r.sku_id}`, checked: r.nhom === 'VAO', disabled: !(r.nhom === 'VAO' || r.boChon),
+      onchange: (e) => suaMotDong(r, { boChon: !e.target.checked }) })),
+    h('td', { class: 'so' }, r.l30d),
+    h('td', null, oSanPham(r)),
+    h('td', null, oNhanDien(r)),
+    h('td', { class: 'so' }, dinhDangTien(r.nd?.von)),
+    h('td', { class: 'so' }, h('span', { class: r.canhBao.some((c) => c.includes('bất thường')) ? 'chu-vang' : '' }, dinhDangTien(r.retail))),
+    h('td', { class: 'chu-nhat o-khoang' }, r.khoangChu),
+    h('td', { class: 'so' }, oGia, r.ghiChuGia?.length ? h('div', { class: 'chu-pt' }, r.ghiChuGia.join(', ')) : null),
+    oLai(r.lai?.laiQC, r.lai?.ptQC),
+    oLai(r.lai?.laiKhongQC, r.lai?.ptKhongQC),
+    h('td', { class: 'so' }, h('div', { class: 'hang hang-sl' }, oSL, h('span', { class: 'chu-nhat' }, `/ ${r.ton}`))),
+    h('td', { class: 'o-ly-do' },
+      daChuyen ? h('div', { class: 'nhan-nho nhan-tim' }, `→ chuyển sang ${NHAN_NHOM[r.nhom]}`) : null,
+      r.nhom === 'LOAI' ? h('div', { class: 'chu-lo' }, r.lyDo) : null,
+      cb.map((c) => h('div', { class: 'chu-vang' }, '⚠ ', c))));
+}
+
 function veBangGia(trang) {
   const cd = cdTinh();
-  const sua = (r, thayDoi) => {
-    const cu = st.sua.get(r.sku_id) || {};
-    st.sua.set(r.sku_id, { ...cu, ...thayDoi });
-    const i = st.ketQua.indexOf(r);
-    st.ketQua[i] = suaDong(r, thayDoi, cd);
-    st.daLuu = false;
-    ve();
-  };
   const laNgoai = st.xem === 'NGOAI';
   return h('table', { class: 'bang bang-ln bang-cp' },
     h('thead', null, h('tr', null,
@@ -470,41 +537,7 @@ function veBangGia(trang) {
         h('th', { scope: 'col', class: 'so' }, 'SL / tồn'),
       ],
       h('th', { scope: 'col' }, laNgoai ? 'Ghi chú' : st.xem === 'LOAI' ? 'Lý do loại / cảnh báo' : 'Ghi chú / cảnh báo'))),
-    h('tbody', null, trang.length ? trang.map((r) => {
-      const cb = canhBaoCua(r);
-      if (laNgoai) {
-        return h('tr', null, h('td', { class: 'so' }, r.l30d), h('td', null, oSanPham(r)), h('td', null, r.lyDo), h('td', { class: 'chu-nhat' }, cb.join(' · ')));
-      }
-      const coThe = !!r.phi;
-      const oGia = h('input', {
-        class: ['o-so', st.sua.get(r.sku_id)?.gia !== undefined && 'o-doi'], type: 'text', inputmode: 'numeric', disabled: !coThe,
-        value: Number.isFinite(r.gia) ? dinhDangTien(r.gia) : '', 'data-o': `gia:${r.sku_id}`, 'aria-label': `Giá campaign SKU ${r.sku_id}`,
-        onchange: (e) => { const so = docSo(e.target.value); if (so === null || so <= 0) { e.target.classList.add('o-loi'); return; } sua(r, { gia: so }); },
-      });
-      const oSL = h('input', {
-        class: ['o-so', 'o-so-nho', st.sua.get(r.sku_id)?.soLuong !== undefined && 'o-doi'], type: 'text', inputmode: 'numeric', disabled: !coThe,
-        value: r.soLuong ?? '', 'data-o': `sl:${r.sku_id}`, 'aria-label': `Số lượng SKU ${r.sku_id}`,
-        onchange: (e) => { const so = docSo(e.target.value); if (so === null || so < 0 || !Number.isInteger(so)) { e.target.classList.add('o-loi'); return; } sua(r, { soLuong: so }); },
-      });
-      const oLai = (lai, pt) => h('td', { class: ['so', 'o-lai', Number.isFinite(pt) && pt < cd.laiMin && 'o-lo'] },
-        Number.isFinite(lai) ? [h('div', { class: lai < 0 ? 'chu-lo' : 'chu-lai' }, dinhDangTien(lai)), h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt))] : '—');
-      return h('tr', { class: cb.length ? 'dong-canh-bao' : '' },
-        h('td', null, h('input', { type: 'checkbox', class: 'o-chon-sku', 'aria-label': `Chọn SKU ${r.sku_id}`, checked: r.nhom === 'VAO', disabled: !(r.nhom === 'VAO' || r.boChon),
-          onchange: (e) => sua(r, { boChon: !e.target.checked }) })),
-        h('td', { class: 'so' }, r.l30d),
-        h('td', null, oSanPham(r)),
-        h('td', null, oNhanDien(r)),
-        h('td', { class: 'so' }, dinhDangTien(r.nd?.von)),
-        h('td', { class: 'so' }, h('span', { class: r.canhBao.some((c) => c.includes('bất thường')) ? 'chu-vang' : '' }, dinhDangTien(r.retail))),
-        h('td', { class: 'chu-nhat o-khoang' }, r.khoangChu),
-        h('td', { class: 'so' }, oGia, r.ghiChuGia?.length ? h('div', { class: 'chu-pt' }, r.ghiChuGia.join(', ')) : null),
-        oLai(r.lai?.laiQC, r.lai?.ptQC),
-        oLai(r.lai?.laiKhongQC, r.lai?.ptKhongQC),
-        h('td', { class: 'so' }, h('div', { class: 'hang hang-sl' }, oSL, h('span', { class: 'chu-nhat' }, `/ ${r.ton}`))),
-        h('td', { class: 'o-ly-do' },
-          r.nhom === 'LOAI' ? h('div', { class: 'chu-lo' }, r.lyDo) : null,
-          cb.map((c) => h('div', { class: 'chu-vang' }, '⚠ ', c))));
-    }) : h('tr', null, h('td', { colspan: 12, class: 'o-trong' }, 'Không có dòng nào.'))));
+    h('tbody', null, trang.length ? trang.map((r) => veDongGia(r, cd)) : h('tr', null, h('td', { colspan: 12, class: 'o-trong' }, 'Không có dòng nào.'))));
 }
 
 // ---------- Cần gán ----------
@@ -624,7 +657,7 @@ async function luuSheets(daXuat = false) {
     await kho.luuCampaign(campaign, dongKetQua(st.ketQua));
     cacheKQ.delete(st.tt.id);
     st.daLuu = true;
-    ve();
+    veLai();
     return true;
   } catch (e) {
     thongBao(`CHƯA lưu được campaign: ${e.message}`, 'loi');
