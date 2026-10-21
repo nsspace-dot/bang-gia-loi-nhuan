@@ -53,6 +53,13 @@ export function cacThangCoPhi(dsPhi, gian) {
   return [...s].filter(laThangHopLe).sort().reverse();
 }
 
+/** Bộ phí chưa nhập "Chi phí QC" (0 hoặc trống) → lãi Có QC sẽ bị tính cao hơn thực tế. */
+export function thieuPhiQC(p) {
+  return !p || !(Number(p.phi_qc) > 0);
+}
+
+export const CANH_BAO_QC = 'Chưa nhập phí QC – lãi Có QC sẽ bị tính cao hơn thực tế';
+
 export function boPhiRong(gian, nganh, thang) {
   const r = { gian, nganh, thang };
   for (const k of KHOAN_PHI) r[k.khoa] = 0;

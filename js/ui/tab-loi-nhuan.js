@@ -7,7 +7,7 @@ import { thongBao } from './thong-bao.js';
 import { manTrong, linhVat, chucMung } from './linh-vat.js';
 import * as kho from '../data/kho.js';
 import { docBangSanPham, laiTaiGian, locVaSapXep, tongKet, bangXuat, TIEU_DE_MAU } from '../core/bang-tinh.js';
-import { thangHienTai, hienThiThang, chuanHoaThang } from '../core/phi.js';
+import { thangHienTai, hienThiThang, chuanHoaThang, thieuPhiQC, CANH_BAO_QC } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangPhanTram } from '../core/so.js';
 import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { docBang } from '../excel/doc.js';
@@ -287,8 +287,9 @@ function veDong(i, gians, dsPhi) {
     if (r.trangThai === 'thieu-phi') return h('td', { class: 'so o-lai chu-nhat', title: `Chưa có bộ phí ${d.nganh} cho gian này (≤ ${hienThiThang(thangNay())})` }, 'chưa có phí');
     const lai = kichBan === 'qc' ? r.laiQC : r.laiKhongQC;
     const pt = kichBan === 'qc' ? r.ptQC : r.ptKhongQC;
-    return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''] },
-      h('div', { class: lop(lai) }, dinhDangTien(lai)),
+    const thieuQC = kichBan === 'qc' && thieuPhiQC(r.phi);
+    return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''], title: thieuQC ? `${d.nganh}: ${CANH_BAO_QC}` : null },
+      h('div', { class: lop(lai) }, thieuQC ? h('span', { class: 'dau-canh-bao-qc', 'aria-label': CANH_BAO_QC }, '⚠ ') : null, dinhDangTien(lai)),
       h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt)));
   };
 

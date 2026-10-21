@@ -26,7 +26,11 @@ async function goi(url, tuyChon) {
     if (/<html/i.test(chu)) throw new LoiApi('Apps Script trả về trang web thay vì dữ liệu — thường do Web App chưa đặt quyền "Bất kỳ ai" hoặc URL sai.');
     throw new LoiApi('Apps Script trả về dữ liệu không đọc được.');
   }
-  if (!du || du.ok !== true) throw new LoiApi(du && du.loi ? du.loi : 'Apps Script báo lỗi không rõ.');
+  if (!du || du.ok !== true) {
+    const e = new LoiApi(du && du.loi ? du.loi : 'Apps Script báo lỗi không rõ.');
+    if (du && du.ma) e.ma = du.ma; // vd 'HET_PHIEN': phiên sửa bảng phí hết hạn
+    throw e;
+  }
   return du;
 }
 

@@ -54,6 +54,13 @@ async function moTrang(matKhau = 'mat-khau-thu') {
   return { p, loi };
 }
 
+async function moKhoaBangPhi(p, matKhau = 'mat-khau-phi-thu') {
+  await p.click('button:has-text("🔒 Mở khóa để sửa")');
+  await p.fill('dialog input[type=password]', matKhau);
+  await p.click('dialog button[type=submit]');
+  if (matKhau === 'mat-khau-phi-thu') await p.waitForSelector('button:has-text("🔓 Đang sửa · Khóa lại")');
+}
+
 function taoFile(ten, dong) {
   const ctx = {};
   vm.createContext(ctx);
@@ -251,6 +258,7 @@ test('Bảng phí KHÔNG giựt: sửa liên tục 10 ô, lăn chuột, ↑↓, 
   const { p, loi } = await moTrang();
   await p.setViewportSize({ width: 1280, height: 620 });
   await p.click('[data-tab="bang-phi"]');
+  await moKhoaBangPhi(p);
   await p.click('.vien-gian:has-text("Tường Vip")');
   await p.fill('input[type=month]', '2026-10');
   await p.dispatchEvent('input[type=month]', 'change');
@@ -315,7 +323,8 @@ test('Bảng phí KHÔNG giựt: sửa liên tục 10 ô, lăn chuột, ↑↓, 
   assert.equal(await p.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Phí sàn — Lịch');
 
   // 4) Đồng bộ nền mang dữ liệu mới về khi đang có ô sửa chưa lưu → KHÔNG vẽ lại, chỉ hiện "Có dữ liệu mới"
-  await fetch(`${URL_APP}/gas`, { method: 'POST', body: JSON.stringify({ action: 'upsert', matKhau: 'mat-khau-thu', sheet: 'BANG_PHI', banGhi: [{ gian: 'Nhà Sách', nganh: 'Sách', thang: '2026-09', phi_san: 11, phi_vc: 1, phi_xl: 1, phi_qc: 1, aff_qc: 1, aff_noqc: 1 }] }) });
+  const { phien } = await (await fetch(`${URL_APP}/gas`, { method: 'POST', body: JSON.stringify({ action: 'moKhoaBangPhi', matKhau: 'mat-khau-phi-thu' }) })).json();
+  await fetch(`${URL_APP}/gas`, { method: 'POST', body: JSON.stringify({ action: 'upsert', phien, sheet: 'BANG_PHI', banGhi: [{ gian: 'Nhà Sách', nganh: 'Sách', thang: '2026-09', phi_san: 11, phi_vc: 1, phi_xl: 1, phi_qc: 1, aff_qc: 1, aff_noqc: 1 }] }) });
   await p.keyboard.type('21,5'); // đang gõ dở trong ô Phí sàn — Lịch
   await p.evaluate(() => document.getElementById('trang-thai-dong-bo').dispatchEvent(new MouseEvent('click'))); // = đồng bộ nền, không mất focus
   await p.waitForSelector('.du-lieu-moi');
@@ -372,6 +381,49 @@ test('Tính lợi nhuận: sửa giá 1 dòng chỉ cập nhật dòng đó (kh�
   assert.ok(await p.locator('.bang-ln tbody tr:nth-child(3).dong-lo').count());
   // Enter đã chuyển con trỏ sang ô kế tiếp
   assert.match(await p.evaluate(() => document.activeElement.getAttribute('aria-label') || ''), /dòng/);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Bảng phí: mặc định chỉ xem; sai mật khẩu → báo lỗi; đúng → sửa được; Khóa lại → về chỉ xem; cảnh báo thiếu QC', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('.vien-gian:has-text("Nhà Sách")');
+  // Chế độ xem: không có ô nhập, không có Nhập Excel / Lưu / Xóa tháng / danh mục; vẫn có Xuất Excel
+  await p.waitForSelector('.bang-phi .o-xem');
+  assert.equal(await p.locator('.bang-phi input').count(), 0);
+  assert.equal(await p.locator('#tab-bang-phi button:has-text("Nhập từ Excel")').count(), 0);
+  assert.equal(await p.locator('.hang-luu').count(), 0);
+  assert.equal(await p.locator('summary:has-text("Gian hàng & ngành")').count(), 0);
+  assert.equal(await p.locator('#tab-bang-phi button:has-text("Xuất Excel")').count(), 1);
+  // Cảnh báo ngành Trà chưa có phí QC: ô tô vàng + dòng chữ
+  assert.equal(await p.locator('.bang-phi td.o-thieu-qc').count(), 1);
+  assert.match(await p.textContent('.canh-bao-qc'), /Trà: Chưa nhập phí QC – lãi Có QC sẽ bị tính cao hơn thực tế/);
+
+  // Sai mật khẩu
+  await moKhoaBangPhi(p, 'sai-roi');
+  await p.waitForFunction(() => /Sai mật khẩu/.test(document.querySelector('dialog .chu-loi')?.textContent || ''));
+  await p.click('dialog button:has-text("Hủy")');
+  assert.equal(await p.locator('.bang-phi input').count(), 0);
+
+  // Đúng mật khẩu → sửa được, mã phiên nằm trong sessionStorage (không phải mật khẩu)
+  await moKhoaBangPhi(p);
+  assert.ok(await p.locator('.bang-phi input').count() > 0);
+  assert.equal(await p.locator('#tab-bang-phi button:has-text("Nhập từ Excel")').count(), 1);
+  const luu = await p.evaluate(() => sessionStorage.getItem('bggl.phien-bang-phi.v1'));
+  assert.ok(luu && !luu.includes('mat-khau-phi-thu'));
+  // Sửa QC ngành Trà → hết cảnh báo ngay khi gõ
+  await p.fill('[aria-label="Chi phí QC — Trà"]', '6');
+  assert.equal(await p.locator('.bang-phi td.o-thieu-qc').count(), 0);
+  assert.ok(await p.locator('.canh-bao-qc').isHidden());
+
+  // Khóa lại (có thay đổi chưa lưu → hỏi xác nhận)
+  await p.click('button:has-text("🔓 Đang sửa · Khóa lại")');
+  await p.click('dialog button:has-text("Bỏ thay đổi & khóa")');
+  await p.waitForSelector('button:has-text("🔒 Mở khóa để sửa")');
+  assert.equal(await p.locator('.bang-phi input').count(), 0);
+  assert.equal(await p.evaluate(() => sessionStorage.getItem('bggl.phien-bang-phi.v1')), null);
+
   assert.deepEqual(loi, []);
   await p.close();
 });
