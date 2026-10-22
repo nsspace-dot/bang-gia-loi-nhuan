@@ -52,13 +52,6 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 
 > Mật khẩu chỉ nằm trong Apps Script. Sai mật khẩu quá 10 lần thì bị khóa 10 phút.
 
-4. Thêm thuộc tính thứ hai cho **mật khẩu sửa Bảng phí**:
-   - **Thuộc tính**: `MAT_KHAU_BANG_PHI` — viết HOA, đúng như vậy.
-   - **Giá trị**: mật khẩu riêng để sửa bảng phí (nên khác `MAT_KHAU`).
-   - Bấm **Lưu thuộc tính tập lệnh**.
-
-> Thuộc tính `BI_MAT_PHIEN` do Apps Script tự tạo lần đầu có người mở khóa — **đừng xóa / đừng sửa**.
-
 ### 2.4. Tạo sẵn các sheet (không bắt buộc, nhưng nên làm)
 1. Quay lại trình soạn thảo (biểu tượng `< >` bên trái).
 2. Ở thanh trên cùng, ô chọn hàm → chọn **`taoCacSheet`** → bấm ▶ **Chạy**.
@@ -134,8 +127,6 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - App tự đồng bộ với Google Sheets 5 phút/lần. Nếu bạn đang sửa dở, app **không** tự làm mới bảng mà hiện thông báo nhỏ góc trái dưới **"Có dữ liệu mới từ Google Sheets — Tải lại"**. Bấm **Tải lại** khi tiện; số bạn đang sửa vẫn được giữ.
 
 ### 💸 Bảng phí
-- Mặc định là **chế độ xem**: ai có link cũng xem được phí và **📤 Xuất Excel**, nhưng không sửa được.
-- Muốn sửa: bấm **🔒 Mở khóa để sửa** (góc phải) → nhập mật khẩu `MAT_KHAU_BANG_PHI`. Apps Script kiểm tra, đúng thì cho sửa **8 giờ** trên tab trình duyệt đó (nút đổi thành **🔓 Đang sửa · Khóa lại**). Đóng tab hoặc bấm **Khóa lại** là về chế độ xem. Sai 5 lần → khóa 10 phút.
 - Ngành nào có **Chi phí QC** = 0 / trống: ô tô vàng ⚠ và ghi *"Chưa nhập phí QC – lãi Có QC sẽ bị tính cao hơn thực tế"*. Ở tab Tính lợi nhuận, cột **Có QC** của ngành đó có dấu ⚠.
 - Chọn **gian** → chọn **tháng áp dụng** → sửa → **Lưu**.
 - Phí tháng mới **không** xóa phí tháng cũ. Khi tính, app dùng **bộ phí mới nhất có tháng áp dụng ≤ tháng đang tính**.
@@ -201,7 +192,6 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 ## 7. Đổi mật khẩu, xem lịch sử, sao lưu
 
 - **Đổi mật khẩu**: Apps Script → ⚙️ Cài đặt dự án → Thuộc tính tập lệnh → sửa giá trị `MAT_KHAU` → Lưu. Không cần triển khai lại. Sau đó nhập mật khẩu mới ở ⚙️ Cài đặt trên mỗi máy.
-- **Đổi mật khẩu Bảng phí**: sửa giá trị `MAT_KHAU_BANG_PHI` → Lưu. Mọi máy đang mở khóa sẽ bị khóa lại ngay ở lần lưu kế tiếp.
 - **Lịch sử bảng phí**: sheet `LICH_SU_BANG_PHI` — mỗi ô thay đổi 1 dòng: thời gian, hành động (THEM / SUA / XOA), tháng, gian, ngành, ô, giá trị cũ → mới.
 - **Lịch sử**: sheet `LICH_SU` — mỗi lần thêm / sửa / xóa có: thời gian, hành động (THEM / SUA / XOA), sheet, khóa, dữ liệu cũ, dữ liệu mới. Lưu campaign / bảng tính ghi 1 dòng tóm tắt.
 - **Sao lưu**: Google Sheets → **Tệp** → **Tạo bản sao**, hoặc **Tải xuống** → Excel. Nên làm hằng tháng.
@@ -216,8 +206,6 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 | Không kết nối được Apps Script | Mất mạng, URL sai, chưa triển khai | Kiểm tra mạng; URL phải kết thúc bằng `/exec`; làm lại bước 2.5 |
 | Apps Script trả về trang web thay vì dữ liệu | Quyền truy cập không phải "Bất kỳ ai" | Quản lý các bản triển khai → Chỉnh sửa → "Bất kỳ ai" → Phiên bản mới |
 | Chưa đặt mật khẩu | Thiếu thuộc tính `MAT_KHAU` | Làm bước 2.3 |
-| Chưa đặt mật khẩu bảng phí | Thiếu thuộc tính `MAT_KHAU_BANG_PHI` | Làm bước 2.3 (mục 4) |
-| Bảng phí đang khóa / Phiên sửa đã hết hạn | Chưa mở khóa, quá 8 giờ, hoặc mật khẩu bảng phí vừa đổi | Bấm 🔒 Mở khóa để sửa, nhập lại mật khẩu |
 | Sai mật khẩu / Sai quá nhiều lần | Gõ sai | Kiểm tra lại; bị khóa thì chờ 10 phút |
 | Máy chủ đang bận | Người khác đang lưu cùng lúc | Chờ vài giây, bấm lưu lại |
 | chưa có phí (trong bảng) | Gian/ngành chưa có bộ phí ≤ tháng đang tính | Tab Bảng phí → nhập phí cho ngành đó |

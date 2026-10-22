@@ -2,7 +2,6 @@
 // Dùng cho test và cho máy chủ thử (scripts/may-chu-thu.mjs).
 import fs from 'node:fs';
 import vm from 'node:vm';
-import crypto from 'node:crypto';
 
 class SheetGiaLap {
   constructor(ten) { this.ten = ten; this.o = []; this.maxRows = 1000; }
@@ -45,14 +44,13 @@ class VungGiaLap {
   setFontWeight() { return this; }
 }
 
-export function taoMoiTruong({ matKhau = 'mat-khau-thu', matKhauBangPhi = 'mat-khau-phi-thu' } = {}) {
+export function taoMoiTruong({ matKhau = 'mat-khau-thu' } = {}) {
   const sheets = new Map();
   const cache = new Map();
-  const thuocTinh = new Map([...(matKhau ? [['MAT_KHAU', matKhau]] : []), ...(matKhauBangPhi ? [['MAT_KHAU_BANG_PHI', matKhauBangPhi]] : [])]);
+  const thuocTinh = new Map(matKhau ? [['MAT_KHAU', matKhau]] : []);
   let dangKhoa = false;
   const ctx = {
     console,
-    Date, // dùng chung Date với Node để test giả lập được thời gian (hết hạn phiên)
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({
         getSheetByName: (t) => sheets.get(t) || null,
@@ -60,8 +58,8 @@ export function taoMoiTruong({ matKhau = 'mat-khau-thu', matKhauBangPhi = 'mat-k
       }),
       flush() {},
     },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => thuocTinh.get(k) ?? null, setProperty: (k, v) => thuocTinh.set(k, String(v)) }) },
-    CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), remove: (k) => cache.delete(k) }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => thuocTinh.get(k) ?? null }) },
+    CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v) }) },
     LockService: {
       getScriptLock: () => ({
         tryLock: () => { if (dangKhoa) return false; dangKhoa = true; return true; },
@@ -72,12 +70,7 @@ export function taoMoiTruong({ matKhau = 'mat-khau-thu', matKhauBangPhi = 'mat-k
       MimeType: { JSON: 'json' },
       createTextOutput: (s) => ({ noiDung: s, setMimeType() { return this; }, getContent() { return s; } }),
     },
-    Utilities: {
-      formatDate: (d) => d.toISOString(),
-      getUuid: () => crypto.randomUUID(),
-      computeHmacSha256Signature: (giaTri, khoa) => [...crypto.createHmac('sha256', khoa).update(giaTri).digest()],
-      base64EncodeWebSafe: (bytes) => Buffer.from(bytes).toString('base64').replace(/\+/g, '-').replace(/\//g, '_'),
-    },
+    Utilities: { formatDate: (d) => d.toISOString() },
     Session: { getScriptTimeZone: () => 'Asia/Ho_Chi_Minh' },
   };
   vm.createContext(ctx);
@@ -86,8 +79,6 @@ export function taoMoiTruong({ matKhau = 'mat-khau-thu', matKhauBangPhi = 'mat-k
   return {
     sheets,
     thuocTinh,
-    /** Lấy mã phiên sửa bảng phí (giống người dùng bấm Mở khóa + nhập đúng mật khẩu). */
-    moKhoa: () => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify({ action: 'moKhoaBangPhi', matKhau: thuocTinh.get('MAT_KHAU_BANG_PHI') }) } }).getContent()).phien,
     get: (thamSo) => JSON.parse(ctx.doGet({ parameter: thamSo }).getContent()),
     post: (body) => JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent()),
     duLieuSheet: (t) => (sheets.get(t)?.o || []).map((d) => [...d]),

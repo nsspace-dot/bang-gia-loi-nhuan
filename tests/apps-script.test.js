@@ -16,102 +16,12 @@ test('ping và đọc không cần mật khẩu', () => {
 
 test('ghi không có / sai mật khẩu → bị từ chối, không ghi gì', () => {
   const g = taoMoiTruong();
-  const a = g.post({ action: 'upsert', sheet: 'GIA_VON', banGhi: [{ nhom: 'N', phan_loai: '30x40', gia_von: 1 }] });
+  const a = g.post({ action: 'upsert', sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] });
   assert.equal(a.ok, false);
   assert.match(a.loi, /Sai mật khẩu/);
-  const b = g.post({ action: 'upsert', matKhau: 'sai', sheet: 'GIA_VON', banGhi: [{ nhom: 'N', phan_loai: '30x40', gia_von: 1 }] });
+  const b = g.post({ action: 'upsert', matKhau: 'sai', sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] });
   assert.equal(b.ok, false);
-  assert.deepEqual(g.get({ action: 'docTatCa' }).duLieu.GIA_VON, []);
-});
-
-test('bảng phí: ghi / xóa không có mã phiên → từ chối (kể cả có mật khẩu chung)', () => {
-  const g = taoMoiTruong();
-  for (const body of [
-    { action: 'upsert', sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] },
-    { action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] },
-    { action: 'upsert', phien: '9999999999999.gia-mao', sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] },
-    { action: 'xoa', matKhau: MK, sheet: 'BANG_PHI', khoa: ['Gian A|Tranh|2026-10'] },
-  ]) {
-    const r = g.post(body);
-    assert.equal(r.ok, false);
-    assert.equal(r.ma, 'HET_PHIEN');
-  }
   assert.deepEqual(g.get({ action: 'docTatCa' }).duLieu.BANG_PHI, []);
-});
-
-test('bảng phí: mở khóa đúng mật khẩu → mã phiên 8 giờ, ghi được; đổi mật khẩu → phiên cũ hết hiệu lực', () => {
-  const g = taoMoiTruong();
-  const r = g.post({ action: 'moKhoaBangPhi', matKhau: 'mat-khau-phi-thu' });
-  assert.equal(r.ok, true);
-  assert.ok(Math.abs(r.hetHan - Date.now() - 8 * 3600 * 1000) < 5000);
-  assert.equal(g.post({ action: 'kiemTraPhien', phien: r.phien }).ok, true);
-  assert.equal(g.post({ action: 'upsert', phien: r.phien, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] }).ok, true);
-  // giả mạo hạn dùng (sửa số) → chữ ký không khớp
-  const [han, ky] = r.phien.split('.');
-  assert.equal(g.post({ action: 'upsert', phien: `${+han + 1000}.${ky}`, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] }).ok, false);
-  g.thuocTinh.set('MAT_KHAU_BANG_PHI', 'mat-khau-moi');
-  assert.equal(g.post({ action: 'upsert', phien: r.phien, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] }).ma, 'HET_PHIEN');
-  assert.equal(g.get({ action: 'docTatCa' }).duLieu.BANG_PHI[0].phi_san, 20);
-});
-
-test('bảng phí: phiên hết hạn → từ chối', () => {
-  const g = taoMoiTruong();
-  const phien = g.moKhoa();
-  const thatNow = Date.now;
-  Date.now = () => thatNow() + 8 * 3600 * 1000 + 1000;
-  try {
-    const r = g.post({ action: 'upsert', phien, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 20)] });
-    assert.equal(r.ok, false);
-    assert.match(r.loi, /hết hạn/);
-  } finally { Date.now = thatNow; }
-});
-
-test('bảng phí: sai mật khẩu 5 lần → khóa 10 phút (kể cả nhập đúng)', () => {
-  const g = taoMoiTruong();
-  const r1 = g.post({ action: 'moKhoaBangPhi', matKhau: 'sai' });
-  assert.equal(r1.ok, false);
-  assert.match(r1.loi, /Sai mật khẩu/);
-  for (let i = 0; i < 4; i++) g.post({ action: 'moKhoaBangPhi', matKhau: 'sai' });
-  const r = g.post({ action: 'moKhoaBangPhi', matKhau: 'mat-khau-phi-thu' });
-  assert.equal(r.ok, false);
-  assert.match(r.loi, /10 phút/);
-});
-
-test('bảng phí: chưa đặt MAT_KHAU_BANG_PHI → báo rõ, không mở khóa được', () => {
-  const g = taoMoiTruong({ matKhauBangPhi: '' });
-  const r = g.post({ action: 'moKhoaBangPhi', matKhau: '' });
-  assert.equal(r.ok, false);
-  assert.match(r.loi, /MAT_KHAU_BANG_PHI/);
-  assert.equal(g.get({ action: 'ping' }).coMatKhauBangPhi, false);
-});
-
-test('danh mục gian/ngành: ghi được bằng mã phiên bảng phí hoặc mật khẩu chung', () => {
-  const g = taoMoiTruong();
-  assert.equal(g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH', ten: 'Thử', thu_tu: 1 }] }).ok, true);
-  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH', ten: 'Thử 2', thu_tu: 2 }] }).ok, true);
-  assert.equal(g.post({ action: 'upsert', phien: 'sai', sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH', ten: 'Thử 3' }] }).ok, false);
-  // mã phiên bảng phí KHÔNG dùng được cho sheet khác
-  assert.equal(g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'GIA_VON', banGhi: [{ nhom: 'N', phan_loai: 'x', gia_von: 1 }] }).ok, false);
-});
-
-test('LICH_SU_BANG_PHI: mỗi ô đổi 1 dòng (thời gian, tháng, gian, ngành, ô, cũ → mới); xóa tháng cũng ghi', () => {
-  const g = taoMoiTruong();
-  const phien = g.moKhoa();
-  g.post({ action: 'upsert', phien, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
-  g.post({ action: 'upsert', phien, sheet: 'BANG_PHI', banGhi: [{ ...phi('2026-10', 23), phi_qc: 0 }] });
-  const ls = g.duLieuSheet('LICH_SU_BANG_PHI');
-  assert.deepEqual(ls[0], ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi']);
-  assert.equal(ls.filter((d) => d[1] === 'THEM').length, 6);
-  const sua = ls.filter((d) => d[1] === 'SUA');
-  assert.deepEqual(sua.map((d) => d.slice(2)), [
-    ['2026-10', 'Gian A', 'Tranh', 'Phí sàn (%)', '21', '23'],
-    ['2026-10', 'Gian A', 'Tranh', 'Chi phí QC (%)', '5', '0'],
-  ]);
-  assert.ok(sua[0][0]);
-  g.post({ action: 'xoa', phien, sheet: 'BANG_PHI', khoa: [{ gian: 'Gian A', nganh: 'Tranh', thang: '2026-10' }] });
-  const xoa = g.duLieuSheet('LICH_SU_BANG_PHI').filter((d) => d[1] === 'XOA');
-  assert.equal(xoa.length, 6); // cả phi_qc = 0 cũng ghi ("0" → "")
-  assert.equal(xoa[0][7], '');
 });
 
 test('chưa đặt mật khẩu trong Script Properties → báo rõ', () => {
@@ -131,9 +41,9 @@ test('sai mật khẩu quá 10 lần → tạm khóa', () => {
 
 test('upsert theo khóa: tháng mới không ghi đè tháng cũ; sửa cùng khóa thì cập nhật đúng dòng', () => {
   const g = taoMoiTruong();
-  assert.equal(g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-09', 20)] }).ok, true);
-  assert.equal(g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] }).ok, true);
-  assert.equal(g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-10', 22.5)] }).ok, true);
+  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-09', 20)] }).ok, true);
+  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] }).ok, true);
+  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 22.5)] }).ok, true);
   const ds = g.get({ action: 'docTatCa' }).duLieu.BANG_PHI;
   assert.equal(ds.length, 2);
   assert.equal(ds.find((p) => p.thang === '2026-09').phi_san, 20);
@@ -143,8 +53,8 @@ test('upsert theo khóa: tháng mới không ghi đè tháng cũ; sửa cùng kh
 
 test('LICH_SU ghi thời gian, hành động, khóa, dữ liệu cũ, dữ liệu mới', () => {
   const g = taoMoiTruong();
-  g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
-  g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-10', 23)] });
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 23)] });
   const ls = g.duLieuSheet('LICH_SU');
   assert.deepEqual(ls[0], ['thoi_gian', 'hanh_dong', 'sheet', 'khoa', 'du_lieu_cu', 'du_lieu_moi']);
   assert.equal(ls.length, 3);
@@ -157,8 +67,8 @@ test('LICH_SU ghi thời gian, hành động, khóa, dữ liệu cũ, dữ liệ
 
 test('ghi lại y hệt dữ liệu cũ → không ghi thêm lịch sử', () => {
   const g = taoMoiTruong();
-  g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
-  g.post({ action: 'upsert', phien: g.moKhoa(), sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
   assert.equal(g.duLieuSheet('LICH_SU').length, 2);
 });
 
@@ -240,4 +150,23 @@ test('body không phải JSON → lỗi rõ ràng', () => {
   const r = g.post('khong phai json');
   assert.equal(r.ok, false);
   assert.match(r.loi, /JSON/);
+});
+
+test('LICH_SU_BANG_PHI: mỗi ô đổi 1 dòng (thời gian, tháng, gian, ngành, ô, cũ → mới); xóa tháng cũng ghi', () => {
+  const g = taoMoiTruong();
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [{ ...phi('2026-10', 23), phi_qc: 0 }] });
+  const ls = g.duLieuSheet('LICH_SU_BANG_PHI');
+  assert.deepEqual(ls[0], ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi']);
+  assert.equal(ls.filter((d) => d[1] === 'THEM').length, 6);
+  const sua = ls.filter((d) => d[1] === 'SUA');
+  assert.deepEqual(sua.map((d) => d.slice(2)), [
+    ['2026-10', 'Gian A', 'Tranh', 'Phí sàn (%)', '21', '23'],
+    ['2026-10', 'Gian A', 'Tranh', 'Chi phí QC (%)', '5', '0'],
+  ]);
+  assert.ok(sua[0][0]);
+  g.post({ action: 'xoa', matKhau: MK, sheet: 'BANG_PHI', khoa: [{ gian: 'Gian A', nganh: 'Tranh', thang: '2026-10' }] });
+  const xoa = g.duLieuSheet('LICH_SU_BANG_PHI').filter((d) => d[1] === 'XOA');
+  assert.equal(xoa.length, 6);
+  assert.equal(xoa[0][7], '');
 });

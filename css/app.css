@@ -508,15 +508,9 @@ main { overflow-anchor: none; }
 }
 .du-lieu-moi .nut-dong { width: 28px; height: 28px; font-size: 17px; }
 
-/* ---------- Khóa bảng phí & cảnh báo thiếu phí QC ---------- */
-.nut-khoa { margin-left: 4px; }
-.nut-dang-sua { background: var(--vang-nen); border-color: #f3d48a; color: var(--vang); }
-.o-xem { justify-content: flex-end; padding: 6px 4px; }
-.o-xem b { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* ---------- Cảnh báo thiếu phí QC ---------- */
 .bang-phi td.o-thieu-qc { background: var(--vang-nen); }
 .bang-phi td.o-thieu-qc .o-co-don-vi::before { content: '⚠'; color: var(--vang); margin-right: auto; }
 .canh-bao-qc { margin-top: 10px; }
 .canh-bao-qc[hidden] { display: none; }
-.che-do-xem { margin-top: 12px; }
 .dau-canh-bao-qc { color: var(--vang); cursor: help; }
-#tab-bang-phi .the-dau > .hang-nut { margin-left: auto; justify-content: flex-end; }

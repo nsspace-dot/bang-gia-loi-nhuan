@@ -15,12 +15,10 @@ import { docBang } from '../excel/doc.js';
 const st = { gian: null, thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
 let goc;
 let dangLuu = false;
-let henKhoa = null; // tự về chế độ xem khi mã phiên hết hạn
 
 export function taoTabBangPhi(phanTu) {
   goc = phanTu;
   kho.dangKy((_, ct) => {
-    if (ct.khoaBangPhi) { veLai(); return; } // vừa mở khóa / khóa lại / phiên hết hạn
     if (!ct.duLieuDoi || dangLuu) return; // chỉ đổi trạng thái đồng bộ / tab này đang tự lưu → không vẽ lại ở đây
     // Đang sửa dở (chưa lưu) mà dữ liệu đến từ đồng bộ nền / tab khác → KHÔNG vẽ lại, chỉ báo
     if ((coThayDoi() || dangGoDo(goc)) && ct.nguon !== 'cache') { baoDuLieuMoi('bang-phi', veLai); return; }
@@ -84,20 +82,13 @@ function ve() {
       h('button', { class: 'nut nut-chinh', onclick: moCaiDat }, '⚙️ Mở Cài đặt')));
     return;
   }
-  const phien = kho.layPhienBangPhi();
-  const suaDuoc = !!phien;
-  clearTimeout(henKhoa);
-  if (phien) henKhoa = setTimeout(() => { if (!kho.dangMoKhoaBangPhi()) veLai(); }, Math.min(phien.hetHan - Date.now() + 500, 2 ** 31 - 1));
   thayNoiDung(goc,
     h('div', { class: 'the' },
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Bảng phí'), h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Sửa phí tháng mới không làm mất phí tháng cũ.')),
         h('div', { class: 'hang-nut' },
-          suaDuoc ? h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập từ Excel') : null,
-          h('button', { class: 'nut', onclick: xuatExcel, disabled: !ts.duLieu.BANG_PHI.length }, '📤 Xuất Excel'),
-          suaDuoc
-            ? h('button', { class: 'nut nut-khoa nut-dang-sua', onclick: khoaLai, title: `Phiên sửa hết hạn lúc ${new Date(phien.hetHan).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` }, '🔓 Đang sửa · Khóa lại')
-            : h('button', { class: 'nut nut-khoa', onclick: moKhoa }, '🔒 Mở khóa để sửa'))),
+          h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập từ Excel'),
+          h('button', { class: 'nut', onclick: xuatExcel, disabled: !ts.duLieu.BANG_PHI.length }, '📤 Xuất Excel'))),
       h('div', { class: 'chon-gian', role: 'tablist', 'aria-label': 'Gian hàng' },
         gians.map((g) => h('button', {
           class: ['vien-gian', `gian-${mauGian(g, gians)}`, g === st.gian && 'dang-chon'],
@@ -106,57 +97,9 @@ function ve() {
         }, g))),
       veChonThang(),
       veThongBaoNguon(),
-      veBang(suaDuoc),
-      suaDuoc ? veHangLuu() : h('p', { class: 'goi-y che-do-xem' }, '👀 Chế độ xem — ai có link cũng xem được. Chỉ người có mật khẩu mới sửa được bảng phí.')),
-    suaDuoc ? veDanhMuc() : null);
-}
-
-// ---------- Khóa / mở khóa ----------
-
-function moKhoa() {
-  const oMk = h('input', { type: 'password', class: 'o-nhap o-nhap-rong', autocomplete: 'current-password', 'aria-label': 'Mật khẩu bảng phí' });
-  const chuLoi = h('p', { class: 'chu-loi', 'aria-live': 'polite' });
-  const nutMo = h('button', { type: 'submit', class: 'nut nut-chinh' }, 'Mở khóa');
-  const dong = () => { dlg.close(); dlg.remove(); };
-  const gui = async (e) => {
-    e.preventDefault();
-    if (!oMk.value) { oMk.focus(); return; }
-    nutMo.disabled = true;
-    nutMo.textContent = 'Đang kiểm tra…';
-    chuLoi.textContent = '';
-    try {
-      await kho.moKhoaBangPhi(oMk.value);
-      dong();
-      thongBao('Đã mở khóa — sửa được bảng phí trong 8 giờ (hoặc tới khi bấm Khóa lại / đóng tab).');
-    } catch (x) {
-      chuLoi.textContent = x.message;
-      oMk.select();
-    } finally {
-      nutMo.disabled = false;
-      nutMo.textContent = 'Mở khóa';
-    }
-  };
-  const dlg = h('dialog', { class: 'hop-thoai hop-thoai-nho' },
-    h('form', { onsubmit: gui },
-      h('p', { class: 'hop-thoai-cau-hoi' }, '🔒 Nhập mật khẩu để sửa bảng phí'),
-      oMk,
-      chuLoi,
-      h('p', { class: 'goi-y' }, 'Mật khẩu được kiểm tra ở Apps Script. Mở khóa có hiệu lực 8 giờ trên tab trình duyệt này.'),
-      h('div', { class: 'hang-nut' },
-        h('span', { class: 'gian-cach' }),
-        h('button', { type: 'button', class: 'nut', onclick: dong }, 'Hủy'),
-        nutMo)));
-  dlg.addEventListener('cancel', (e) => { e.preventDefault(); dong(); });
-  document.body.append(dlg);
-  dlg.showModal();
-  oMk.focus();
-}
-
-async function khoaLai() {
-  if (coThayDoi() && !(await xacNhan('Bạn có thay đổi chưa lưu. Khóa lại sẽ bỏ các thay đổi này?', { nutDongY: 'Bỏ thay đổi & khóa', nguyHiem: true }))) return;
-  st.nhap = {};
-  kho.khoaBangPhi();
-  thongBao('Đã khóa bảng phí.', 'tt');
+      veBang(),
+      veHangLuu()),
+    veDanhMuc());
 }
 
 async function doiGianThang(gian, thang) {
@@ -191,7 +134,7 @@ function veThongBaoNguon() {
   return h('div', { class: 'ghi-chu ghi-chu-vang' }, `${st.gian} chưa có bộ phí nào từ tháng ${hienThiThang(st.thang)} trở về trước. Nhập phí rồi bấm Lưu.`);
 }
 
-function veBang(suaDuoc) {
+function veBang() {
   const nganhs = dsNganh();
   const oTong = {};
   const oQC = {};
@@ -202,7 +145,7 @@ function veBang(suaDuoc) {
     chuQC.textContent = `⚠ ${thieu.join(', ')}: ${CANH_BAO_QC}.`;
   };
   const capNhatTong = (nganh) => {
-    const p = suaDuoc ? boPhiDangNhap(nganh) : (nguon(nganh) || {});
+    const p = boPhiDangNhap(nganh);
     const thieu = thieuPhiQC(p);
     oQC[nganh].classList.toggle('o-thieu-qc', thieu);
     oQC[nganh].title = thieu ? CANH_BAO_QC : '';
@@ -229,10 +172,6 @@ function veBang(suaDuoc) {
         if (k.khoa === 'phi_qc') oQC[n] = o;
         return o;
       };
-      // Chế độ xem: chữ thường, không sửa được
-      if (!suaDuoc) {
-        return td(h('div', { class: 'o-co-don-vi o-xem' }, h('b', null, r ? dinhDangSo(r[k.khoa] ?? 0) : '—'), h('span', null, k.donVi)));
-      }
       const inp = oSo({
         giaTri: r ? r[k.khoa] ?? null : null,
         giaTriGo: st.nhap[n]?.[k.khoa],

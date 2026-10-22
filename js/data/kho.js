@@ -5,7 +5,6 @@ import { goiGet, goiPost, LoiApi } from './api.js';
 const KHOA_CACHE = 'bggl.cache.v1';
 const KHOA_CAI_DAT = 'bggl.caidat.v1';
 const KHOA_MAT_KHAU = 'bggl.matkhau.v1';
-const KHOA_PHIEN_BANG_PHI = 'bggl.phien-bang-phi.v1';
 
 const KHOA_SHEET = {
   DANH_MUC: ['loai', 'ten'],
@@ -57,31 +56,6 @@ export function luuMatKhau(mk, nho) {
     sessionStorage.removeItem(KHOA_MAT_KHAU);
     if (mk) (nho ? localStorage : sessionStorage).setItem(KHOA_MAT_KHAU, mk);
   } catch { /* trình duyệt chặn bộ nhớ */ }
-}
-
-// ---------- Khóa bảng phí (mã phiên do Apps Script cấp, hạn 8 giờ, chỉ lưu trong tab trình duyệt này) ----------
-
-/** { phien, hetHan } nếu còn hạn, ngược lại null. */
-export function layPhienBangPhi() {
-  const p = docJSON(sessionStorage, KHOA_PHIEN_BANG_PHI);
-  if (p && p.phien && p.hetHan > Date.now()) return p;
-  return null;
-}
-
-export function dangMoKhoaBangPhi() {
-  return !!layPhienBangPhi();
-}
-
-/** Gửi mật khẩu lên Apps Script kiểm tra; đúng thì lưu mã phiên. Sai → ném lỗi (thông báo từ Apps Script). */
-export async function moKhoaBangPhi(matKhau) {
-  const r = await goiPost(layCaiDat().url, { action: 'moKhoaBangPhi', matKhau });
-  ghiJSON(sessionStorage, KHOA_PHIEN_BANG_PHI, { phien: r.phien, hetHan: r.hetHan });
-  baoThayDoi({ duLieuDoi: false, khoaBangPhi: true });
-}
-
-export function khoaBangPhi() {
-  try { sessionStorage.removeItem(KHOA_PHIEN_BANG_PHI); } catch { /* bỏ qua */ }
-  baoThayDoi({ duLieuDoi: false, khoaBangPhi: true });
 }
 
 // ---------- Trạng thái ----------
@@ -177,23 +151,8 @@ function khoaCua(sheet, o) {
 async function goiGhi(body) {
   const { url } = layCaiDat();
   const matKhau = layMatKhau();
-  const phien = layPhienBangPhi()?.phien;
-  // Bảng phí: bắt buộc mã phiên (Apps Script kiểm tra lại). Danh mục gian/ngành: mã phiên hoặc mật khẩu chung.
-  if (body.sheet === 'BANG_PHI' && !phien) {
-    const e = new LoiApi('Bảng phí đang khóa. Bấm "🔒 Mở khóa để sửa" và nhập mật khẩu.');
-    e.ma = 'HET_PHIEN';
-    throw e;
-  }
-  if (body.sheet !== 'BANG_PHI' && !(body.sheet === 'DANH_MUC' && phien) && !matKhau) {
-    throw new LoiApi('Chưa nhập mật khẩu (mở ⚙️ Cài đặt). Cần mật khẩu để lưu.');
-  }
-  try {
-    const xacThuc = body.sheet === 'BANG_PHI' ? { phien } : body.sheet === 'DANH_MUC' && phien ? { phien, matKhau } : { matKhau };
-    return await goiPost(url, { ...body, ...xacThuc });
-  } catch (e) {
-    if (e.ma === 'HET_PHIEN') khoaBangPhi(); // phiên hết hạn / mật khẩu đã đổi → về chế độ xem
-    throw e;
-  }
+  if (!matKhau) throw new LoiApi('Chưa nhập mật khẩu (mở ⚙️ Cài đặt). Cần mật khẩu để lưu.');
+  return goiPost(url, { ...body, matKhau });
 }
 
 /** Ghi các bản ghi (upsert). Chỉ cập nhật dữ liệu trên máy SAU KHI Apps Script xác nhận. */

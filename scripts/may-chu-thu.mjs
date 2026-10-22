@@ -1,7 +1,6 @@
 // Máy chủ thử trên máy: phục vụ app + giả lập Apps Script tại /gas (chạy Code.gs thật trên Sheets giả).
 //   node scripts/may-chu-thu.mjs [cổng] [--du-lieu-gia]
-// --du-lieu-gia: nạp sẵn bảng phí & giá vốn GIẢ để xem giao diện.
-// Mật khẩu giả lập: mat-khau-thu (ghi chung) · mat-khau-phi-thu (mở khóa sửa bảng phí)
+// --du-lieu-gia: nạp sẵn bảng phí & giá vốn GIẢ để xem giao diện. Mật khẩu giả lập: mat-khau-thu
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +9,7 @@ import { taoMoiTruong } from '../tests/gia-lap-gas.js';
 
 const goc = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cong = Number(process.argv.find((a) => /^\d+$/.test(a)) || 8080);
-const gas = taoMoiTruong({ matKhau: 'mat-khau-thu', matKhauBangPhi: 'mat-khau-phi-thu' });
+const gas = taoMoiTruong({ matKhau: 'mat-khau-thu' });
 
 if (process.argv.includes('--du-lieu-gia')) {
   const MK = 'mat-khau-thu';
@@ -23,7 +22,7 @@ if (process.argv.includes('--du-lieu-gia')) {
   // Ngành Trà cố ý để Chi phí QC = 0 → hiện cảnh báo thiếu phí QC
   phi.push({ gian: 'Tường Vip', nganh: 'Tranh', thang: '2026-10', phi_san: 23.5, phi_vc: 2300, phi_xl: 3000, phi_qc: 9, aff_qc: 4, aff_noqc: 10 });
   phi.push({ gian: 'Tường Vip', nganh: 'Decal', thang: '2026-10', phi_san: 22.5, phi_vc: 2300, phi_xl: 3000, phi_qc: 9, aff_qc: 4, aff_noqc: 12 });
-  gas.post({ action: 'upsert', phien: gas.moKhoa(), sheet: 'BANG_PHI', banGhi: phi });
+  gas.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: phi });
   const von = [];
   [['Bộ 1 tấm', 'Tranh', ['13x18', '20x30', '30x40', '40x60', '50x70', '60x90'], 6000],
     ['Bộ 3 tấm đồng size', 'Tranh', ['20x30x3', '30x40x3', '40x60x3'], 30000],
@@ -58,4 +57,4 @@ http.createServer((req, res) => {
   }
   res.writeHead(200, { 'Content-Type': KIEU[path.extname(tep)] || 'application/octet-stream' });
   fs.createReadStream(tep).pipe(res);
-}).listen(cong, () => console.log(`Mở http://localhost:${cong}  (Apps Script giả lập: http://localhost:${cong}/gas, mật khẩu: mat-khau-thu, bảng phí: mat-khau-phi-thu)`));
+}).listen(cong, () => console.log(`Mở http://localhost:${cong}  (Apps Script giả lập: http://localhost:${cong}/gas, mật khẩu: mat-khau-thu)`));
