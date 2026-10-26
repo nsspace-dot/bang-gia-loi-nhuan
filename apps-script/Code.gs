@@ -5,10 +5,11 @@
  * - Đọc: GET  ?action=ping | docTatCa | docCampaignKQ&id=... | docBangTinh&id=...
  * - Ghi: POST (Content-Type text/plain) body JSON { action, matKhau, ... }
  *        Mật khẩu so với Script Properties "MAT_KHAU" (Project Settings → Script properties).
- * - Mọi thay đổi ghi vào sheet LICH_SU; riêng bảng phí ghi thêm từng ô vào LICH_SU_BANG_PHI.
+ * - Mọi thay đổi ghi vào sheet LICH_SU; riêng bảng phí ghi thêm từng ô vào LICH_SU_BANG_PHI
+ *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '1.1.0';
+var PHIEN_BAN = '1.2.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -19,6 +20,12 @@ var CAU_TRUC = {
   BANG_PHI: {
     cot: ['gian', 'nganh', 'thang', 'phi_san', 'phi_vc', 'phi_xl', 'phi_qc', 'aff_qc', 'aff_noqc', 'cap_nhat_luc'],
     khoa: ['gian', 'nganh', 'thang'], so: ['phi_san', 'phi_vc', 'phi_xl', 'phi_qc', 'aff_qc', 'aff_noqc'],
+  },
+  // Bảng phí Shopee: riêng hoàn toàn với BANG_PHI (TikTok)
+  BANG_PHI_SHOPEE: {
+    cot: ['gian', 'nganh', 'thang', 'phi_co_dinh', 'voucher_xtra', 'phi_ha_tang', 'phi_xu_ly', 'phi_dich_vu', 'quang_cao', 'voucher_shop', 'aff', 'phi_hoan_vcktc', 'cap_nhat_luc'],
+    khoa: ['gian', 'nganh', 'thang'],
+    so: ['phi_co_dinh', 'voucher_xtra', 'phi_ha_tang', 'phi_xu_ly', 'phi_dich_vu', 'quang_cao', 'voucher_shop', 'aff', 'phi_hoan_vcktc'],
   },
   GIA_VON: {
     cot: ['nhom', 'phan_loai', 'nganh', 'gia_von', 'gia_ban', 'file_nguon', 'cap_nhat_luc'],
@@ -54,12 +61,16 @@ var CAU_TRUC = {
     cot: ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi'],
     khoa: [], so: [],
   },
+  LICH_SU_BANG_PHI_SHOPEE: {
+    cot: ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi'],
+    khoa: [], so: [],
+  },
 };
 
 // Sheet được phép upsert / xóa trực tiếp
-var SHEET_GHI = ['DANH_MUC', 'BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN'];
+var SHEET_GHI = ['DANH_MUC', 'BANG_PHI', 'BANG_PHI_SHOPEE', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN'];
 // Sheet trả về trong docTatCa
-var SHEET_DOC = ['DANH_MUC', 'BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'];
+var SHEET_DOC = ['DANH_MUC', 'BANG_PHI', 'BANG_PHI_SHOPEE', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'];
 
 var SAI_TOI_DA = 10;        // sai mật khẩu quá số lần này ...
 var KHOA_GIAY = 10 * 60;    // ... thì khóa 10 phút
@@ -67,6 +78,18 @@ var KHOA_GIAY = 10 * 60;    // ... thì khóa 10 phút
 var TEN_O_PHI = {
   phi_san: 'Phí sàn (%)', phi_vc: 'Phí bồi hoàn V/C (đ)', phi_xl: 'Phí xử lý đơn hàng (đ)',
   phi_qc: 'Chi phí QC (%)', aff_qc: 'AFF có QC (%)', aff_noqc: 'AFF không QC (%)',
+};
+
+var TEN_O_PHI_SHOPEE = {
+  phi_co_dinh: 'Phí cố định (%)', voucher_xtra: 'Voucher Xtra (%)', phi_ha_tang: 'Phí hạ tầng (đ)',
+  phi_xu_ly: 'Phí xử lý (%)', phi_dich_vu: 'Phí dịch vụ (%)', quang_cao: 'Quảng cáo (%)',
+  voucher_shop: 'Voucher shop (%)', aff: 'AFF (%)', phi_hoan_vcktc: 'Phí hoàn V/C KTC (%)',
+};
+
+// Sheet bảng phí → sheet lịch sử từng ô + tên các ô
+var LICH_SU_PHI = {
+  BANG_PHI: { sheet: 'LICH_SU_BANG_PHI', tenO: TEN_O_PHI },
+  BANG_PHI_SHOPEE: { sheet: 'LICH_SU_BANG_PHI_SHOPEE', tenO: TEN_O_PHI_SHOPEE },
 };
 
 // ============ Điểm vào ============
@@ -147,21 +170,21 @@ function soSanhAnToan_(a, b) {
 
 // ============ Lịch sử bảng phí (từng ô) ============
 
-/** Các dòng lịch sử từng ô của 1 bộ phí (gian × ngành × tháng). */
-function lichSuBangPhi_(thoiGian, hanhDong, cu, moi) {
+/** Các dòng lịch sử từng ô của 1 bộ phí (gian × ngành × tháng). tenO = TEN_O_PHI | TEN_O_PHI_SHOPEE */
+function lichSuBangPhi_(tenO, thoiGian, hanhDong, cu, moi) {
   var goc = moi || cu;
   var dong = [];
-  Object.keys(TEN_O_PHI).forEach(function (k) {
+  Object.keys(tenO).forEach(function (k) {
     var a = cu ? giaTriGhi_(null, k, cu[k]) : '';
     var b = moi ? giaTriGhi_(null, k, moi[k]) : '';
-    if (a !== b) dong.push([thoiGian, hanhDong, String(goc.thang), String(goc.gian), String(goc.nganh), TEN_O_PHI[k], a, b]);
+    if (a !== b) dong.push([thoiGian, hanhDong, String(goc.thang), String(goc.gian), String(goc.nganh), tenO[k], a, b]);
   });
   return dong;
 }
 
-function ghiLichSuBangPhi_(dong) {
+function ghiLichSuBangPhi_(tenSheet, dong) {
   if (!dong.length) return;
-  var sh = laySheet_('LICH_SU_BANG_PHI');
+  var sh = laySheet_(tenSheet);
   var r = sh.getRange(sh.getLastRow() + 1, 1, dong.length, dong[0].length);
   r.setNumberFormat('@');
   r.setValues(dong);
@@ -271,7 +294,8 @@ function upsert_(ten, banGhi) {
     d.ds.forEach(function (o) { theoKhoa[khoaCua_(ct, o)] = o; });
     var bayGio = new Date().toISOString();
     var lichSu = [], themMoi = [], daLuu = [], lichSuPhi = [];
-    var gioVN = ten === 'BANG_PHI' ? gioDiaPhuong_() : '';
+    var lsPhi = LICH_SU_PHI[ten];
+    var gioVN = lsPhi ? gioDiaPhuong_() : '';
     banGhi.forEach(function (moi) {
       var khoa = khoaCua_(ct, moi);
       if (ct.khoa.some(function (k) { return moi[k] === undefined || moi[k] === null || String(moi[k]).trim() === ''; })) {
@@ -299,7 +323,7 @@ function upsert_(ten, banGhi) {
       theoKhoa[khoa] = ban;
       daLuu.push(bo_(ban));
       lichSu.push([bayGio, cu ? 'SUA' : 'THEM', ten, khoa, cu ? JSON.stringify(bo_(cu)) : '', JSON.stringify(bo_(ban))]);
-      if (ten === 'BANG_PHI') lichSuPhi = lichSuPhi.concat(lichSuBangPhi_(gioVN, cu ? 'SUA' : 'THEM', cu, ban));
+      if (lsPhi) lichSuPhi = lichSuPhi.concat(lichSuBangPhi_(lsPhi.tenO, gioVN, cu ? 'SUA' : 'THEM', cu, ban));
     });
     if (themMoi.length) {
       var r2 = d.sh.getRange(d.sh.getLastRow() + 1, 1, themMoi.length, d.dau.length);
@@ -307,7 +331,7 @@ function upsert_(ten, banGhi) {
       r2.setValues(themMoi);
     }
     ghiLichSu_(lichSu);
-    ghiLichSuBangPhi_(lichSuPhi);
+    if (lsPhi) ghiLichSuBangPhi_(lsPhi.sheet, lichSuPhi);
     SpreadsheetApp.flush();
     return daLuu;
   });
@@ -329,16 +353,17 @@ function xoa_(ten, dsKhoa) {
     dsKhoa.forEach(function (k) { canXoa[typeof k === 'string' ? k : khoaCua_(ct, k)] = true; });
     var bayGio = new Date().toISOString();
     var lichSu = [], lichSuPhi = [];
-    var gioVN = ten === 'BANG_PHI' ? gioDiaPhuong_() : '';
+    var lsPhi = LICH_SU_PHI[ten];
+    var gioVN = lsPhi ? gioDiaPhuong_() : '';
     var dongXoa = d.ds.filter(function (o) { return canXoa[khoaCua_(ct, o)]; });
     // xóa từ dưới lên để số dòng không bị lệch
     dongXoa.sort(function (a, b) { return b._dong - a._dong; }).forEach(function (o) {
       d.sh.deleteRow(o._dong);
       lichSu.push([bayGio, 'XOA', ten, khoaCua_(ct, o), JSON.stringify(bo_(o)), '']);
-      if (ten === 'BANG_PHI') lichSuPhi = lichSuPhi.concat(lichSuBangPhi_(gioVN, 'XOA', o, null));
+      if (lsPhi) lichSuPhi = lichSuPhi.concat(lichSuBangPhi_(lsPhi.tenO, gioVN, 'XOA', o, null));
     });
     ghiLichSu_(lichSu);
-    ghiLichSuBangPhi_(lichSuPhi);
+    if (lsPhi) ghiLichSuBangPhi_(lsPhi.sheet, lichSuPhi);
     SpreadsheetApp.flush();
     return dongXoa.length;
   });

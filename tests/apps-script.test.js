@@ -170,3 +170,50 @@ test('LICH_SU_BANG_PHI: mỗi ô đổi 1 dòng (thời gian, tháng, gian, ngà
   assert.equal(xoa.length, 6);
   assert.equal(xoa[0][7], '');
 });
+
+const phiSP = (thang, phi_co_dinh) => ({
+  gian: 'CN1', nganh: 'Lịch', thang, phi_co_dinh, voucher_xtra: 5.5, phi_ha_tang: 3000, phi_xu_ly: 6,
+  phi_dich_vu: 7.5, quang_cao: 8.2, voucher_shop: 1.2, aff: 2, phi_hoan_vcktc: 0.5,
+});
+
+test('BANG_PHI_SHOPEE: lưu theo gian × ngành × tháng, đọc ra số, tách riêng BANG_PHI', () => {
+  const g = taoMoiTruong();
+  assert.deepEqual(g.get({ action: 'docTatCa' }).duLieu.BANG_PHI_SHOPEE, []);
+  assert.equal(g.post({ action: 'upsert', sheet: 'BANG_PHI_SHOPEE', banGhi: [phiSP('2026-10', 18.7)] }).ok, false, 'cần mật khẩu');
+  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [phiSP('2026-09', 18.7)] }).ok, true);
+  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [phiSP('2026-10', 18.7)] }).ok, true);
+  assert.equal(g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [phiSP('2026-10', 19)] }).ok, true);
+  const du = g.get({ action: 'docTatCa' }).duLieu;
+  assert.equal(du.BANG_PHI_SHOPEE.length, 2);
+  const t10 = du.BANG_PHI_SHOPEE.find((p) => p.thang === '2026-10');
+  assert.equal(t10.phi_co_dinh, 19);
+  assert.equal(t10.phi_ha_tang, 3000);
+  assert.equal(typeof t10.phi_hoan_vcktc, 'number');
+  assert.deepEqual(du.BANG_PHI, []);
+  assert.equal(g.duLieuSheet('BANG_PHI').length, 1); // chỉ dòng tiêu đề
+});
+
+test('LICH_SU_BANG_PHI_SHOPEE: mỗi ô đổi 1 dòng; xóa cũng ghi; không ghi vào LICH_SU_BANG_PHI của TikTok', () => {
+  const g = taoMoiTruong();
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [phiSP('2026-10', 18.7)] });
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [{ ...phiSP('2026-10', 19), aff: 3 }] });
+  const ls = g.duLieuSheet('LICH_SU_BANG_PHI_SHOPEE');
+  assert.deepEqual(ls[0], ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi']);
+  assert.equal(ls.filter((d) => d[1] === 'THEM').length, 9);
+  assert.deepEqual(ls.filter((d) => d[1] === 'SUA').map((d) => d.slice(2)), [
+    ['2026-10', 'CN1', 'Lịch', 'Phí cố định (%)', '18.7', '19'],
+    ['2026-10', 'CN1', 'Lịch', 'AFF (%)', '2', '3'],
+  ]);
+  g.post({ action: 'xoa', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', khoa: [{ gian: 'CN1', nganh: 'Lịch', thang: '2026-10' }] });
+  assert.equal(g.duLieuSheet('LICH_SU_BANG_PHI_SHOPEE').filter((d) => d[1] === 'XOA').length, 9);
+  assert.deepEqual(g.get({ action: 'docTatCa' }).duLieu.BANG_PHI_SHOPEE, []);
+  assert.equal(g.sheets.has('LICH_SU_BANG_PHI'), false);
+  assert.equal(g.duLieuSheet('LICH_SU').at(-1)[2], 'BANG_PHI_SHOPEE');
+});
+
+test('ghi bảng phí TikTok không ghi vào lịch sử Shopee', () => {
+  const g = taoMoiTruong();
+  g.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: [phi('2026-10', 21)] });
+  assert.equal(g.duLieuSheet('LICH_SU_BANG_PHI').length, 7);
+  assert.equal(g.sheets.has('LICH_SU_BANG_PHI_SHOPEE'), false);
+});

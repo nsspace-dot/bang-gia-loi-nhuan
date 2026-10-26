@@ -77,3 +77,46 @@ export function giaCanDat(von, phi, tuyChon = {}) {
 export function giaHoaVon(von, phi, kichBan = 'ca2') {
   return giaCanDat(von, phi, { kichBan });
 }
+
+// ---------- SHOPEE — bộ phí và công thức RIÊNG, không dùng chung với TikTok ----------
+//   Lãi Shopee = Giá − Vốn − Phí hạ tầng − Giá × (tổng 8 khoản %) / 100
+
+export const KHOAN_PHI_SHOPEE = [
+  { khoa: 'phi_co_dinh', ten: 'Phí cố định', donVi: '%' },
+  { khoa: 'voucher_xtra', ten: 'Voucher Xtra', donVi: '%' },
+  { khoa: 'phi_ha_tang', ten: 'Phí hạ tầng', donVi: 'đ' },
+  { khoa: 'phi_xu_ly', ten: 'Phí xử lý', donVi: '%' },
+  { khoa: 'phi_dich_vu', ten: 'Phí dịch vụ', donVi: '%' },
+  { khoa: 'quang_cao', ten: 'Quảng cáo', donVi: '%' },
+  { khoa: 'voucher_shop', ten: 'Voucher shop', donVi: '%' },
+  { khoa: 'aff', ten: 'AFF', donVi: '%' },
+  { khoa: 'phi_hoan_vcktc', ten: 'Phí hoàn V/C KTC', donVi: '%' },
+];
+
+/** Bộ phí Shopee mặc định của 1 ngành (dùng khi gian × ngành chưa lưu bộ phí nào). */
+export function phiShopeeMacDinh(nganh) {
+  return {
+    phi_co_dinh: nganh === 'Lịch' ? 18.7 : 19.1,
+    voucher_xtra: 5.5,
+    phi_ha_tang: 3000,
+    phi_xu_ly: 6,
+    phi_dich_vu: 7.5,
+    quang_cao: 8.2,
+    voucher_shop: 1.2,
+    aff: 2,
+    phi_hoan_vcktc: 0.5,
+  };
+}
+
+/** Tổng 8 khoản % của Shopee (dạng tỉ lệ 0..1). */
+export function tyLePhiShopee(phi) {
+  return KHOAN_PHI_SHOPEE.filter((k) => k.donVi === '%').reduce((t, k) => t + so(phi[k.khoa]), 0) / 100;
+}
+
+/** Tính lãi Shopee cho 1 sản phẩm. @returns {{lai:number, pt:number|null}} */
+export function tinhLaiShopee(von, gia, phi) {
+  von = so(von);
+  gia = so(gia);
+  const lai = gia - von - so(phi.phi_ha_tang) - gia * tyLePhiShopee(phi);
+  return { lai, pt: gia > 0 ? lai / gia : null };
+}

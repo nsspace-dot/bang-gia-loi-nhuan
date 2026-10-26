@@ -9,13 +9,14 @@ const KHOA_MAT_KHAU = 'bggl.matkhau.v1';
 const KHOA_SHEET = {
   DANH_MUC: ['loai', 'ten'],
   BANG_PHI: ['gian', 'nganh', 'thang'],
+  BANG_PHI_SHOPEE: ['gian', 'nganh', 'thang'],
   GIA_VON: ['nhom', 'phan_loai'],
   NOI_SKU: ['sku_id'],
   CAMPAIGN: ['id'],
   BANG_TINH: ['id'],
 };
 
-const rong = () => ({ DANH_MUC: [], BANG_PHI: [], GIA_VON: [], NOI_SKU: [], CAMPAIGN: [], BANG_TINH: [] });
+const rong = () => ({ DANH_MUC: [], BANG_PHI: [], BANG_PHI_SHOPEE: [], GIA_VON: [], NOI_SKU: [], CAMPAIGN: [], BANG_TINH: [] });
 
 const trangThai = {
   duLieu: rong(),

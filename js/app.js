@@ -2,7 +2,7 @@
 import { h, thayNoiDung } from './ui/dom.js';
 import { linhVat, manTrong } from './ui/linh-vat.js';
 import { moCaiDat } from './ui/cai-dat.js';
-import { taoTabBangPhi } from './ui/tab-bang-phi.js';
+import { taoTabBangPhiSan } from './ui/tab-bang-phi-san.js';
 import { taoTabGiaVon } from './ui/tab-gia-von.js';
 import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
 import { taoTabSetGia } from './ui/tab-set-gia.js';
@@ -13,7 +13,7 @@ const KHOA_TAB = 'bggl.tab.v1';
 const daTao = new Set();
 
 const TAO_TAB = {
-  'bang-phi': taoTabBangPhi,
+  'bang-phi': taoTabBangPhiSan,
   'gia-von': taoTabGiaVon,
   'loi-nhuan': taoTabLoiNhuan,
   'set-gia': taoTabSetGia,

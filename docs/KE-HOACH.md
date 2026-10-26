@@ -145,6 +145,7 @@ node scripts/chay-thu-mau.mjs [--chi-tiet]    # cần thư mục mau/
 |---|---|---|
 | `DANH_MUC` | loai + ten | loai (GIAN/NGANH), ten, thu_tu, dang_dung, cap_nhat_luc |
 | `BANG_PHI` | gian + nganh + thang | gian, nganh, thang (yyyy-mm), phi_san, phi_vc, phi_xl, phi_qc, aff_qc, aff_noqc, cap_nhat_luc |
+| `BANG_PHI_SHOPEE` | gian + nganh + thang | gian, nganh, thang (yyyy-mm), phi_co_dinh, voucher_xtra, phi_ha_tang, phi_xu_ly, phi_dich_vu, quang_cao, voucher_shop, aff, phi_hoan_vcktc, cap_nhat_luc |
 | `GIA_VON` | nhom + phan_loai | nhom, phan_loai, nganh, gia_von, gia_ban, file_nguon, cap_nhat_luc |
 | `NOI_SKU` | sku_id | sku_id, product_id, nhom, phan_loai, so_luong, phan_loai_goc, seller_sku, ghi_chu, cap_nhat_luc |
 | `CAMPAIGN` | id | id, ten, gian, bat_dau, ket_thuc, thang_phi, chien_luoc, tham_so (JSON), lai_toi_thieu, file_goc, tong_hop (JSON), trang_thai, xuat_luc, tao_luc, cap_nhat_luc |

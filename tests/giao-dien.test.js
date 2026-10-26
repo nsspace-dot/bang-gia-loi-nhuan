@@ -389,3 +389,53 @@ test('Bảng phí: ngành thiếu Chi phí QC → ô tô vàng + cảnh báo; nh
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Bảng phí: tab con Shopee | TikTok; Shopee hiện mặc định, tính tổng, lưu vào BANG_PHI_SHOPEE; TikTok giữ nguyên', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  await p.click('[data-tab="bang-phi"]');
+  // mặc định mở TikTok như trước
+  assert.deepEqual(await p.$$eval('.tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee', 'TikTok']);
+  assert.equal(await p.getAttribute('[data-san="tiktok"]', 'aria-selected'), 'true');
+  await p.waitForSelector('#bang-phi-tiktok .bang-phi');
+
+  await p.click('[data-san="shopee"]');
+  assert.ok(await p.locator('#bang-phi-tiktok').isHidden());
+  assert.deepEqual(await p.$$eval('#bang-phi-shopee .vien-gian', (ds) => ds.map((b) => b.textContent)),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New']);
+  await p.click('#bang-phi-shopee .vien-gian:has-text("CN1")');
+  await p.waitForSelector('[aria-label="Phí cố định — Lịch"]');
+  assert.equal(await p.inputValue('[aria-label="Phí cố định — Lịch"]'), '18,7');
+  assert.equal(await p.inputValue('[aria-label="Phí cố định — Sách"]'), '19,1');
+  assert.equal(await p.inputValue('[aria-label="Phí hạ tầng — Trà"]'), '3.000');
+  assert.equal(await p.inputValue('[aria-label="Voucher Xtra — Tranh"]'), '5,5');
+  assert.match(await p.textContent('#bang-phi-shopee .ghi-chu'), /đang hiện giá trị mặc định/);
+  const tong = await p.$$eval('#bang-phi-shopee tfoot tr:first-child td', (ds) => ds.map((d) => d.textContent));
+  assert.match(tong[0], /^50(,0)?\s?%$/);
+  assert.match(tong[2], /^49,6\s?%$/);
+
+  // sửa 1 ô → tổng cập nhật ngay; lưu → ghi 5 ngành vào sheet Shopee
+  await p.fill('[aria-label="AFF — Sách"]', '3');
+  await p.press('[aria-label="AFF — Sách"]', 'Tab');
+  assert.match((await p.$$eval('#bang-phi-shopee tfoot tr:first-child td', (ds) => ds.map((d) => d.textContent)))[0], /^51(,0)?\s?%$/);
+  assert.match(await p.textContent('#bang-phi-shopee .hang-luu'), /cho: Sách, Tranh, Lịch, Decal, Trà/);
+  await p.click('#bang-phi-shopee .hang-luu .nut-chinh');
+  await p.waitForSelector('#bang-phi-shopee .ghi-chu-xanh');
+  const du = await p.evaluate(async () => (await (await fetch('/gas?action=docTatCa')).json()).duLieu);
+  assert.equal(du.BANG_PHI_SHOPEE.length, 5);
+  assert.equal(du.BANG_PHI_SHOPEE.find((x) => x.nganh === 'Sách').aff, 3);
+  assert.ok(du.BANG_PHI_SHOPEE.every((x) => x.gian === 'CN1'));
+  assert.ok(!du.BANG_PHI.some((x) => x.gian === 'CN1'), 'không ghi vào bảng phí TikTok');
+  assert.match(await p.textContent('#bang-phi-shopee .hang-luu'), /Chưa có thay đổi/);
+
+  // quay lại TikTok: bảng TikTok vẫn như cũ; tab con được nhớ khi mở lại trang
+  await p.click('[data-san="tiktok"]');
+  assert.ok(await p.locator('#bang-phi-tiktok .bang-phi').isVisible());
+  assert.ok(await p.locator('#bang-phi-shopee').isHidden());
+  await p.click('[data-san="shopee"]');
+  await p.reload();
+  await p.waitForSelector('.dong-bo-xong');
+  await p.click('[data-tab="bang-phi"]');
+  assert.equal(await p.getAttribute('[data-san="shopee"]', 'aria-selected'), 'true');
+  assert.deepEqual(loi, []);
+  await p.close();
+});
