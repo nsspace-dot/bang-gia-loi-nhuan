@@ -52,7 +52,7 @@ function khoiDong() {
   document.querySelectorAll('.thanh-tab [role=tab]').forEach((b) => b.addEventListener('click', () => moTab(b.dataset.tab)));
   document.querySelector('.thanh-tab').addEventListener('keydown', (e) => {
     if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-    const ds = [...document.querySelectorAll('.thanh-tab [role=tab]')];
+    const ds = [...document.querySelectorAll('.thanh-tab [role=tab]:not([hidden])')];
     const i = ds.findIndex((b) => b.getAttribute('aria-selected') === 'true');
     const moi = ds[(i + (e.key === 'ArrowRight' ? 1 : -1) + ds.length) % ds.length];
     moi.focus();
@@ -63,7 +63,11 @@ function khoiDong() {
   kho.dangKy(veTrangThai);
 
   let tab = location.hash.slice(1);
-  if (!TAO_TAB[tab]) { try { tab = localStorage.getItem(KHOA_TAB) || 'loi-nhuan'; } catch { tab = 'loi-nhuan'; } }
+  if (!TAO_TAB[tab]) {
+    try { tab = localStorage.getItem(KHOA_TAB) || 'loi-nhuan'; } catch { tab = 'loi-nhuan'; }
+    // tab nhớ lần trước đang bị ẩn nút → về tab mặc định (vẫn mở được bằng #ten-tab)
+    if (document.querySelector(`.thanh-tab [data-tab="${tab}"]`)?.hidden) tab = 'loi-nhuan';
+  }
   moTab(tab);
   kho.khoiDong();
   if (!kho.layCaiDat().url) moCaiDat();
