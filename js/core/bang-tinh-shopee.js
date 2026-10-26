@@ -3,20 +3,20 @@
 // Dòng: { ten, phan_loai, nganh, gia_von: number|null, gia_ban: number|null }
 
 import { boDau } from './van-ban.js';
-import { tinhLaiShopee, phiShopeeMacDinh } from './cong-thuc.js';
+import { tinhLaiShopee } from './cong-thuc.js';
 import { chonBoPhi } from './phi.js';
 import { TIEU_DE_MAU } from './bang-tinh.js';
 
 /**
- * Lãi Shopee của 1 dòng tại 1 gian. Gian × ngành chưa lưu bộ phí nào → dùng phí mặc định (macDinh = true),
- * giống tab Bảng phí Shopee đang hiển thị.
- * @returns {{trangThai:'ok'|'thieu-gia', lai?, pt?, phi?, macDinh?}}
+ * Lãi Shopee của 1 dòng tại 1 gian. Gian × ngành chưa lưu bộ phí Shopee nào ≤ tháng → 'thieu-phi'
+ * (giống TikTok, KHÔNG tính bằng phí mặc định).
+ * @returns {{trangThai:'ok'|'thieu-gia'|'thieu-phi', lai?, pt?, phi?}}
  */
 export function laiTaiGianShopee(dong, gian, dsPhi, thang) {
   if (!Number.isFinite(dong.gia_ban) || dong.gia_ban <= 0) return { trangThai: 'thieu-gia' };
-  const daLuu = chonBoPhi(dsPhi, gian, dong.nganh, thang);
-  const phi = daLuu || phiShopeeMacDinh(dong.nganh);
-  return { trangThai: 'ok', phi, macDinh: !daLuu, ...tinhLaiShopee(dong.gia_von ?? 0, dong.gia_ban, phi) };
+  const phi = chonBoPhi(dsPhi, gian, dong.nganh, thang);
+  if (!phi) return { trangThai: 'thieu-phi' };
+  return { trangThai: 'ok', phi, ...tinhLaiShopee(dong.gia_von ?? 0, dong.gia_ban, phi) };
 }
 
 /** Dòng lỗ = có ít nhất 1 gian (trong các gian đang xem) có lãi < 0. */
@@ -55,7 +55,7 @@ export function locVaSapXepShopee(ds, { gians, dsPhi, thang, chiLo = false, tim 
   return chiSo;
 }
 
-/** Tổng kết: số dòng, tổng vốn, lãi trung bình (dòng có giá bán), số dòng lỗ, số dòng dùng phí mặc định — theo gian. */
+/** Tổng kết: số dòng, tổng vốn, lãi trung bình (chỉ dòng có giá bán + có phí), số dòng lỗ, số dòng chưa có phí — theo gian. */
 export function tongKetShopee(ds, gians, dsPhi, thang) {
   const kq = {
     soDong: ds.length,
@@ -64,15 +64,15 @@ export function tongKetShopee(ds, gians, dsPhi, thang) {
     theoGian: {},
   };
   for (const g of gians) {
-    let n = 0, tong = 0, lo = 0, macDinh = 0;
+    let n = 0, tong = 0, lo = 0, thieuPhi = 0;
     for (const d of ds) {
       const r = laiTaiGianShopee(d, g, dsPhi, thang);
+      if (r.trangThai === 'thieu-phi') thieuPhi++;
       if (r.trangThai !== 'ok') continue;
       n++; tong += r.lai;
       if (r.lai < 0) lo++;
-      if (r.macDinh) macDinh++;
     }
-    kq.theoGian[g] = { soDongTinh: n, tb: n ? tong / n : null, soDongLo: lo, macDinh };
+    kq.theoGian[g] = { soDongTinh: n, tb: n ? tong / n : null, soDongLo: lo, thieuPhi };
   }
   return kq;
 }
@@ -88,7 +88,7 @@ export function bangXuatShopee(ds, gians, dsPhi, thang) {
     for (const g of gians) {
       const r = laiTaiGianShopee(d, g, dsPhi, thang);
       if (r.trangThai === 'ok') dong.push(tron(r.lai), pt(r.pt));
-      else dong.push('thiếu giá bán', '');
+      else dong.push(r.trangThai === 'thieu-phi' ? 'chưa có phí' : 'thiếu giá bán', '');
     }
     return dong;
   })];

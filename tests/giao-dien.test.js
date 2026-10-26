@@ -440,7 +440,7 @@ test('Bảng phí: tab con Shopee | TikTok; Shopee hiện mặc định, tính t
   await p.close();
 });
 
-test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gian 1 cột lãi theo phí Shopee; nhớ lựa chọn', { skip: boQua }, async () => {
+test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gian 1 cột lãi theo phí Shopee, chưa có phí thì không tính; nhớ lựa chọn', { skip: boQua }, async () => {
   const { p, loi } = await moTrang();
   const chon = (k) => p.getAttribute(`[data-nen-tang="${k}"]`, 'aria-selected');
   assert.deepEqual(await p.$$eval('#tab-loi-nhuan .tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee', 'TikTok']);
@@ -448,7 +448,7 @@ test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gia
   await napFile(p, taoFile('ln-san.xlsx', [
     ['Tên sản phẩm', 'Phân loại', 'Ngành hàng', 'Giá vốn', 'Giá bán'],
     ['Tranh A', '30x40', 'Tranh', 20000, 100000],
-    ['Decal B', '60x90', 'Decal', 80000, 100000],
+    ['Tranh B', '60x90', 'Tranh', 80000, 100000],
   ]));
   const gianDau = () => p.$$eval('.bang-ln .th-gian', (ds) => ds.map((d) => [d.textContent, d.colSpan]));
   // TikTok: như hiện tại — gian TikTok, 2 cột lãi mỗi gian
@@ -458,20 +458,22 @@ test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gia
   await p.click('[data-nen-tang="shopee"]');
   assert.equal(await chon('shopee'), 'true');
   assert.deepEqual(await gianDau(), ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New'].map((g) => [g, 1]));
-  const o = await p.$$eval('.bang-ln tbody tr:first-child .o-lai', (ds) => ds.map((d) => [d.querySelector('div')?.textContent, d.title]));
+  const o = await p.$$eval('.bang-ln tbody tr:first-child .o-lai', (ds) => ds.map((d) => [d.querySelector('div')?.textContent ?? d.textContent, d.title]));
   assert.equal(o.length, 6);
-  // Nhà Sách chưa lưu phí → mặc định: 100.000 − 20.000 − 3.000 − 50% × 100.000 = 27.000
-  assert.equal(o[0][0], '27.000');
-  assert.match(o[0][1], /phí mặc định/);
-  // Tranh Vip × Tranh đã lưu (tổng 60%): 100.000 − 20.000 − 3.000 − 60.000 = 17.000
+  // Nhà Sách chưa lưu bộ phí Shopee → "chưa có phí", không tính bằng phí mặc định
+  assert.equal(o[0][0], 'chưa có phí');
+  assert.match(o[0][1], /Chưa có bộ phí Tranh cho gian này/);
+  // chỉ Tranh Vip × Tranh có phí (tổng 60%): 100.000 − 20.000 − 3.000 − 60.000 = 17.000
   assert.equal(o[4][0], '17.000');
-  assert.equal(o[4][1], '');
-  // Decal B lỗ ở mọi gian: 100.000 − 80.000 − 3.000 − 50.000 = −33.000
+  // CN1 bỏ qua: test Bảng phí Shopee phía trên có thể đã lưu phí cho CN1
+  assert.deepEqual([0, 2, 3, 5].map((i) => o[i][0]), Array(4).fill('chưa có phí'));
+  // Tranh B lỗ ở Tranh Vip: 100.000 − 80.000 − 3.000 − 60.000 = −43.000
   assert.ok(await p.locator('.bang-ln tbody tr:nth-child(2).dong-lo').count());
-  assert.match(await p.textContent('.luoi-tong-ket'), /dùng phí mặc định/);
+  assert.match(await p.textContent('.luoi-tong-ket'), /2 dòng chưa có phí/);
+  assert.doesNotMatch(await p.textContent('.luoi-tong-ket'), /mặc định/);
   // sắp xếp theo lãi gian Shopee
-  await p.click('.bang-ln .th-sap-xep:nth-child(1) button');
-  assert.match(await p.textContent('.chip-sap-xep'), /Nhà Sách · lãi ↓/);
+  await p.click('.bang-ln .th-sap-xep:nth-child(5) button');
+  assert.match(await p.textContent('.chip-sap-xep'), /Tranh Vip · lãi ↓/);
 
   // tải lại trang → vẫn Shopee
   await p.reload();

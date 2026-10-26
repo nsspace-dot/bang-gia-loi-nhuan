@@ -260,7 +260,7 @@ function veTongKet(gians, dsPhi) {
           h('div', { class: 'o-tong-so' }, h('b', { class: lop(x.tb) }, x.tb === null ? '—' : dinhDangTien(x.tb))),
           h('div', { class: 'o-tong-chan' },
             x.soDongLo ? h('span', { class: 'chu-lo' }, `${x.soDongLo} dòng lỗ`) : h('span', null, 'Không dòng nào lỗ'),
-            x.macDinh ? h('span', null, ` · ${x.macDinh} dòng dùng phí mặc định`) : null));
+            x.thieuPhi ? h('span', null, ` · ${x.thieuPhi} dòng chưa có phí`) : null));
       }
       return h('div', { class: ['o-tong', `gian-${mauGian(g, tatGian)}`] },
         h('div', { class: 'o-tong-nhan' }, g, ' · lãi TB / đơn'),
@@ -351,8 +351,7 @@ function veDong(i, gians, dsPhi) {
     if (r.trangThai === 'thieu-phi') return h('td', { class: 'so o-lai chu-nhat', title: `Chưa có bộ phí ${d.nganh} cho gian này (≤ ${hienThiThang(thangNay())})` }, 'chưa có phí');
     const [lai, pt] = laiCot(r, kichBan);
     const thieuQC = kichBan === 'qc' && thieuPhiQC(r.phi);
-    const title = thieuQC ? `${d.nganh}: ${CANH_BAO_QC}` : r.macDinh ? `${d.nganh}: chưa lưu bộ phí Shopee — đang dùng phí mặc định` : null;
-    return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''], title },
+    return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''], title: thieuQC ? `${d.nganh}: ${CANH_BAO_QC}` : null },
       h('div', { class: lop(lai) }, thieuQC ? h('span', { class: 'dau-canh-bao-qc', 'aria-label': CANH_BAO_QC }, '⚠ ') : null, dinhDangTien(lai)),
       h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt)));
   };
