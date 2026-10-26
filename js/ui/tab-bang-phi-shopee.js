@@ -9,12 +9,13 @@ import * as kho from '../data/kho.js';
 import { KHOAN_PHI_SHOPEE, phiShopeeMacDinh, tyLePhiShopee } from '../core/cong-thuc.js';
 import { chonBoPhi, cacThangCoPhi, thangHienTai, hienThiThang, chuanHoaThang } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangSo, dinhDangPhanTram } from '../core/so.js';
-import { GIAN_SHOPEE, NGANH_SHOPEE, mauGian } from '../core/danh-muc.js';
+import { NGANH_SHOPEE, layDanhSach, mauGian } from '../core/danh-muc.js';
+import { khoiDanhMuc } from './danh-muc.js';
 
 const SHEET = 'BANG_PHI_SHOPEE';
 const TEN_TAB = 'bang-phi-shopee';
 
-const st = { gian: GIAN_SHOPEE[0], thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
+const st = { gian: null, thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
 let goc;
 let dangLuu = false;
 
@@ -34,6 +35,7 @@ function veLai() {
 }
 
 const dsPhi = () => kho.duLieu()[SHEET] || [];
+const dsGian = () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE');
 
 function coThayDoi() {
   return Object.values(st.nhap).some((o) => Object.keys(o).length);
@@ -70,6 +72,8 @@ function boPhiDangNhap(nganh) {
 }
 
 function ve() {
+  const gians = dsGian();
+  if (!st.gian || !gians.includes(st.gian)) st.gian = gians[0];
   if (!kho.layCaiDat().url && !dsPhi().length) {
     thayNoiDung(goc, manTrong('Chưa kết nối Google Sheets', 'Nhập URL Apps Script và mật khẩu ở Cài đặt để xem và lưu bảng phí Shopee.',
       h('button', { class: 'nut nut-chinh', onclick: moCaiDat }, '⚙️ Mở Cài đặt')));
@@ -81,15 +85,19 @@ function ve() {
         h('div', null, h('h2', null, 'Bảng phí Shopee'),
           h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng các khoản %.'))),
       h('div', { class: 'chon-gian', role: 'tablist', 'aria-label': 'Gian hàng Shopee' },
-        GIAN_SHOPEE.map((g) => h('button', {
-          class: ['vien-gian', `gian-${mauGian(g, GIAN_SHOPEE)}`, g === st.gian && 'dang-chon'],
+        gians.map((g) => h('button', {
+          class: ['vien-gian', `gian-${mauGian(g, gians)}`, g === st.gian && 'dang-chon'],
           role: 'tab', 'aria-selected': String(g === st.gian),
           onclick: () => doiGianThang(g, st.thang),
         }, g))),
       veChonThang(),
       veThongBaoNguon(),
       veBang(),
-      veHangLuu()));
+      veHangLuu()),
+    h('details', { class: 'the the-phu' },
+      h('summary', null, 'Gian hàng Shopee (thêm / bớt)'),
+      khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'),
+      h('p', { class: 'goi-y' }, 'Ngành Shopee cố định: Sách, Tranh, Lịch, Decal, Trà. Bỏ một gian chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.')));
 }
 
 async function doiGianThang(gian, thang) {

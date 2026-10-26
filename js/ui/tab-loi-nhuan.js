@@ -11,7 +11,7 @@ import { docBangSanPham, laiTaiGian, laDongLo, locVaSapXep, tongKet, bangXuat, T
 import { laiTaiGianShopee, laDongLoShopee, locVaSapXepShopee, tongKetShopee, bangXuatShopee } from '../core/bang-tinh-shopee.js';
 import { thangHienTai, hienThiThang, chuanHoaThang, thieuPhiQC, CANH_BAO_QC } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangPhanTram } from '../core/so.js';
-import { layDanhSach, mauGian, GIAN_SHOPEE } from '../core/danh-muc.js';
+import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { docBang } from '../excel/doc.js';
 
 const KHOA_NHAP = 'bggl.loinhuan.v1';
@@ -97,7 +97,7 @@ const NEN_TANG = {
     congThuc: 'Lãi = Giá − Vốn − Phí cố định − Giá × tổng phí %.',
   },
   shopee: {
-    ten: 'Shopee', gians: () => GIAN_SHOPEE, dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
+    ten: 'Shopee', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE'), dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
     cot: [['lai', 'Lãi', 'lãi']], khoaGianXem: 'gianXemShopee',
     laiTaiGian: laiTaiGianShopee, laDongLo: laDongLoShopee, locVaSapXep: locVaSapXepShopee, tongKet: tongKetShopee, bangXuat: bangXuatShopee,
     congThuc: 'Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng 8 khoản phí %.',

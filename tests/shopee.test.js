@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { KHOAN_PHI_SHOPEE, phiShopeeMacDinh, tyLePhiShopee, tinhLaiShopee, tinhLai } from '../js/core/cong-thuc.js';
-import { GIAN_SHOPEE, NGANH_SHOPEE } from '../js/core/danh-muc.js';
+import { GIAN_SHOPEE_MAC_DINH, NGANH_SHOPEE, layDanhSach } from '../js/core/danh-muc.js';
 
 const gan = (a, b, sai = 1e-6) => assert.ok(Math.abs(a - b) < sai, `${a} ≠ ${b}`);
 
@@ -45,6 +45,17 @@ test('công thức TikTok không đổi, không đọc khoản phí Shopee', () 
 });
 
 test('danh sách gian / ngành Shopee', () => {
-  assert.deepEqual(GIAN_SHOPEE, ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New']);
+  assert.deepEqual(GIAN_SHOPEE_MAC_DINH, ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New']);
   assert.deepEqual(NGANH_SHOPEE, ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà']);
+});
+
+test('gian Shopee lấy từ DANH_MUC (loại GIAN_SHOPEE); chưa có thì dùng 6 gian mặc định; không lẫn gian TikTok', () => {
+  assert.deepEqual(layDanhSach([], 'GIAN_SHOPEE'), GIAN_SHOPEE_MAC_DINH);
+  const dm = [
+    { loai: 'GIAN', ten: 'Gian TikTok', thu_tu: 1, dang_dung: 'co' },
+    ...GIAN_SHOPEE_MAC_DINH.map((ten, i) => ({ loai: 'GIAN_SHOPEE', ten, thu_tu: i + 1, dang_dung: ten === 'CN2' ? 'khong' : 'co' })),
+    { loai: 'GIAN_SHOPEE', ten: 'CN3', thu_tu: 7, dang_dung: 'co' },
+  ];
+  assert.deepEqual(layDanhSach(dm, 'GIAN_SHOPEE'), ['Nhà Sách', 'CN1', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  assert.deepEqual(layDanhSach(dm, 'GIAN'), ['Gian TikTok']);
 });

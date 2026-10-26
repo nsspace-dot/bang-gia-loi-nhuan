@@ -486,3 +486,30 @@ test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gia
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Bảng phí Shopee: thêm gian mới → hiện ở Bảng phí và ở Tính lợi nhuận chế độ Shopee; không lẫn sang TikTok', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('[data-san="shopee"]');
+  await p.click('#bang-phi-shopee summary:has-text("Gian hàng Shopee")');
+  await p.fill('[aria-label="Thêm — Gian hàng Shopee"]', 'CN3');
+  await p.click('#bang-phi-shopee .khoi-danh-muc button[type=submit]');
+  await p.waitForSelector('#bang-phi-shopee .vien-gian:has-text("CN3")');
+  assert.deepEqual(await p.$$eval('#bang-phi-shopee .vien-gian', (ds) => ds.map((b) => b.textContent)),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  const du = await p.evaluate(async () => (await (await fetch('/gas?action=docTatCa')).json()).duLieu);
+  assert.deepEqual(du.DANH_MUC.filter((d) => d.loai === 'GIAN_SHOPEE').map((d) => d.ten),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  assert.ok(!du.DANH_MUC.some((d) => d.loai === 'GIAN' && d.ten === 'CN3'));
+  // TikTok không có CN3
+  await p.click('[data-san="tiktok"]');
+  assert.equal(await p.locator('#bang-phi-tiktok .vien-gian:has-text("CN3")').count(), 0);
+  // Tính lợi nhuận → Shopee có thêm cột CN3
+  await p.click('[data-tab="loi-nhuan"]');
+  await p.click('[data-nen-tang="shopee"]');
+  await p.click('text=➕ Thêm dòng');
+  assert.deepEqual(await p.$$eval('.bang-ln .th-gian', (ds) => ds.map((d) => d.textContent)),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
