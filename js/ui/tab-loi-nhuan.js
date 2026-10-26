@@ -63,6 +63,13 @@ function docNenTang() {
   try { if (NEN_TANG[localStorage.getItem(KHOA_NEN_TANG)]) st.nenTang = localStorage.getItem(KHOA_NEN_TANG); } catch { /* bỏ qua */ }
 }
 
+/** Nền tảng tài khoản được xem (chưa đăng nhập: cả 2). Nền tảng đang chọn không được phép → chuyển sang nền tảng được phép. */
+function nenTangDuocXem() {
+  const ds = kho.layPhien() ? kho.nenTangDuocXem() : ['shopee', 'tiktok'];
+  if (!ds.includes(st.nenTang) && ds.length) st.nenTang = ds.includes('tiktok') ? 'tiktok' : ds[0];
+  return ds;
+}
+
 function luuNhap() {
   try {
     localStorage.setItem(KHOA_NHAP, JSON.stringify({
@@ -131,6 +138,7 @@ function nganhMacDinh() {
 // ---------- vẽ ----------
 
 function ve() {
+  nenTangDuocXem();
   const gians = gianDangXem();
   const dsPhi = nt().dsPhi();
 
@@ -141,7 +149,7 @@ function ve() {
 
 function veChonNenTang() {
   return h('div', { class: 'tab-con-san', role: 'tablist', 'aria-label': 'Nền tảng' },
-    ['shopee', 'tiktok'].map((k) => h('button', {
+    ['shopee', 'tiktok'].filter((k) => nenTangDuocXem().includes(k)).map((k) => h('button', {
       role: 'tab', type: 'button', 'data-nen-tang': k, class: k === st.nenTang && 'dang-chon', 'aria-selected': String(k === st.nenTang),
       onclick: () => doiNenTang(k),
     }, NEN_TANG[k].ten)));
@@ -186,8 +194,8 @@ function veDau() {
         h('span', { class: 'chu-nhat' }, ` · ${st.ds.length} dòng · bản nháp tự lưu trên máy này`))),
     h('div', { class: 'hang-nut' },
       h('button', { class: 'nut', onclick: moDanhSach }, '📂 Mở bảng tính'),
-      h('button', { class: 'nut nut-chinh', onclick: () => luuLenSheets(false), disabled: !st.ds.length }, '💾 Lưu lên Sheets'),
-      st.bangTinh ? h('button', { class: 'nut', onclick: () => luuLenSheets(true), disabled: !st.ds.length }, 'Lưu thành bản mới') : null,
+      kho.coQuyenGhi() ? h('button', { class: 'nut nut-chinh', onclick: () => luuLenSheets(false), disabled: !st.ds.length }, '💾 Lưu lên Sheets') : null,
+      kho.coQuyenGhi() && st.bangTinh ? h('button', { class: 'nut', onclick: () => luuLenSheets(true), disabled: !st.ds.length }, 'Lưu thành bản mới') : null,
       h('button', { class: 'nut', onclick: taoMoi, disabled: !st.ds.length && !st.bangTinh }, '🧹 Bảng mới')));
 }
 
@@ -486,7 +494,7 @@ function moDanhSach() {
         h('td', { class: 'chu-nhat' }, ngay(b.cap_nhat_luc)),
         h('td', { class: 'o-thao-tac' },
           h('button', { class: 'nut nut-nho nut-chinh', onclick: () => moBangTinh(b, dlg) }, 'Mở'),
-          h('button', { class: 'nut-icon', title: 'Xóa', 'aria-label': `Xóa ${b.ten}`, onclick: () => xoaBangTinh(b, dlg) }, '🗑')))))))
+          kho.coQuyenGhi() ? h('button', { class: 'nut-icon', title: 'Xóa', 'aria-label': `Xóa ${b.ten}`, onclick: () => xoaBangTinh(b, dlg) }, '🗑') : null))))))
       : manTrong('Chưa có bảng tính nào', 'Nhập sản phẩm rồi bấm "💾 Lưu lên Sheets" để lưu và mở lại trên máy khác.'));
   dlg.addEventListener('close', () => dlg.remove());
   document.body.append(dlg);

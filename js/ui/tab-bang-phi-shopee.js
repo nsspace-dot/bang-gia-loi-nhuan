@@ -87,7 +87,7 @@ function ve() {
         h('div', null, h('h2', null, 'Bảng phí Shopee'),
           h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng các khoản %.')),
         h('div', { class: 'hang-nut' },
-          h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập Excel'),
+          kho.coQuyenGhi() ? h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập Excel') : null,
           h('button', { class: 'nut', onclick: xuatExcel, disabled: !dsPhi().length }, '📤 Xuất Excel'),
           h('button', { class: 'nut', onclick: taiFileMau }, '📄 File mẫu'))),
       h('div', { class: 'chon-gian', role: 'tablist', 'aria-label': 'Gian hàng Shopee' },
@@ -99,8 +99,8 @@ function ve() {
       veChonThang(),
       veThongBaoNguon(),
       veBang(),
-      veHangLuu()),
-    h('details', { class: 'the the-phu' },
+      kho.coQuyenGhi() ? veHangLuu() : veChiXem()),
+    kho.coQuyenGhi() && h('details', { class: 'the the-phu' },
       h('summary', null, 'Gian hàng Shopee (thêm / bớt)'),
       khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'),
       h('p', { class: 'goi-y' }, 'Ngành Shopee cố định: Sách, Tranh, Lịch, Decal, Trà. Bỏ một gian chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.')));
@@ -161,6 +161,7 @@ function veBang() {
         kieu: k.donVi === '%' ? 'phantram' : 'tien',
         kiemTra: (so) => loiO(k.khoa, so),
         'aria-label': `${k.ten} — ${n}`,
+        disabled: !kho.coQuyenGhi(),
         'data-o': `phi-shopee:${n}:${k.khoa}`,
         // Gõ: chỉ cập nhật ô này + dòng tổng + nút Lưu. KHÔNG vẽ lại bảng.
         khiGo: (_so, _hopLe, chuoi) => {
@@ -219,8 +220,15 @@ function coLoiNhap() {
 function capNhatNutLuu() {
   const ds = nganhCanLuu();
   const loi = coLoiNhap();
+  if (!nutLuu) return;
   nutLuu.disabled = !ds.length || loi;
   chuLuu.textContent = loi ? 'Có ô nhập sai (tô đỏ) — sửa trước khi lưu.' : ds.length ? `Sẽ lưu phí tháng ${hienThiThang(st.thang)} cho: ${ds.join(', ')}` : 'Chưa có thay đổi.';
+}
+
+/** Tài khoản không phải admin: chỉ xem (Apps Script cũng từ chối mọi lệnh ghi). */
+function veChiXem() {
+  const p = kho.layPhien();
+  return h('div', { class: 'ghi-chu ghi-chu-vang chi-xem' }, `Chỉ xem — tài khoản "${p ? p.ten : ''}" (${p ? p.vaiTro : ''}) không có quyền sửa bảng phí.`);
 }
 
 function veHangLuu() {

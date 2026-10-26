@@ -1,4 +1,4 @@
-// Màn Cài đặt: URL Apps Script, mật khẩu, kiểm tra kết nối.
+// Màn Cài đặt: URL Apps Script, kiểm tra kết nối, tài khoản đang đăng nhập.
 import { h, thayNoiDung, xacNhan } from './dom.js';
 import { thongBao } from './thong-bao.js';
 import * as kho from '../data/kho.js';
@@ -13,9 +13,7 @@ export function laUrlHopLe(url) {
 export function moCaiDat() {
   const cd = kho.layCaiDat();
   const oUrl = h('input', { type: 'url', id: 'cd-url', class: 'o-nhap o-nhap-rong', value: cd.url, placeholder: 'https://script.google.com/macros/s/…/exec', autocomplete: 'off', spellcheck: 'false' });
-  const oMk = h('input', { type: 'password', id: 'cd-mk', class: 'o-nhap o-nhap-rong', value: kho.layMatKhau(), autocomplete: 'current-password' });
-  const nutHien = h('button', { type: 'button', class: 'nut nut-nho', onclick: () => { oMk.type = oMk.type === 'password' ? 'text' : 'password'; nutHien.textContent = oMk.type === 'password' ? 'Hiện' : 'Ẩn'; } }, 'Hiện');
-  const oNho = h('input', { type: 'checkbox', id: 'cd-nho', checked: kho.coNhoMatKhau() });
+  const phien = kho.layPhien();
   const ketQua = h('div', { class: 'ket-qua-kiem-tra', 'aria-live': 'polite' });
 
   const kiemTra = async () => {
@@ -24,12 +22,10 @@ export function moCaiDat() {
     thayNoiDung(ketQua, dongKQ(null, 'Đang kiểm tra…'));
     nutKT.disabled = true;
     try {
-      const r = await kho.kiemTraKetNoi(url, oMk.value);
+      const r = await kho.kiemTraKetNoi(url);
       const dong = [dongKQ(true, `Kết nối được Apps Script (phiên bản ${r.phienBan}).`)];
-      if (!r.coMatKhau) dong.push(dongKQ(false, 'Apps Script chưa đặt mật khẩu (Script properties → MAT_KHAU). Chưa lưu được dữ liệu.'));
-      else if (r.matKhauDung === true) dong.push(dongKQ(true, 'Mật khẩu đúng — lưu được dữ liệu.'));
-      else if (r.matKhauDung === null) dong.push(dongKQ(null, 'Chưa nhập mật khẩu — chỉ xem được, chưa lưu được.'));
-      else dong.push(dongKQ(false, r.matKhauDung));
+      if (r.daCoAdmin === false) dong.push(dongKQ(false, 'Apps Script chưa có tài khoản admin — làm theo HUONG-DAN.md, mục "Tạo admin đầu tiên".'));
+      else if (r.daCoAdmin === undefined) dong.push(dongKQ(false, 'Code.gs trên Apps Script là bản cũ (chưa có đăng nhập). Dán Code.gs mới và triển khai lại.'));
       thayNoiDung(ketQua, ...dong);
     } catch (e) {
       thayNoiDung(ketQua, dongKQ(false, e.message));
@@ -43,11 +39,12 @@ export function moCaiDat() {
     const url = oUrl.value.trim();
     if (url && !laUrlHopLe(url)) { thayNoiDung(ketQua, dongKQ(false, 'URL chưa đúng.')); return; }
     const doiUrl = url !== kho.layCaiDat().url;
-    kho.luuCaiDat({ url });
-    kho.luuMatKhau(oMk.value, oNho.checked);
-    dlg.close();
-    thongBao('Đã lưu cài đặt trên máy này.');
-    if (doiUrl) { kho.xoaCacheMay(); kho.dongBo(); }
+    if (!doiUrl) { dlg.close(); return; }
+    // Đổi URL = đổi máy chủ: bỏ phiên + dữ liệu tạm cũ, tải lại trang để đăng nhập ở máy chủ mới
+    kho.dangXuat().finally(() => {
+      kho.luuCaiDat({ url });
+      location.reload();
+    });
   };
 
   const dlg = h('dialog', { class: 'hop-thoai', 'aria-labelledby': 'cd-tieu-de' },
@@ -58,10 +55,9 @@ export function moCaiDat() {
       h('label', { class: 'nhan', for: 'cd-url' }, 'URL Apps Script (Web App)'),
       oUrl,
       h('p', { class: 'goi-y' }, 'Chỉ lưu trên máy này, không nằm trong code. Xem HUONG-DAN.md để lấy URL.'),
-      h('label', { class: 'nhan', for: 'cd-mk' }, 'Mật khẩu (để lưu / sửa / xóa)'),
-      h('div', { class: 'hang' }, oMk, nutHien),
-      h('label', { class: 'hop-kiem' }, oNho, ' Nhớ mật khẩu trên máy này (máy dùng chung thì đừng tích)'),
-      h('p', { class: 'goi-y' }, 'Mật khẩu được kiểm tra ở Apps Script, không kiểm tra trong trình duyệt. Xem dữ liệu không cần mật khẩu.'),
+      phien ? h('p', { class: 'goi-y' }, 'Đang đăng nhập: ', h('b', null, phien.ten), ` (${phien.vaiTro}). `,
+        h('button', { type: 'button', class: 'nut nut-nho', onclick: () => kho.dangXuat().finally(() => location.reload()) }, 'Đăng xuất'))
+        : h('p', { class: 'goi-y' }, 'Chưa đăng nhập. Lưu URL xong, app sẽ hỏi tên đăng nhập và mật khẩu.'),
       ketQua,
       h('div', { class: 'hang-nut' },
         nutKT,

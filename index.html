@@ -27,11 +27,14 @@
     <button role="tab" data-tab="campaign" hidden>🎯 Campaign</button>
     <button role="tab" data-tab="gia-von" hidden>📦 Giá vốn</button>
     <button role="tab" data-tab="bang-phi">💸 Bảng phí</button>
+    <button role="tab" data-tab="tai-khoan" hidden>👥 Tài khoản</button>
   </nav>
   <div class="dau-phai">
     <button id="trang-thai-dong-bo" class="dong-bo" type="button" title="Bấm để đồng bộ lại">
       <i class="cham"></i><span>Chưa kết nối</span>
     </button>
+    <span id="nguoi-dung" class="nguoi-dung" hidden></span>
+    <button id="nut-dang-xuat" class="nut nut-nho" type="button" hidden>Đăng xuất</button>
     <button id="nut-cai-dat" class="nut-tron" type="button" title="Cài đặt" aria-label="Cài đặt">⚙️</button>
   </div>
 </header>
@@ -41,6 +44,7 @@
   <section id="tab-campaign" class="tab" role="tabpanel" hidden></section>
   <section id="tab-gia-von" class="tab" role="tabpanel" hidden></section>
   <section id="tab-bang-phi" class="tab" role="tabpanel" hidden></section>
+  <section id="tab-tai-khoan" class="tab" role="tabpanel" hidden></section>
   <noscript><p>Cần bật JavaScript để dùng app.</p></noscript>
 </main>
 </body>

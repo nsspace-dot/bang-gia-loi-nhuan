@@ -152,11 +152,15 @@ node scripts/chay-thu-mau.mjs [--chi-tiet]    # cần thư mục mau/
 | `CAMPAIGN_KQ` | campaign_id + sku_id | ket_qua (VAO/LOAI/GAN/NGOAI), ly_do, loai, nhom, phan_loai, so_luong_tranh, gia_von, gia_ban_le, gia_campaign, so_luong, lai_qc, lai_noqc, ghi_chu |
 | `BANG_TINH` | id | id, ten, gian_hien_thi, thang_phi, so_dong, cap_nhat_luc |
 | `BANG_TINH_DONG` | bang_tinh_id + stt | ten, phan_loai, nganh, gia_von, gia_ban |
-| `LICH_SU` | — | thoi_gian, hanh_dong (THEM/SUA/XOA), sheet, khoa, du_lieu_cu, du_lieu_moi |
+| `LICH_SU` | — | thoi_gian, hanh_dong (THEM/SUA/XOA/DOI_VAI_TRO/DOI_MAT_KHAU), sheet, khoa, du_lieu_cu, du_lieu_moi, nguoi_dung |
+| `TAI_KHOAN` | ten_dang_nhap | ten_dang_nhap, vai_tro (admin/shopee/tiktok), salt, hash (`sha256$<vòng>$<hex>`), tao_luc, cap_nhat_luc — không bao giờ trả về trình duyệt salt/hash |
 
 Quy tắc Apps Script (`apps-script/Code.gs`):
-- `GET ?action=ping | docTatCa | docCampaignKQ&id= | docBangTinh&id=` — chỉ cần URL.
-- `POST {action, matKhau, …}` — mật khẩu so với Script Properties `MAT_KHAU`. Sai 10 lần → khóa 10 phút.
+- `GET ?action=ping` — không cần đăng nhập. Mọi lệnh khác là `POST {action, token, …}`.
+- `POST {action:'dangNhap', ten, matKhau}` → token ngẫu nhiên (CacheService, hết hạn 6 giờ). Sai 5 lần / tên đăng nhập → khóa 10 phút.
+- Mỗi lệnh: token → tên → đọc lại vai trò trong `TAI_KHOAN` (xóa / đổi vai trò có hiệu lực ngay).
+  `docTatCa` chỉ trả sheet của vai trò (shopee: DANH_MUC loại GIAN_SHOPEE, BANG_PHI_SHOPEE, BANG_TINH; tiktok: DANH_MUC GIAN/NGANH, BANG_PHI, GIA_VON, NOI_SKU, CAMPAIGN, BANG_TINH). Mọi lệnh ghi + quản lý tài khoản: chỉ admin.
+- Admin đầu tiên: hàm `taoAdminDauTien()` chạy tay, đọc Script Properties `SETUP_ADMIN_TEN` / `SETUP_ADMIN_MAT_KHAU` rồi xóa chúng.
 - Ghi theo từng bản ghi (upsert theo khóa) trong `LockService`. Ghi lại y hệt dữ liệu cũ thì bỏ qua.
 - Mỗi thay đổi → 1 dòng `LICH_SU`. Campaign / bảng tính (nhiều dòng con) → 1 dòng tóm tắt.
 - Mọi ô lưu dạng chữ thuần để Sheets không tự đổi SKU ID 19 số hoặc "2026-10" thành số/ngày.

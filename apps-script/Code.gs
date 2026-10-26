@@ -2,14 +2,17 @@
  * Apps Script cho app "Bảng giá & Lợi nhuận".
  * Dán toàn bộ file này vào Extensions → Apps Script của Google Sheets, rồi Deploy → Web App.
  *
- * - Đọc: GET  ?action=ping | docTatCa | docCampaignKQ&id=... | docBangTinh&id=...
- * - Ghi: POST (Content-Type text/plain) body JSON { action, matKhau, ... }
- *        Mật khẩu so với Script Properties "MAT_KHAU" (Project Settings → Script properties).
- * - Mọi thay đổi ghi vào sheet LICH_SU; riêng bảng phí ghi thêm từng ô vào LICH_SU_BANG_PHI
+ * - GET ?action=ping (không cần đăng nhập). Mọi lệnh khác: POST (Content-Type text/plain) body JSON { action, token, ... }
+ * - Đăng nhập: POST { action: 'dangNhap', ten, matKhau } → token (giữ 6 giờ trong CacheService).
+ *   Tài khoản ở sheet TAI_KHOAN: mật khẩu lưu dạng hash SHA-256 + salt, không lưu mật khẩu thô.
+ * - Vai trò: admin (xem + sửa tất cả, quản lý tài khoản), shopee / tiktok (chỉ XEM dữ liệu nền tảng của mình).
+ *   Quyền được kiểm tra ở đây cho MỌI lệnh đọc và ghi, không dựa vào giao diện.
+ * - Tạo admin đầu tiên: đặt Script properties SETUP_ADMIN_TEN + SETUP_ADMIN_MAT_KHAU rồi chạy tay hàm taoAdminDauTien().
+ * - Mọi thay đổi ghi vào sheet LICH_SU (kèm người sửa); riêng bảng phí ghi thêm từng ô vào LICH_SU_BANG_PHI
  *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '1.2.0';
+var PHIEN_BAN = '2.0.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -54,16 +57,21 @@ var CAU_TRUC = {
     con: 'bang_tinh_id',
   },
   LICH_SU: {
-    cot: ['thoi_gian', 'hanh_dong', 'sheet', 'khoa', 'du_lieu_cu', 'du_lieu_moi'],
+    cot: ['thoi_gian', 'hanh_dong', 'sheet', 'khoa', 'du_lieu_cu', 'du_lieu_moi', 'nguoi_dung'],
     khoa: [], so: [],
   },
   LICH_SU_BANG_PHI: {
-    cot: ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi'],
+    cot: ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi', 'nguoi_dung'],
     khoa: [], so: [],
   },
   LICH_SU_BANG_PHI_SHOPEE: {
-    cot: ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi'],
+    cot: ['thoi_gian', 'hanh_dong', 'thang', 'gian', 'nganh', 'o', 'gia_tri_cu', 'gia_tri_moi', 'nguoi_dung'],
     khoa: [], so: [],
+  },
+  // Tài khoản: KHÔNG bao giờ trả về trình duyệt cột salt / hash. Không nằm trong SHEET_GHI / SHEET_DOC.
+  TAI_KHOAN: {
+    cot: ['ten_dang_nhap', 'vai_tro', 'salt', 'hash', 'tao_luc', 'cap_nhat_luc'],
+    khoa: ['ten_dang_nhap'], so: [],
   },
 };
 
@@ -72,8 +80,20 @@ var SHEET_GHI = ['DANH_MUC', 'BANG_PHI', 'BANG_PHI_SHOPEE', 'GIA_VON', 'NOI_SKU'
 // Sheet trả về trong docTatCa
 var SHEET_DOC = ['DANH_MUC', 'BANG_PHI', 'BANG_PHI_SHOPEE', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'];
 
-var SAI_TOI_DA = 10;        // sai mật khẩu quá số lần này ...
-var KHOA_GIAY = 10 * 60;    // ... thì khóa 10 phút
+var SAI_TOI_DA = 5;          // đăng nhập sai quá số lần này (theo tên đăng nhập) ...
+var KHOA_GIAY = 10 * 60;     // ... thì khóa 10 phút
+var PHIEN_GIAY = 6 * 60 * 60; // token hết hạn sau 6 giờ (tối đa của CacheService)
+var SO_VONG_HASH = 500;       // SHA-256 lặp lại để dò mật khẩu chậm hơn
+var VAI_TRO = ['admin', 'shopee', 'tiktok'];
+
+// Dữ liệu mỗi vai trò được ĐỌC. DANH_MUC chỉ trả các loại danh mục của nền tảng đó.
+var QUYEN_DOC = {
+  admin: { sheet: SHEET_DOC, danhMuc: null },
+  shopee: { sheet: ['DANH_MUC', 'BANG_PHI_SHOPEE', 'BANG_TINH'], danhMuc: ['GIAN_SHOPEE'] },
+  tiktok: { sheet: ['DANH_MUC', 'BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'], danhMuc: ['GIAN', 'NGANH'] },
+};
+
+var NGUOI_DUNG_ = ''; // người đang gọi (ghi vào lịch sử)
 
 var TEN_O_PHI = {
   phi_san: 'Phí sàn (%)', phi_vc: 'Phí bồi hoàn V/C (đ)', phi_xl: 'Phí xử lý đơn hàng (đ)',
@@ -97,13 +117,8 @@ var LICH_SU_PHI = {
 function doGet(e) {
   return xuLy_(function () {
     var p = (e && e.parameter) || {};
-    switch (p.action) {
-      case 'ping': return { phienBan: PHIEN_BAN, coMatKhau: !!layMatKhau_() };
-      case 'docTatCa': return { duLieu: docTatCa_() };
-      case 'docCampaignKQ': return { duLieu: docCon_('CAMPAIGN_KQ', p.id) };
-      case 'docBangTinh': return { duLieu: docCon_('BANG_TINH_DONG', p.id) };
-      default: throw loi_('Hành động không hợp lệ: ' + p.action);
-    }
+    if (p.action === 'ping') return { phienBan: PHIEN_BAN, daCoAdmin: daCoAdmin_() };
+    throw loi_('Cần đăng nhập. Phiên bản app cũ — tải lại trang.', 'CAN_DANG_NHAP');
   });
 }
 
@@ -112,14 +127,30 @@ function doPost(e) {
     var body;
     try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); }
     catch (x) { throw loi_('Dữ liệu gửi lên không phải JSON.'); }
-    kiemTraMatKhau_(body.matKhau);
+    if (body.action === 'dangNhap') return dangNhap_(body.ten, body.matKhau);
+    var phien = xacThuc_(body.token);
+    NGUOI_DUNG_ = phien.ten;
     switch (body.action) {
-      case 'kiemTraMatKhau': return {};
+      // --- mọi vai trò ---
+      case 'phien': return { ten: phien.ten, vaiTro: phien.vaiTro };
+      case 'dangXuat': CacheService.getScriptCache().remove('phien_' + body.token); return {};
+      case 'docTatCa': return { duLieu: docTatCa_(phien.vaiTro) };
+      case 'docBangTinh': canDoc_(phien, 'BANG_TINH'); return { duLieu: docCon_('BANG_TINH_DONG', body.id) };
+      case 'docCampaignKQ': canDoc_(phien, 'CAMPAIGN'); return { duLieu: docCon_('CAMPAIGN_KQ', body.id) };
+    }
+    // --- chỉ admin: ghi dữ liệu + quản lý tài khoản ---
+    canAdmin_(phien);
+    switch (body.action) {
       case 'upsert': return { banGhi: upsert_(body.sheet, body.banGhi || []) };
       case 'xoa': return { daXoa: xoa_(body.sheet, body.khoa || []) };
       case 'luuCampaign': return luuCha_('CAMPAIGN', body.campaign, 'CAMPAIGN_KQ', body.ketQua || [], 'id');
       case 'luuBangTinh': return luuCha_('BANG_TINH', body.bangTinh, 'BANG_TINH_DONG', body.dong || [], 'id');
       case 'xoaBangTinh': return { daXoa: xoaCha_('BANG_TINH', 'BANG_TINH_DONG', body.id) };
+      case 'dsTaiKhoan': return { taiKhoan: dsTaiKhoan_() };
+      case 'themTaiKhoan': return { taiKhoan: themTaiKhoan_(body.ten, body.matKhau, body.vaiTro) };
+      case 'xoaTaiKhoan': return { daXoa: xoaTaiKhoan_(phien, body.ten) };
+      case 'doiMatKhau': return { taiKhoan: doiMatKhau_(body.ten, body.matKhau) };
+      case 'doiVaiTro': return { taiKhoan: doiVaiTro_(phien, body.ten, body.vaiTro) };
       default: throw loi_('Hành động không hợp lệ: ' + body.action);
     }
   });
@@ -132,31 +163,208 @@ function xuLy_(fn) {
     kq.ok = true;
   } catch (x) {
     kq = { ok: false, loi: x && x.laLoiNguoiDung ? x.message : 'Lỗi Apps Script: ' + (x && x.message ? x.message : x) };
+    if (x && x.ma) kq.ma = x.ma;
   }
   return ContentService.createTextOutput(JSON.stringify(kq)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function loi_(thongBao) {
+/** ma: 'CAN_DANG_NHAP' (chưa đăng nhập / token hết hạn) | 'KHONG_CO_QUYEN' */
+function loi_(thongBao, ma) {
   var x = new Error(thongBao);
   x.laLoiNguoiDung = true;
+  if (ma) x.ma = ma;
   return x;
 }
 
-// ============ Mật khẩu ============
+// ============ Đăng nhập, phiên, quyền ============
 
-function layMatKhau_() {
-  return PropertiesService.getScriptProperties().getProperty('MAT_KHAU') || '';
+function chuanTen_(ten) {
+  return String(ten === undefined || ten === null ? '' : ten).trim().toLowerCase();
 }
 
-function kiemTraMatKhau_(matKhau) {
-  var dung = layMatKhau_();
-  if (!dung) throw loi_('Chưa đặt mật khẩu. Vào Apps Script → Project Settings → Script properties, thêm MAT_KHAU.');
+function hex_(bytes) {
+  return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+/** SHA-256(salt + mật khẩu), lặp SO_VONG_HASH lần. Lưu dạng "sha256$<số vòng>$<hex>". */
+function bamMatKhau_(salt, matKhau, soVong) {
+  var h = String(matKhau);
+  for (var i = 0; i < soVong; i++) {
+    h = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + h, Utilities.Charset.UTF_8));
+  }
+  return 'sha256$' + soVong + '$' + h;
+}
+
+function khopMatKhau_(tk, matKhau) {
+  var phan = String(tk.hash || '').split('$');
+  var soVong = Number(phan[1]) || SO_VONG_HASH;
+  return soSanhAnToan_(bamMatKhau_(String(tk.salt), matKhau, soVong), String(tk.hash));
+}
+
+function taoSalt_() {
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+}
+
+function kiemTraMatKhauMoi_(matKhau) {
+  if (typeof matKhau !== 'string' || matKhau.length < 8) throw loi_('Mật khẩu phải có ít nhất 8 ký tự.');
+  if (matKhau.length > 200) throw loi_('Mật khẩu quá dài.');
+}
+
+function timTaiKhoan_(ten) {
+  var t = chuanTen_(ten);
+  var tk = null;
+  docSheet_('TAI_KHOAN').ds.forEach(function (o) { if (chuanTen_(o.ten_dang_nhap) === t) tk = o; });
+  return tk;
+}
+
+function daCoAdmin_() {
+  return docSheet_('TAI_KHOAN').ds.some(function (o) { return o.vai_tro === 'admin'; });
+}
+
+function dangNhap_(ten, matKhau) {
+  var t = chuanTen_(ten);
+  if (!t || !matKhau) throw loi_('Nhập tên đăng nhập và mật khẩu.');
+  if (t.length > 64) throw loi_('Sai tên đăng nhập hoặc mật khẩu.');
   var cache = CacheService.getScriptCache();
-  var soLanSai = Number(cache.get('sai_mat_khau') || 0);
-  if (soLanSai >= SAI_TOI_DA) throw loi_('Sai mật khẩu quá nhiều lần. Thử lại sau 10 phút.');
-  if (!soSanhAnToan_(String(matKhau || ''), dung)) {
-    cache.put('sai_mat_khau', String(soLanSai + 1), KHOA_GIAY);
-    throw loi_('Sai mật khẩu.');
+  var khoaSai = 'sai_dn_' + t;
+  var soLanSai = Number(cache.get(khoaSai) || 0);
+  if (soLanSai >= SAI_TOI_DA) throw loi_('Đăng nhập sai quá ' + SAI_TOI_DA + ' lần. Tài khoản tạm khóa 10 phút.');
+  var tk = timTaiKhoan_(t);
+  // Không có tài khoản vẫn băm 1 lần để thời gian trả lời giống nhau
+  var dung = tk ? khopMatKhau_(tk, String(matKhau)) : (bamMatKhau_('x', String(matKhau), SO_VONG_HASH), false);
+  if (!dung || VAI_TRO.indexOf(tk.vai_tro) < 0) {
+    cache.put(khoaSai, String(soLanSai + 1), KHOA_GIAY);
+    throw loi_('Sai tên đăng nhập hoặc mật khẩu.');
+  }
+  cache.remove(khoaSai);
+  var token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  cache.put('phien_' + token, t, PHIEN_GIAY);
+  return { token: token, ten: t, vaiTro: tk.vai_tro, hetHanSau: PHIEN_GIAY };
+}
+
+/** Token → { ten, vaiTro }. Vai trò đọc lại từ TAI_KHOAN mỗi lần: xóa / đổi vai trò có hiệu lực ngay. */
+function xacThuc_(token) {
+  if (!token || typeof token !== 'string') throw loi_('Cần đăng nhập.', 'CAN_DANG_NHAP');
+  var ten = CacheService.getScriptCache().get('phien_' + token);
+  var tk = ten ? timTaiKhoan_(ten) : null;
+  if (!tk || VAI_TRO.indexOf(tk.vai_tro) < 0) throw loi_('Phiên đăng nhập đã hết hạn. Đăng nhập lại.', 'CAN_DANG_NHAP');
+  return { ten: chuanTen_(tk.ten_dang_nhap), vaiTro: tk.vai_tro };
+}
+
+function canAdmin_(phien) {
+  if (phien.vaiTro !== 'admin') throw loi_('Tài khoản "' + phien.ten + '" (' + phien.vaiTro + ') chỉ được xem, không được sửa.', 'KHONG_CO_QUYEN');
+}
+
+function canDoc_(phien, sheet) {
+  if (QUYEN_DOC[phien.vaiTro].sheet.indexOf(sheet) < 0) throw loi_('Tài khoản "' + phien.ten + '" không được xem dữ liệu này.', 'KHONG_CO_QUYEN');
+}
+
+// ============ Quản lý tài khoản (admin) ============
+
+function boMat_(tk) {
+  return { ten_dang_nhap: chuanTen_(tk.ten_dang_nhap), vai_tro: tk.vai_tro, tao_luc: tk.tao_luc, cap_nhat_luc: tk.cap_nhat_luc };
+}
+
+function dsTaiKhoan_() {
+  return docSheet_('TAI_KHOAN').ds.map(boMat_);
+}
+
+function kiemTraVaiTro_(vaiTro) {
+  if (VAI_TRO.indexOf(vaiTro) < 0) throw loi_('Vai trò phải là: ' + VAI_TRO.join(', ') + '.');
+}
+
+/** Ghi 1 tài khoản (thêm hoặc cập nhật) + 1 dòng LICH_SU không chứa salt / hash. */
+function ghiTaiKhoan_(ban, hanhDong, moTa) {
+  var d = docSheet_('TAI_KHOAN');
+  var cu = null;
+  d.ds.forEach(function (o) { if (chuanTen_(o.ten_dang_nhap) === ban.ten_dang_nhap) cu = o; });
+  var bayGio = new Date().toISOString();
+  ban.cap_nhat_luc = bayGio;
+  if (!ban.tao_luc) ban.tao_luc = cu ? cu.tao_luc : bayGio;
+  var dong = d.dau.map(function (c) { return c ? giaTriGhi_(null, c, ban[c]) : ''; });
+  var r = cu ? d.sh.getRange(cu._dong, 1, 1, dong.length) : d.sh.getRange(d.sh.getLastRow() + 1, 1, 1, dong.length);
+  r.setNumberFormat('@');
+  r.setValues([dong]);
+  ghiLichSu_([[bayGio, hanhDong, 'TAI_KHOAN', ban.ten_dang_nhap, cu ? JSON.stringify({ vai_tro: cu.vai_tro }) : '', JSON.stringify(moTa)]]);
+  SpreadsheetApp.flush();
+  return boMat_(ban);
+}
+
+function themTaiKhoan_(ten, matKhau, vaiTro) {
+  var t = chuanTen_(ten);
+  if (!/^[a-z0-9._-]{3,32}$/.test(t)) throw loi_('Tên đăng nhập 3–32 ký tự, chỉ gồm chữ không dấu, số, dấu . _ -');
+  kiemTraVaiTro_(vaiTro);
+  kiemTraMatKhauMoi_(matKhau);
+  return voiKhoa_(function () {
+    if (timTaiKhoan_(t)) throw loi_('Tên đăng nhập "' + t + '" đã có.');
+    var salt = taoSalt_();
+    return ghiTaiKhoan_({ ten_dang_nhap: t, vai_tro: vaiTro, salt: salt, hash: bamMatKhau_(salt, matKhau, SO_VONG_HASH) },
+      'THEM', { vai_tro: vaiTro });
+  });
+}
+
+function doiMatKhau_(ten, matKhau) {
+  kiemTraMatKhauMoi_(matKhau);
+  return voiKhoa_(function () {
+    var tk = timTaiKhoan_(ten);
+    if (!tk) throw loi_('Không có tài khoản "' + chuanTen_(ten) + '".');
+    var salt = taoSalt_();
+    return ghiTaiKhoan_({ ten_dang_nhap: chuanTen_(tk.ten_dang_nhap), vai_tro: tk.vai_tro, salt: salt, hash: bamMatKhau_(salt, matKhau, SO_VONG_HASH), tao_luc: tk.tao_luc },
+      'DOI_MAT_KHAU', { mat_khau: 'đã đổi' });
+  });
+}
+
+function soAdmin_() {
+  return docSheet_('TAI_KHOAN').ds.filter(function (o) { return o.vai_tro === 'admin'; }).length;
+}
+
+function doiVaiTro_(phien, ten, vaiTro) {
+  kiemTraVaiTro_(vaiTro);
+  return voiKhoa_(function () {
+    var tk = timTaiKhoan_(ten);
+    if (!tk) throw loi_('Không có tài khoản "' + chuanTen_(ten) + '".');
+    if (tk.vai_tro === 'admin' && vaiTro !== 'admin') {
+      if (chuanTen_(tk.ten_dang_nhap) === phien.ten) throw loi_('Không tự bỏ quyền admin của chính mình.');
+      if (soAdmin_() <= 1) throw loi_('Phải còn ít nhất 1 admin.');
+    }
+    return ghiTaiKhoan_({ ten_dang_nhap: chuanTen_(tk.ten_dang_nhap), vai_tro: vaiTro, salt: tk.salt, hash: tk.hash, tao_luc: tk.tao_luc },
+      'DOI_VAI_TRO', { vai_tro: vaiTro });
+  });
+}
+
+function xoaTaiKhoan_(phien, ten) {
+  return voiKhoa_(function () {
+    var tk = timTaiKhoan_(ten);
+    if (!tk) return 0;
+    if (chuanTen_(tk.ten_dang_nhap) === phien.ten) throw loi_('Không tự xóa tài khoản đang đăng nhập.');
+    if (tk.vai_tro === 'admin' && soAdmin_() <= 1) throw loi_('Phải còn ít nhất 1 admin.');
+    laySheet_('TAI_KHOAN').deleteRow(tk._dong);
+    ghiLichSu_([[new Date().toISOString(), 'XOA', 'TAI_KHOAN', chuanTen_(tk.ten_dang_nhap), JSON.stringify({ vai_tro: tk.vai_tro }), '']]);
+    SpreadsheetApp.flush();
+    return 1;
+  });
+}
+
+/**
+ * CHẠY TAY 1 LẦN trong trình soạn thảo Apps Script để tạo admin đầu tiên:
+ *   1. Project Settings → Script properties: thêm SETUP_ADMIN_TEN và SETUP_ADMIN_MAT_KHAU (≥ 8 ký tự).
+ *   2. Chọn hàm taoAdminDauTien → Run.
+ * Hàm tự xóa 2 thuộc tính đó sau khi chạy. Chỉ chạy được khi CHƯA có admin nào.
+ */
+function taoAdminDauTien() {
+  var props = PropertiesService.getScriptProperties();
+  var ten = props.getProperty('SETUP_ADMIN_TEN');
+  var matKhau = props.getProperty('SETUP_ADMIN_MAT_KHAU');
+  try {
+    if (daCoAdmin_()) throw new Error('Đã có admin. Hãy đăng nhập app bằng admin để tạo / đổi tài khoản.');
+    if (!ten || !matKhau) throw new Error('Thiếu Script properties SETUP_ADMIN_TEN / SETUP_ADMIN_MAT_KHAU.');
+    NGUOI_DUNG_ = 'taoAdminDauTien';
+    var tk = themTaiKhoan_(ten, matKhau, 'admin');
+    console.log('Đã tạo admin "' + tk.ten_dang_nhap + '". Đăng nhập app bằng tài khoản này.');
+    return tk;
+  } finally {
+    props.deleteProperty('SETUP_ADMIN_MAT_KHAU');
+    props.deleteProperty('SETUP_ADMIN_TEN');
   }
 }
 
@@ -177,7 +385,7 @@ function lichSuBangPhi_(tenO, thoiGian, hanhDong, cu, moi) {
   Object.keys(tenO).forEach(function (k) {
     var a = cu ? giaTriGhi_(null, k, cu[k]) : '';
     var b = moi ? giaTriGhi_(null, k, moi[k]) : '';
-    if (a !== b) dong.push([thoiGian, hanhDong, String(goc.thang), String(goc.gian), String(goc.nganh), tenO[k], a, b]);
+    if (a !== b) dong.push([thoiGian, hanhDong, String(goc.thang), String(goc.gian), String(goc.nganh), tenO[k], a, b, NGUOI_DUNG_]);
   });
   return dong;
 }
@@ -258,9 +466,16 @@ function bo_(o) {
   return r;
 }
 
-function docTatCa_() {
+/** Chỉ trả dữ liệu vai trò được xem; sheet không được xem trả mảng rỗng. */
+function docTatCa_(vaiTro) {
+  var q = QUYEN_DOC[vaiTro];
   var kq = {};
-  SHEET_DOC.forEach(function (t) { kq[t] = docSheet_(t).ds.map(bo_); });
+  SHEET_DOC.forEach(function (t) {
+    if (q.sheet.indexOf(t) < 0) { kq[t] = []; return; }
+    var ds = docSheet_(t).ds.map(bo_);
+    if (t === 'DANH_MUC' && q.danhMuc) ds = ds.filter(function (o) { return q.danhMuc.indexOf(o.loai) >= 0; });
+    kq[t] = ds;
+  });
   return kq;
 }
 
@@ -437,6 +652,7 @@ function xoaDongCon_(tenCon, cotCha, id) {
 
 function ghiLichSu_(dong) {
   if (!dong.length) return;
+  dong = dong.map(function (d) { return d.concat([NGUOI_DUNG_]); });
   var sh = laySheet_('LICH_SU');
   var r = sh.getRange(sh.getLastRow() + 1, 1, dong.length, dong[0].length);
   r.setNumberFormat('@');
