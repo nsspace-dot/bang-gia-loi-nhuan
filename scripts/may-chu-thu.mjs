@@ -23,6 +23,11 @@ if (process.argv.includes('--du-lieu-gia')) {
   phi.push({ gian: 'Tường Vip', nganh: 'Tranh', thang: '2026-10', phi_san: 23.5, phi_vc: 2300, phi_xl: 3000, phi_qc: 9, aff_qc: 4, aff_noqc: 10 });
   phi.push({ gian: 'Tường Vip', nganh: 'Decal', thang: '2026-10', phi_san: 22.5, phi_vc: 2300, phi_xl: 3000, phi_qc: 9, aff_qc: 4, aff_noqc: 12 });
   gas.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: phi });
+  // Shopee: chỉ Tranh Vip × Tranh có bộ phí đã lưu (AFF 12% → tổng 60%); các gian khác dùng phí mặc định
+  gas.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [{
+    gian: 'Tranh Vip', nganh: 'Tranh', thang: '2026-08', phi_co_dinh: 19.1, voucher_xtra: 5.5, phi_ha_tang: 3000, phi_xu_ly: 6,
+    phi_dich_vu: 7.5, quang_cao: 8.2, voucher_shop: 1.2, aff: 12, phi_hoan_vcktc: 0.5,
+  }] });
   const von = [];
   [['Bộ 1 tấm', 'Tranh', ['13x18', '20x30', '30x40', '40x60', '50x70', '60x90'], 6000],
     ['Bộ 3 tấm đồng size', 'Tranh', ['20x30x3', '30x40x3', '40x60x3'], 30000],

@@ -146,9 +146,12 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - Sửa nhanh 1 dòng: bấm ✏️ → gõ giá → Enter.
 
 ### 🧮 Tính lợi nhuận
+- Đầu trang chọn nền tảng **Shopee | TikTok** (app nhớ lựa chọn lần trước). Danh sách sản phẩm dùng chung, chỉ đổi cách tính:
+  - **TikTok**: các gian TikTok, mỗi gian 2 cột lãi Có QC / Không QC, theo bảng phí TikTok.
+  - **Shopee**: các gian Shopee, mỗi gian 1 cột lãi, theo bảng phí Shopee: Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng 8 khoản %. Gian × ngành chưa lưu bộ phí Shopee thì tính bằng phí mặc định (rê chuột vào ô lãi để xem).
 - Thả file Excel sản phẩm (cột: Tên sản phẩm | Phân loại | Ngành hàng | Giá vốn | Giá bán) hoặc **➕ Thêm dòng**. Bấm **📄 File mẫu** để lấy mẫu.
 - Lãi tính theo **bộ phí đang áp dụng hiện tại**, cho từng gian (bấm tên gian để ẩn / hiện).
-- **Chỉ dòng lỗ**: lọc nhanh. Bấm tiêu đề cột **Có QC / Không QC** của một gian để sắp xếp theo lãi.
+- **Chỉ dòng lỗ**: lọc nhanh. Bấm tiêu đề cột lãi (**Có QC / Không QC**, hoặc **Lãi** với Shopee) của một gian để sắp xếp theo lãi.
 - **💾 Lưu lên Sheets**: đặt tên bảng tính để mở lại trên máy khác (**📂 Mở bảng tính**). Bản nháp vẫn tự giữ trên máy đang dùng.
 - **📤 Xuất Excel**: 5 cột đầu đúng mẫu nhập (nhập lại được) + lãi từng gian.
 
