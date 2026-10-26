@@ -56,7 +56,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 1. Quay lại trình soạn thảo (biểu tượng `< >` bên trái).
 2. Ở thanh trên cùng, ô chọn hàm → chọn **`taoCacSheet`** → bấm ▶ **Chạy**.
 3. Lần đầu Google sẽ hỏi quyền: **Xem xét quyền** → chọn tài khoản → nếu thấy "Google chưa xác minh ứng dụng này" bấm **Nâng cao** → **Đi tới … (không an toàn)** → **Cho phép**. (Đây là script của chính bạn nên an toàn.)
-4. Mở lại file Sheets: sẽ có các sheet `DANH_MUC`, `BANG_PHI`, `GIA_VON`, `NOI_SKU`, `CAMPAIGN`, `CAMPAIGN_KQ`, `BANG_TINH`, `BANG_TINH_DONG`, `LICH_SU`.
+4. Mở lại file Sheets: sẽ có các sheet `DANH_MUC`, `BANG_PHI`, `BANG_PHI_SHOPEE`, `GIA_VON`, `NOI_SKU`, `CAMPAIGN`, `CAMPAIGN_KQ`, `BANG_TINH`, `BANG_TINH_DONG`, `LICH_SU`.
 
 > **Không sửa tay** tên sheet, dòng tiêu đề (dòng 1) hay thứ tự cột. Muốn sửa số liệu thì sửa trong app để có lịch sử.
 
@@ -127,11 +127,19 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - App tự đồng bộ với Google Sheets 5 phút/lần. Nếu bạn đang sửa dở, app **không** tự làm mới bảng mà hiện thông báo nhỏ góc trái dưới **"Có dữ liệu mới từ Google Sheets — Tải lại"**. Bấm **Tải lại** khi tiện; số bạn đang sửa vẫn được giữ.
 
 ### 💸 Bảng phí
+- Có 2 tab con **Shopee | TikTok**. Hai bảng phí lưu riêng (sheet `BANG_PHI_SHOPEE` và `BANG_PHI`), sửa bên này không ảnh hưởng bên kia. Các mục dưới đây là của TikTok.
 - Ngành nào có **Chi phí QC** = 0 / trống: ô tô vàng ⚠ và ghi *"Chưa nhập phí QC – lãi Có QC sẽ bị tính cao hơn thực tế"*. Ở tab Tính lợi nhuận, cột **Có QC** của ngành đó có dấu ⚠.
 - Chọn **gian** → chọn **tháng áp dụng** → sửa → **Lưu**.
 - Phí tháng mới **không** xóa phí tháng cũ. Khi tính, app dùng **bộ phí mới nhất có tháng áp dụng ≤ tháng đang tính**.
 - Ví dụ: sàn tăng phí từ 11/2026 → chọn tháng `11/2026`, sửa ngành bị đổi, Lưu. Ngành không sửa vẫn dùng bộ phí cũ.
 - **Gian hàng & ngành (thêm / bớt)** ở cuối trang.
+
+**Shopee**
+- Gian: Nhà Sách, CN1, CN2, Tường Vip, Tranh Vip, Tường Vip New. Ngành: Sách, Tranh, Lịch, Decal, Trà (danh sách cố định).
+- 9 khoản phí: Phí cố định, Voucher Xtra, Phí hạ tầng (đ/đơn), Phí xử lý, Phí dịch vụ, Quảng cáo, Voucher shop, AFF, Phí hoàn V/C KTC.
+- Gian/ngành chưa lưu bộ phí nào thì hiện **giá trị mặc định** (cột ghi "mặc định"): Phí cố định 18,7% (Lịch) / 19,1% (ngành khác), Voucher Xtra 5,5%, Phí hạ tầng 3.000 đ, Phí xử lý 6%, Phí dịch vụ 7,5%, Quảng cáo 8,2%, Voucher shop 1,2%, AFF 2%, Phí hoàn V/C KTC 0,5%. Bấm **Lưu** để lưu thành bộ phí của tháng đang chọn.
+- Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × (tổng 8 khoản %).
+- Chọn gian → tháng áp dụng → sửa → Lưu, giống TikTok.
 
 ### 📦 Giá vốn
 - Bộ phận giá vốn gửi file mới → thả vào → xem trước → Lưu. Chỉ dòng thay đổi được ghi (có lịch sử).
@@ -192,7 +200,7 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 ## 7. Đổi mật khẩu, xem lịch sử, sao lưu
 
 - **Đổi mật khẩu**: Apps Script → ⚙️ Cài đặt dự án → Thuộc tính tập lệnh → sửa giá trị `MAT_KHAU` → Lưu. Không cần triển khai lại. Sau đó nhập mật khẩu mới ở ⚙️ Cài đặt trên mỗi máy.
-- **Lịch sử bảng phí**: sheet `LICH_SU_BANG_PHI` — mỗi ô thay đổi 1 dòng: thời gian, hành động (THEM / SUA / XOA), tháng, gian, ngành, ô, giá trị cũ → mới.
+- **Lịch sử bảng phí**: sheet `LICH_SU_BANG_PHI` (TikTok) và `LICH_SU_BANG_PHI_SHOPEE` (Shopee) — mỗi ô thay đổi 1 dòng: thời gian, hành động (THEM / SUA / XOA), tháng, gian, ngành, ô, giá trị cũ → mới.
 - **Lịch sử**: sheet `LICH_SU` — mỗi lần thêm / sửa / xóa có: thời gian, hành động (THEM / SUA / XOA), sheet, khóa, dữ liệu cũ, dữ liệu mới. Lưu campaign / bảng tính ghi 1 dòng tóm tắt.
 - **Sao lưu**: Google Sheets → **Tệp** → **Tạo bản sao**, hoặc **Tải xuống** → Excel. Nên làm hằng tháng.
 - **Dung lượng**: mỗi campaign lưu khoảng 6.000 dòng kết quả. Google Sheets giới hạn 10 triệu ô (đủ vài chục campaign). Khi sheet `CAMPAIGN_KQ` quá lớn, sao lưu file rồi xóa bớt dòng của các campaign cũ.

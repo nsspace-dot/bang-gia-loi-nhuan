@@ -244,8 +244,8 @@ main { max-width: 1560px; margin: 0 auto; padding: 22px 28px 60px; }
 .dong-canh-bao td { background: #fffbef; }
 .o-trong { text-align: center !important; color: var(--chu-nhat); padding: 24px !important; }
 .o-thao-tac { white-space: nowrap; text-align: right; }
-.bang-phi td { min-width: 120px; }
-.bang-phi tbody th { white-space: nowrap; }
+.bang-phi td, .bang-phi-shopee td { min-width: 120px; }
+.bang-phi tbody th, .bang-phi-shopee tbody th { white-space: nowrap; }
 .don-vi { color: var(--chu-nhat); font-weight: 500; }
 .chu-ke-thua { color: var(--vang); }
 .chu-lai { color: var(--lai); font-weight: 700; }
@@ -490,10 +490,17 @@ main { overflow-anchor: none; }
 .nhan-an { visibility: hidden; }
 .nhan-trang-thai-luu { display: inline-block; min-width: 132px; text-align: center; }
 /* Bảng phí: cột cố định, không co giãn theo số vừa gõ */
-.bang-phi { table-layout: fixed; }
-.bang-phi col.cot-ten-phi { width: 230px; }
-.bang-phi td { min-width: 0; }
-.bang-phi tfoot td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bang-phi, .bang-phi-shopee { table-layout: fixed; }
+.bang-phi col.cot-ten-phi, .bang-phi-shopee col.cot-ten-phi { width: 230px; }
+.bang-phi td, .bang-phi-shopee td { min-width: 0; }
+.bang-phi tfoot td, .bang-phi-shopee tfoot td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Bảng phí: tab con Shopee | TikTok */
+.tab-con-san { display: flex; gap: 6px; margin-bottom: 14px; }
+.tab-con-san [role=tab] {
+  border: 2px solid var(--vien); background: var(--nen-2); cursor: pointer;
+  padding: 6px 18px; border-radius: 999px; font-weight: 700; color: var(--chu-phu);
+}
+.tab-con-san [role=tab].dang-chon { background: var(--chinh-nhat); border-color: #f7c3d7; color: var(--chinh-dam); }
 /* Ô số / ô lãi: chữ số đều nhau, độ rộng tối thiểu cố định */
 .o-so, .o-lai, .bang .so { font-variant-numeric: tabular-nums; }
 .bang-ln td.o-lai { min-width: 86px; width: 86px; }

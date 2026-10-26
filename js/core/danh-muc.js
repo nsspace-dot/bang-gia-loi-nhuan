@@ -27,3 +27,7 @@ export function layDanhSach(dsDanhMuc, loai) {
     .sort((a, b) => (a.thu_tu ?? 0) - (b.thu_tu ?? 0))
     .map((d) => d.ten);
 }
+
+// Shopee: danh sách gian / ngành riêng (cố định), không dùng DANH_MUC của TikTok.
+export const GIAN_SHOPEE = ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New'];
+export const NGANH_SHOPEE = ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà'];
