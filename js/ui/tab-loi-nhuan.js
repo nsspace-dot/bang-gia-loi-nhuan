@@ -1,18 +1,21 @@
-// Tab Tính lợi nhuận: bảng sản phẩm, lãi có QC / không QC theo từng gian, tổng kết,
+// Tab Tính lợi nhuận: chọn nền tảng (Shopee | TikTok), bảng sản phẩm, lãi theo từng gian, tổng kết,
 // nhập/xuất Excel, lưu "bảng tính" lên Google Sheets.
+// TikTok: 2 cột lãi / gian (có QC, không QC) — bang-tinh.js. Shopee: 1 cột lãi / gian — bang-tinh-shopee.js.
 import { h, thayNoiDung, xacNhan, chonFile, ganKeoTha, taiXuong, nhapChu, veGiu, treLai } from './dom.js';
 import { oSo, oChu, dangGoDo } from './o-so.js';
 import { baoDuLieuMoi, boChoTaiLai } from './du-lieu-moi.js';
 import { thongBao } from './thong-bao.js';
 import { manTrong, linhVat, chucMung } from './linh-vat.js';
 import * as kho from '../data/kho.js';
-import { docBangSanPham, laiTaiGian, locVaSapXep, tongKet, bangXuat, TIEU_DE_MAU } from '../core/bang-tinh.js';
+import { docBangSanPham, laiTaiGian, laDongLo, locVaSapXep, tongKet, bangXuat, TIEU_DE_MAU } from '../core/bang-tinh.js';
+import { laiTaiGianShopee, laDongLoShopee, locVaSapXepShopee, tongKetShopee, bangXuatShopee } from '../core/bang-tinh-shopee.js';
 import { thangHienTai, hienThiThang, chuanHoaThang, thieuPhiQC, CANH_BAO_QC } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangPhanTram } from '../core/so.js';
-import { layDanhSach, mauGian } from '../core/danh-muc.js';
+import { layDanhSach, mauGian, GIAN_SHOPEE } from '../core/danh-muc.js';
 import { docBang } from '../excel/doc.js';
 
 const KHOA_NHAP = 'bggl.loinhuan.v1';
+const KHOA_NEN_TANG = 'bggl.loinhuan.nentang.v1';
 const MOI_TRANG = 100;
 
 let soId = 0;
@@ -22,11 +25,13 @@ const st = {
   ds: [],              // { _id, ten, phan_loai, nganh, gia_von, gia_ban }
   bangTinh: null,      // { id, ten } khi đang mở bảng tính đã lưu
   thayDoi: false,      // có thay đổi chưa lưu lên Sheets
-  gianXem: null,       // null = tất cả gian
+  nenTang: 'tiktok',   // 'tiktok' | 'shopee' — nhớ riêng (KHOA_NEN_TANG)
+  gianXem: null,       // gian TikTok đang xem, null = tất cả gian
+  gianXemShopee: null, // gian Shopee đang xem, null = tất cả gian
   nganhMacDinh: '',
   tim: '',
   chiLo: false,
-  sapXep: null,        // { gian, kichBan, chieu }
+  sapXep: null,        // { gian, kichBan, chieu } — Shopee: kichBan = 'lai'
   trang: 0,
 };
 let goc;
@@ -34,6 +39,7 @@ let goc;
 export function taoTabLoiNhuan(phanTu) {
   goc = phanTu;
   docNhap();
+  docNenTang();
   kho.dangKy((_, ct) => {
     if (!ct.duLieuDoi) return;
     if (dangGoDo(goc) && ct.nguon !== 'cache') { baoDuLieuMoi('loi-nhuan', veLai); return; }
@@ -49,14 +55,18 @@ function docNhap() {
     const d = JSON.parse(localStorage.getItem(KHOA_NHAP) || 'null');
     if (!d) return;
     st.ds = (d.ds || []).map((r) => ({ ...r, _id: moiId() }));
-    Object.assign(st, { bangTinh: d.bangTinh || null, thayDoi: !!d.thayDoi, gianXem: d.gianXem || null, nganhMacDinh: d.nganhMacDinh || '' });
+    Object.assign(st, { bangTinh: d.bangTinh || null, thayDoi: !!d.thayDoi, gianXem: d.gianXem || null, gianXemShopee: d.gianXemShopee || null, nganhMacDinh: d.nganhMacDinh || '' });
   } catch { /* bản nháp hỏng thì bỏ qua */ }
+}
+
+function docNenTang() {
+  try { if (NEN_TANG[localStorage.getItem(KHOA_NEN_TANG)]) st.nenTang = localStorage.getItem(KHOA_NEN_TANG); } catch { /* bỏ qua */ }
 }
 
 function luuNhap() {
   try {
     localStorage.setItem(KHOA_NHAP, JSON.stringify({
-      ds: st.ds.map(({ _id, ...r }) => r), bangTinh: st.bangTinh, thayDoi: st.thayDoi, gianXem: st.gianXem, nganhMacDinh: st.nganhMacDinh,
+      ds: st.ds.map(({ _id, ...r }) => r), bangTinh: st.bangTinh, thayDoi: st.thayDoi, gianXem: st.gianXem, gianXemShopee: st.gianXemShopee, nganhMacDinh: st.nganhMacDinh,
     }));
   } catch { /* hết bộ nhớ trình duyệt: vẫn dùng được, chỉ không giữ nháp */ }
 }
@@ -78,12 +88,40 @@ function veLai() {
 /** Luôn tính theo bộ phí đang áp dụng ở thời điểm hiện tại. */
 const thangNay = () => thangHienTai();
 
-const tatCaGian = () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN');
+// Mỗi nền tảng: danh sách gian, bảng phí, các cột lãi của 1 gian ([kịch bản, tiêu đề, chữ trên chip sắp xếp]) và bộ hàm tính riêng.
+const NEN_TANG = {
+  tiktok: {
+    ten: 'TikTok', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN'), dsPhi: () => kho.duLieu().BANG_PHI,
+    cot: [['qc', 'Có QC', 'có QC'], ['khongqc', 'Không QC', 'không QC']], khoaGianXem: 'gianXem',
+    laiTaiGian, laDongLo, locVaSapXep, tongKet, bangXuat,
+    congThuc: 'Lãi = Giá − Vốn − Phí cố định − Giá × tổng phí %.',
+  },
+  shopee: {
+    ten: 'Shopee', gians: () => GIAN_SHOPEE, dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
+    cot: [['lai', 'Lãi', 'lãi']], khoaGianXem: 'gianXemShopee',
+    laiTaiGian: laiTaiGianShopee, laDongLo: laDongLoShopee, locVaSapXep: locVaSapXepShopee, tongKet: tongKetShopee, bangXuat: bangXuatShopee,
+    congThuc: 'Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng 8 khoản phí %.',
+  },
+};
+const nt = () => NEN_TANG[st.nenTang];
+
+const tatCaGian = () => nt().gians();
 const dsNganh = () => layDanhSach(kho.duLieu().DANH_MUC, 'NGANH');
 function gianDangXem() {
   const tat = tatCaGian();
-  const ds = st.gianXem ? tat.filter((g) => st.gianXem.includes(g)) : tat;
+  const xem = st[nt().khoaGianXem];
+  const ds = xem ? tat.filter((g) => xem.includes(g)) : tat;
   return ds.length ? ds : tat;
+}
+function datGianXem(ds) {
+  st[nt().khoaGianXem] = ds;
+}
+
+/** Lãi + % của 1 cột (kịch bản) từ kết quả laiTaiGian. */
+function laiCot(r, kichBan) {
+  if (kichBan === 'qc') return [r.laiQC, r.ptQC];
+  if (kichBan === 'khongqc') return [r.laiKhongQC, r.ptKhongQC];
+  return [r.lai, r.pt];
 }
 function nganhMacDinh() {
   const ds = dsNganh();
@@ -94,11 +132,28 @@ function nganhMacDinh() {
 
 function ve() {
   const gians = gianDangXem();
-  const dsPhi = kho.duLieu().BANG_PHI;
+  const dsPhi = nt().dsPhi();
 
   const the = h('div', { class: 'the' }, veDau(), veDieuKhien(gians));
   ganKeoTha(the, napFile);
-  thayNoiDung(goc, the, st.ds.length ? [veTongKet(gians, dsPhi), veBang(gians, dsPhi)] : veTrong());
+  thayNoiDung(goc, veChonNenTang(), the, st.ds.length ? [veTongKet(gians, dsPhi), veBang(gians, dsPhi)] : veTrong());
+}
+
+function veChonNenTang() {
+  return h('div', { class: 'tab-con-san', role: 'tablist', 'aria-label': 'Nền tảng' },
+    ['shopee', 'tiktok'].map((k) => h('button', {
+      role: 'tab', type: 'button', 'data-nen-tang': k, class: k === st.nenTang && 'dang-chon', 'aria-selected': String(k === st.nenTang),
+      onclick: () => doiNenTang(k),
+    }, NEN_TANG[k].ten)));
+}
+
+function doiNenTang(k) {
+  if (k === st.nenTang) return;
+  st.nenTang = k;
+  st.sapXep = null;
+  st.trang = 0;
+  try { localStorage.setItem(KHOA_NEN_TANG, k); } catch { /* bỏ qua */ }
+  veLai();
 }
 
 /** Nhãn "chưa lưu / đã lưu" — luôn chiếm chỗ cố định, chỉ đổi chữ, không đẩy bố cục. */
@@ -113,7 +168,7 @@ function capNhatNhanLuu() {
 function capNhatDong(i) {
   const d = st.ds[i];
   const gians = gianDangXem();
-  const dsPhi = kho.duLieu().BANG_PHI;
+  const dsPhi = nt().dsPhi();
   const tr = goc.querySelector(`tr[data-id="${d._id}"]`);
   if (!tr) { veLai(); return; }
   veGiu(tr.parentElement, () => tr.replaceWith(veDong(i, gians, dsPhi)));
@@ -153,7 +208,7 @@ function veDieuKhien(gians) {
           onclick: () => {
             const moi = bat ? gians.filter((x) => x !== g) : tat.filter((x) => gians.includes(x) || x === g);
             if (!moi.length) { thongBao('Phải hiển thị ít nhất 1 gian.', 'tt'); return; }
-            st.gianXem = moi.length === tat.length ? null : moi;
+            datGianXem(moi.length === tat.length ? null : moi);
             if (st.sapXep && !moi.includes(st.sapXep.gian)) st.sapXep = null;
             luuNhap();
             veLai();
@@ -172,7 +227,7 @@ function veDieuKhien(gians) {
       h('label', { class: 'hop-kiem hop-kiem-ngang' },
         h('input', { type: 'checkbox', checked: st.chiLo, onchange: (e) => { st.chiLo = e.target.checked; st.trang = 0; veLai(); } }), ' Chỉ dòng lỗ'),
       st.sapXep ? h('span', { class: 'chip chip-sap-xep' },
-        `Sắp xếp: ${st.sapXep.gian} · ${st.sapXep.kichBan === 'qc' ? 'có QC' : 'không QC'} ${st.sapXep.chieu < 0 ? '↓' : '↑'}`,
+        `Sắp xếp: ${st.sapXep.gian} · ${nt().cot.find(([k]) => k === st.sapXep.kichBan)?.[2] ?? ''} ${st.sapXep.chieu < 0 ? '↓' : '↑'}`,
         h('button', { class: 'chip-xoa', 'aria-label': 'Bỏ sắp xếp', onclick: () => { st.sapXep = null; veLai(); } }, '×')) : null));
 }
 
@@ -187,7 +242,7 @@ function veTrong() {
 }
 
 function veTongKet(gians, dsPhi) {
-  const t = tongKet(st.ds, gians, dsPhi, thangNay());
+  const t = nt().tongKet(st.ds, gians, dsPhi, thangNay());
   const tatGian = tatCaGian();
   return h('div', { class: 'luoi-tong-ket' },
     h('div', { class: 'o-tong' },
@@ -199,6 +254,14 @@ function veTongKet(gians, dsPhi) {
       h('div', { class: 'o-tong-so' }, dinhDangTien(t.tongVon), h('small', null, ' đ'))),
     gians.map((g) => {
       const x = t.theoGian[g];
+      if (st.nenTang === 'shopee') {
+        return h('div', { class: ['o-tong', `gian-${mauGian(g, tatGian)}`] },
+          h('div', { class: 'o-tong-nhan' }, g, ' · lãi TB / đơn'),
+          h('div', { class: 'o-tong-so' }, h('b', { class: lop(x.tb) }, x.tb === null ? '—' : dinhDangTien(x.tb))),
+          h('div', { class: 'o-tong-chan' },
+            x.soDongLo ? h('span', { class: 'chu-lo' }, `${x.soDongLo} dòng lỗ`) : h('span', null, 'Không dòng nào lỗ'),
+            x.macDinh ? h('span', null, ` · ${x.macDinh} dòng dùng phí mặc định`) : null));
+      }
       return h('div', { class: ['o-tong', `gian-${mauGian(g, tatGian)}`] },
         h('div', { class: 'o-tong-nhan' }, g, ' · lãi TB / đơn'),
         h('div', { class: 'o-tong-hai' },
@@ -214,7 +277,8 @@ const lop = (x) => (x === null || x === undefined ? '' : x < 0 ? 'chu-lo' : 'chu
 
 function veBang(gians, dsPhi) {
   const tatGian = tatCaGian();
-  const chiSo = locVaSapXep(st.ds, { gians, dsPhi, thang: thangNay(), chiLo: st.chiLo, tim: st.tim, sapXep: st.sapXep });
+  const cot = nt().cot;
+  const chiSo = nt().locVaSapXep(st.ds, { gians, dsPhi, thang: thangNay(), chiLo: st.chiLo, tim: st.tim, sapXep: st.sapXep });
   const soTrang = Math.max(1, Math.ceil(chiSo.length / MOI_TRANG));
   st.trang = Math.min(st.trang, soTrang - 1);
   const trangNay = chiSo.slice(st.trang * MOI_TRANG, (st.trang + 1) * MOI_TRANG);
@@ -242,12 +306,12 @@ function veBang(gians, dsPhi) {
       h('th', { rowspan: 2, scope: 'col' }, 'Ngành'),
       h('th', { rowspan: 2, class: 'so', scope: 'col' }, 'Giá vốn'),
       h('th', { rowspan: 2, class: 'so', scope: 'col' }, 'Giá bán'),
-      gians.map((g) => h('th', { colspan: 2, class: ['th-gian', `gian-${mauGian(g, tatGian)}`], scope: 'colgroup' }, g)),
+      gians.map((g) => h('th', { colspan: cot.length, class: ['th-gian', `gian-${mauGian(g, tatGian)}`], scope: 'colgroup' }, g)),
       h('th', { rowspan: 2, scope: 'col' }, h('span', { class: 'an-chu' }, 'Thao tác'))),
-    h('tr', null, gians.map((g) => [nutSap(g, 'qc', 'Có QC'), nutSap(g, 'khongqc', 'Không QC')])));
+    h('tr', null, gians.map((g) => cot.map(([k, nhan]) => nutSap(g, k, nhan)))));
 
   const hang = trangNay.map((i) => veDong(i, gians, dsPhi));
-  const soCot = 7 + gians.length * 2;
+  const soCot = 7 + gians.length * cot.length;
 
   return h('div', { class: 'the the-bang' },
     h('div', { class: 'khung-bang khung-bang-cao', 'data-cuon': 'loi-nhuan', 'data-dieu-huong': '' },
@@ -285,22 +349,23 @@ function veDong(i, gians, dsPhi) {
   const oLai = (r, kichBan) => {
     if (r.trangThai === 'thieu-gia') return h('td', { class: 'so o-lai chu-nhat' }, '—');
     if (r.trangThai === 'thieu-phi') return h('td', { class: 'so o-lai chu-nhat', title: `Chưa có bộ phí ${d.nganh} cho gian này (≤ ${hienThiThang(thangNay())})` }, 'chưa có phí');
-    const lai = kichBan === 'qc' ? r.laiQC : r.laiKhongQC;
-    const pt = kichBan === 'qc' ? r.ptQC : r.ptKhongQC;
+    const [lai, pt] = laiCot(r, kichBan);
     const thieuQC = kichBan === 'qc' && thieuPhiQC(r.phi);
-    return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''], title: thieuQC ? `${d.nganh}: ${CANH_BAO_QC}` : null },
+    const title = thieuQC ? `${d.nganh}: ${CANH_BAO_QC}` : r.macDinh ? `${d.nganh}: chưa lưu bộ phí Shopee — đang dùng phí mặc định` : null;
+    return h('td', { class: ['so', 'o-lai', lai < 0 ? 'o-lo' : ''], title },
       h('div', { class: lop(lai) }, thieuQC ? h('span', { class: 'dau-canh-bao-qc', 'aria-label': CANH_BAO_QC }, '⚠ ') : null, dinhDangTien(lai)),
       h('div', { class: 'chu-pt' }, dinhDangPhanTram(pt)));
   };
 
-  return h('tr', { 'data-id': d._id, class: gians.some((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return r.trangThai === 'ok' && (r.laiQC < 0 || r.laiKhongQC < 0); }) ? 'dong-lo' : '' },
+  const n = nt();
+  return h('tr', { 'data-id': d._id, class: n.laDongLo(d, gians, dsPhi, thangNay()) ? 'dong-lo' : '' },
     h('td', { class: 'so cot-stt chu-nhat' }, i + 1),
     h('td', null, oTen('ten', '190px')),
     h('td', null, oTen('phan_loai', '64px')),
     h('td', null, chonNganh),
     h('td', { class: 'so' }, oTien('gia_von', 'Giá vốn')),
     h('td', { class: 'so' }, oTien('gia_ban', 'Giá bán')),
-    gians.map((g) => { const r = laiTaiGian(d, g, dsPhi, thangNay()); return [oLai(r, 'qc'), oLai(r, 'khongqc')]; }),
+    gians.map((g) => { const r = n.laiTaiGian(d, g, dsPhi, thangNay()); return n.cot.map(([k]) => oLai(r, k)); }),
     h('td', { class: 'o-thao-tac' },
       h('button', { class: 'nut-icon', title: 'Nhân bản dòng', 'aria-label': `Nhân bản dòng ${i + 1}`, onclick: () => { st.ds.splice(i + 1, 0, { ...d, _id: moiId() }); daSua(); veLai(); } }, '⧉'),
       h('button', { class: 'nut-icon', title: 'Xóa dòng', 'aria-label': `Xóa dòng ${i + 1}`, onclick: () => { st.ds.splice(i, 1); daSua(); veLai(); } }, '🗑')));
@@ -355,24 +420,25 @@ function tenFileAnToan(s) {
 
 function xuatExcel(gians) {
   const X = globalThis.XLSX;
-  const dsPhi = kho.duLieu().BANG_PHI;
-  const ws = X.utils.aoa_to_sheet(bangXuat(st.ds, gians, dsPhi, thangNay()));
-  ws['!cols'] = [{ wch: 36 }, { wch: 12 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, ...gians.flatMap(() => [{ wch: 14 }, { wch: 9 }, { wch: 14 }, { wch: 9 }])];
+  const n = nt();
+  const ws = X.utils.aoa_to_sheet(n.bangXuat(st.ds, gians, n.dsPhi(), thangNay()));
+  ws['!cols'] = [{ wch: 36 }, { wch: 12 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, ...gians.flatMap(() => n.cot.flatMap(() => [{ wch: 14 }, { wch: 9 }]))];
   ws['!freeze'] = { xSplit: 1, ySplit: 1 };
   const homNay = new Date();
   const thongTin = X.utils.aoa_to_sheet([
     ['Bảng tính', st.bangTinh ? st.bangTinh.ten : 'Bảng tính mới'],
     ['Bộ phí', `Đang áp dụng tại tháng ${hienThiThang(thangNay())} (ngày xuất)`],
+    ['Nền tảng', n.ten],
     ['Gian', gians.join(', ')],
     ['Ngày xuất', homNay.toLocaleString('vi-VN')],
-    ['Ghi chú', 'Sheet "Lợi nhuận": 5 cột đầu nhập lại được vào app. Lãi = Giá − Vốn − Phí cố định − Giá × tổng phí %.'],
+    ['Ghi chú', `Sheet "Lợi nhuận": 5 cột đầu nhập lại được vào app. ${n.congThuc}`],
   ]);
   thongTin['!cols'] = [{ wch: 12 }, { wch: 80 }];
   const wb = X.utils.book_new();
   X.utils.book_append_sheet(wb, ws, 'Lợi nhuận');
   X.utils.book_append_sheet(wb, thongTin, 'Thông tin');
   const ngay = `${homNay.getFullYear()}${String(homNay.getMonth() + 1).padStart(2, '0')}${String(homNay.getDate()).padStart(2, '0')}`;
-  taiXuong(`loi-nhuan_${tenFileAnToan(st.bangTinh ? st.bangTinh.ten : 'bang-tinh')}_${ngay}.xlsx`, X.write(wb, { type: 'array', bookType: 'xlsx' }));
+  taiXuong(`loi-nhuan${st.nenTang === 'shopee' ? '-shopee' : ''}_${tenFileAnToan(st.bangTinh ? st.bangTinh.ten : 'bang-tinh')}_${ngay}.xlsx`, X.write(wb, { type: 'array', bookType: 'xlsx' }));
 }
 
 async function taoMoi() {
@@ -436,9 +502,9 @@ async function moBangTinh(b, dlg) {
     const gianLuu = String(b.gian_hien_thi || '').split(',').filter((g) => tat.includes(g));
     Object.assign(st, {
       ds: dong.map((r) => ({ ...r, _id: moiId() })), bangTinh: { id: b.id, ten: b.ten }, thayDoi: false,
-      gianXem: gianLuu.length && gianLuu.length < tat.length ? gianLuu : null,
       tim: '', chiLo: false, sapXep: null, trang: 0,
     });
+    datGianXem(gianLuu.length && gianLuu.length < tat.length ? gianLuu : null);
     luuNhap();
     dlg.close();
     veLai();

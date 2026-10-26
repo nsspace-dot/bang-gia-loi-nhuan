@@ -394,7 +394,7 @@ test('Bảng phí: tab con Shopee | TikTok; Shopee hiện mặc định, tính t
   const { p, loi } = await moTrang();
   await p.click('[data-tab="bang-phi"]');
   // mặc định mở TikTok như trước
-  assert.deepEqual(await p.$$eval('.tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee', 'TikTok']);
+  assert.deepEqual(await p.$$eval('#tab-bang-phi .tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee', 'TikTok']);
   assert.equal(await p.getAttribute('[data-san="tiktok"]', 'aria-selected'), 'true');
   await p.waitForSelector('#bang-phi-tiktok .bang-phi');
 
@@ -421,9 +421,9 @@ test('Bảng phí: tab con Shopee | TikTok; Shopee hiện mặc định, tính t
   await p.click('#bang-phi-shopee .hang-luu .nut-chinh');
   await p.waitForSelector('#bang-phi-shopee .ghi-chu-xanh');
   const du = await p.evaluate(async () => (await (await fetch('/gas?action=docTatCa')).json()).duLieu);
-  assert.equal(du.BANG_PHI_SHOPEE.length, 5);
-  assert.equal(du.BANG_PHI_SHOPEE.find((x) => x.nganh === 'Sách').aff, 3);
-  assert.ok(du.BANG_PHI_SHOPEE.every((x) => x.gian === 'CN1'));
+  const cn1 = du.BANG_PHI_SHOPEE.filter((x) => x.gian === 'CN1');
+  assert.equal(cn1.length, 5);
+  assert.equal(cn1.find((x) => x.nganh === 'Sách').aff, 3);
   assert.ok(!du.BANG_PHI.some((x) => x.gian === 'CN1'), 'không ghi vào bảng phí TikTok');
   assert.match(await p.textContent('#bang-phi-shopee .hang-luu'), /Chưa có thay đổi/);
 
@@ -436,6 +436,51 @@ test('Bảng phí: tab con Shopee | TikTok; Shopee hiện mặc định, tính t
   await p.waitForSelector('.dong-bo-xong');
   await p.click('[data-tab="bang-phi"]');
   assert.equal(await p.getAttribute('[data-san="shopee"]', 'aria-selected'), 'true');
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gian 1 cột lãi theo phí Shopee; nhớ lựa chọn', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  const chon = (k) => p.getAttribute(`[data-nen-tang="${k}"]`, 'aria-selected');
+  assert.deepEqual(await p.$$eval('#tab-loi-nhuan .tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee', 'TikTok']);
+  assert.equal(await chon('tiktok'), 'true', 'lần đầu mở TikTok như trước');
+  await napFile(p, taoFile('ln-san.xlsx', [
+    ['Tên sản phẩm', 'Phân loại', 'Ngành hàng', 'Giá vốn', 'Giá bán'],
+    ['Tranh A', '30x40', 'Tranh', 20000, 100000],
+    ['Decal B', '60x90', 'Decal', 80000, 100000],
+  ]));
+  const gianDau = () => p.$$eval('.bang-ln .th-gian', (ds) => ds.map((d) => [d.textContent, d.colSpan]));
+  // TikTok: như hiện tại — gian TikTok, 2 cột lãi mỗi gian
+  assert.deepEqual(await gianDau(), [['Nhà Sách', 2], ['Sách Hay', 2], ['Tranh Lịch', 2], ['Tường Vip', 2]]);
+  assert.equal(await p.locator('.bang-ln tbody tr:first-child .o-lai').count(), 8);
+
+  await p.click('[data-nen-tang="shopee"]');
+  assert.equal(await chon('shopee'), 'true');
+  assert.deepEqual(await gianDau(), ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New'].map((g) => [g, 1]));
+  const o = await p.$$eval('.bang-ln tbody tr:first-child .o-lai', (ds) => ds.map((d) => [d.querySelector('div')?.textContent, d.title]));
+  assert.equal(o.length, 6);
+  // Nhà Sách chưa lưu phí → mặc định: 100.000 − 20.000 − 3.000 − 50% × 100.000 = 27.000
+  assert.equal(o[0][0], '27.000');
+  assert.match(o[0][1], /phí mặc định/);
+  // Tranh Vip × Tranh đã lưu (tổng 60%): 100.000 − 20.000 − 3.000 − 60.000 = 17.000
+  assert.equal(o[4][0], '17.000');
+  assert.equal(o[4][1], '');
+  // Decal B lỗ ở mọi gian: 100.000 − 80.000 − 3.000 − 50.000 = −33.000
+  assert.ok(await p.locator('.bang-ln tbody tr:nth-child(2).dong-lo').count());
+  assert.match(await p.textContent('.luoi-tong-ket'), /dùng phí mặc định/);
+  // sắp xếp theo lãi gian Shopee
+  await p.click('.bang-ln .th-sap-xep:nth-child(1) button');
+  assert.match(await p.textContent('.chip-sap-xep'), /Nhà Sách · lãi ↓/);
+
+  // tải lại trang → vẫn Shopee
+  await p.reload();
+  await p.waitForSelector('.dong-bo-xong');
+  assert.equal(await chon('shopee'), 'true');
+  assert.equal(await p.locator('.bang-ln .th-gian').count(), 6);
+  // quay lại TikTok
+  await p.click('[data-nen-tang="tiktok"]');
+  assert.deepEqual((await gianDau()).map(([, n]) => n), [2, 2, 2, 2]);
   assert.deepEqual(loi, []);
   await p.close();
 });
