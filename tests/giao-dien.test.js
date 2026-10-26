@@ -138,7 +138,7 @@ test('LỖI 5 + 6 trên giao diện: sai mật khẩu → báo lỗi, không bá
 
 test('Set giá: chọn nhóm → có giá đề xuất, cảnh báo bậc giá, giá chốt tay, xuất file đúng mẫu nhập', { skip: boQua }, async () => {
   const { p, loi } = await moTrang();
-  await p.click('[data-tab="set-gia"]');
+  await p.$eval('[data-tab="set-gia"]', (b) => b.click()); // nút đang ẩn
   await p.click('.chip-loc:has-text("Bộ 1 tấm")');
   await p.waitForSelector('.bang-sg tbody tr');
   // dữ liệu giả có 60x90 vốn rẻ hơn 50x70 → giá đề xuất sai bậc → cảnh báo
@@ -189,7 +189,7 @@ test('Campaign: thả prefill + file sản phẩm → tính → gán tay → xu�
   const fSP = path.join(tmp, 'all_information.xlsx');
   fs.writeFileSync(fSP, X.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 
-  await p.click('[data-tab="campaign"]');
+  await p.$eval('[data-tab="campaign"]', (b) => b.click()); // nút đang ẩn
   await p.click('text=＋ Campaign mới');
   await p.fill('[data-o=ten]', 'Thử nghiệm');
   await p.press('[data-o=ten]', 'Tab');
