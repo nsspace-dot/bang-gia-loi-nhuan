@@ -513,3 +513,58 @@ test('Bảng phí Shopee: thêm gian mới → hiện ở Bảng phí và ở T�
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Bảng phí Shopee: file mẫu, xuất Excel, nhập Excel có xem trước (mới / thay đổi / lỗi) và chỉ ghi khi xác nhận', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const X = ctx.XLSX;
+  const docTai = async (nut) => {
+    const [tai] = await Promise.all([p.waitForEvent('download'), p.click(nut)]);
+    const wb = X.read(fs.readFileSync(await tai.path()), { type: 'buffer' });
+    return JSON.parse(JSON.stringify(X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })));
+  };
+  const docGas = () => p.evaluate(async () => (await (await fetch('/gas?action=docTatCa')).json()).duLieu.BANG_PHI_SHOPEE);
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('[data-san="shopee"]');
+  await p.waitForSelector('#bang-phi-shopee .bang-phi-shopee');
+
+  const mau = await docTai('#bang-phi-shopee button:has-text("File mẫu")');
+  assert.equal(mau.length, 6);
+  assert.equal(mau[0][0], 'Gian hàng');
+  assert.deepEqual(mau.slice(1).map((d) => d[1]), ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà']);
+  const xuat = await docTai('#bang-phi-shopee button:has-text("Xuất Excel")');
+  assert.equal(xuat.length, (await docGas()).length + 1);
+  const tv = xuat.find((d) => d[0] === 'Tranh Vip' && d[1] === 'Tranh');
+  assert.equal(tv[2], '08/2026');
+
+  // file nhập: Tranh Vip × Tranh đổi AFF 12 → 13; CN2 × Sách tháng 12/2026 mới; 1 dòng lỗi
+  const tieuDe = mau[0];
+  const sua = [...tv]; sua[tieuDe.indexOf('AFF (%)')] = 13;
+  const moi = [...mau[1]]; moi[0] = 'CN2'; moi[2] = '12/2026';
+  const sai = [...mau[2]]; sai[0] = 'CN2'; sai[2] = '12/2026'; sai[tieuDe.indexOf('Phí xử lý (%)')] = 'sáu';
+  const nhap = async (ten, dong) => {
+    const [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click('#bang-phi-shopee button:has-text("Nhập Excel")')]);
+    await fc.setFiles(taoFile(ten, [tieuDe, ...dong]));
+    await p.waitForSelector('.xem-truoc-nhap');
+  };
+  const truoc = JSON.stringify(await docGas());
+  await nhap('loi.xlsx', [sua, moi, sai]);
+  assert.match(await p.textContent('.tom-tat-nhap'), /1 dòng mới\s+1 dòng thay đổi\s+1 dòng lỗi/);
+  assert.match(await p.textContent('.nhom-loi'), /Dòng 4: Phí xử lý: không phải số/);
+  assert.match(await p.textContent('.nhom-doi'), /Tranh Vip · Tranh · 08\/2026 .*AFF 12 → 13/);
+  assert.ok(await p.locator('.xem-truoc-nhap .nut-chinh').isDisabled(), 'còn dòng lỗi thì không cho lưu');
+  await p.click('.xem-truoc-nhap button:has-text("Hủy")');
+  assert.equal(JSON.stringify(await docGas()), truoc, 'chưa xác nhận thì không ghi gì');
+
+  await nhap('dung.xlsx', [sua, moi]);
+  assert.equal(JSON.stringify(await docGas()), truoc, 'mở xem trước chưa ghi gì');
+  await p.click('.xem-truoc-nhap button:has-text("Lưu 2 bộ phí")');
+  await p.waitForSelector('.xem-truoc-nhap', { state: 'detached' });
+  const sau = await docGas();
+  assert.equal(sau.find((x) => x.gian === 'Tranh Vip' && x.nganh === 'Tranh' && x.thang === '2026-08').aff, 13);
+  assert.equal(sau.find((x) => x.gian === 'CN2' && x.nganh === 'Sách' && x.thang === '2026-12').phi_co_dinh, 19.1);
+  assert.deepEqual(loi, []);
+  await p.close();
+});

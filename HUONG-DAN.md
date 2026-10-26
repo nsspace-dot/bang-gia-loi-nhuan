@@ -140,6 +140,8 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - Gian/ngành chưa lưu bộ phí nào thì hiện **giá trị mặc định** (cột ghi "mặc định"): Phí cố định 18,7% (Lịch) / 19,1% (ngành khác), Voucher Xtra 5,5%, Phí hạ tầng 3.000 đ, Phí xử lý 6%, Phí dịch vụ 7,5%, Quảng cáo 8,2%, Voucher shop 1,2%, AFF 2%, Phí hoàn V/C KTC 0,5%. Bấm **Lưu** để lưu thành bộ phí của tháng đang chọn.
 - Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × (tổng 8 khoản %).
 - Chọn gian → tháng áp dụng → sửa → Lưu, giống TikTok.
+- **📤 Xuất Excel**: tải toàn bộ bảng phí Shopee (mỗi dòng: gian, ngành, tháng áp dụng, 9 khoản phí). **📄 File mẫu**: file đúng cột, sẵn 5 ngành với giá trị mặc định.
+- **📥 Nhập Excel**: chọn file đúng mẫu → app kiểm tra và hiện **bản xem trước**: dòng mới, dòng thay đổi (ô nào đổi, cũ → mới), dòng lỗi (gian chưa có, ngành sai, tháng sai, ô trống / không phải số / âm / % ≥ 100, trùng dòng). **Chưa ghi gì** cho tới khi bấm **Lưu**; còn dòng lỗi thì không lưu được — sửa file rồi nhập lại. Dòng giống hệt bảng phí hiện có được bỏ qua. Mỗi ô đổi được ghi vào `LICH_SU_BANG_PHI_SHOPEE`.
 
 ### 📦 Giá vốn
 - Bộ phận giá vốn gửi file mới → thả vào → xem trước → Lưu. Chỉ dòng thay đổi được ghi (có lịch sử).

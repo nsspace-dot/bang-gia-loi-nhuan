@@ -521,3 +521,10 @@ main { overflow-anchor: none; }
 .canh-bao-qc { margin-top: 10px; }
 .canh-bao-qc[hidden] { display: none; }
 .dau-canh-bao-qc { color: var(--vang); cursor: help; }
+/* Xem trước nhập Excel bảng phí Shopee */
+.tom-tat-nhap .nhan-nho:first-child { margin-left: 0; }
+.xem-truoc-nhom { margin: 10px 0; }
+.xem-truoc-nhom summary { font-weight: 700; cursor: pointer; }
+.nhom-loi summary { color: var(--lo); }
+.ds-xem-truoc { max-height: 220px; overflow: auto; margin: 6px 0 0; padding-left: 20px; font-size: 13px; }
+.ds-xem-truoc li { margin: 2px 0; }
