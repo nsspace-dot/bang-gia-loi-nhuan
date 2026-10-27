@@ -60,7 +60,7 @@ export const coQuyenGhi = () => vaiTro() === 'admin';
 /** Nền tảng vai trò được xem: ['shopee', 'tiktok'] | ['shopee'] | ['tiktok'] | [] */
 export const nenTangDuocXem = () => NEN_TANG_THEO_VAI_TRO[vaiTro()] || [];
 
-/** Đăng ký hàm chạy khi phiên hết hạn / bị thu hồi (Apps Script trả CAN_DANG_NHAP). */
+/** Đăng ký hàm chạy khi phiên hết hạn / bị thu hồi (Apps Script trả CAN_DANG_NHAP). fn(phienCu) */
 export function dangKyHetPhien(fn) {
   khiHetPhien.add(fn);
 }
@@ -84,8 +84,10 @@ export async function dangXuat() {
 }
 
 function hetPhien() {
+  const cu = layPhien();
+  if (!cu) return; // đã báo rồi (nhiều lệnh cùng thất bại)
   try { sessionStorage.removeItem(KHOA_PHIEN); } catch { /* bỏ qua */ }
-  for (const fn of khiHetPhien) { try { fn(); } catch (e) { console.error(e); } }
+  for (const fn of khiHetPhien) { try { fn(cu); } catch (e) { console.error(e); } }
 }
 
 /** Gọi Apps Script kèm token. Token hết hạn → xóa phiên và báo cho app (hiện lại màn đăng nhập). */

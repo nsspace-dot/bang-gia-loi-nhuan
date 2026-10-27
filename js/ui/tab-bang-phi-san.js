@@ -14,6 +14,7 @@ export function taoTabBangPhiSan(phanTu) {
   // Chỉ hiện tab con của nền tảng vai trò được xem (chưa đăng nhập / chưa có URL: hiện cả 2 để thấy hướng dẫn kết nối)
   const duoc = kho.layPhien() ? kho.nenTangDuocXem() : ['shopee', 'tiktok'];
   const SAN = TAT_CA_SAN.filter((s) => duoc.includes(s.ten));
+  if (!SAN.length) return;
   const daTao = new Set();
   const nut = {}, vung = {};
   for (const s of SAN) {

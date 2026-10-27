@@ -72,7 +72,7 @@ function khoiDong() {
   const phien = kho.layPhien();
   apDungPhien(phien);
   document.getElementById('nut-dang-xuat').addEventListener('click', () => kho.dangXuat().finally(() => location.reload()));
-  kho.dangKyHetPhien(() => moDangNhap({ lyDo: 'Phiên đăng nhập đã hết hạn hoặc tài khoản đã đổi — đăng nhập lại.' }));
+  kho.dangKyHetPhien((phienCu) => moDangNhap({ lyDo: 'Phiên đăng nhập đã hết hạn hoặc tài khoản đã đổi — đăng nhập lại.', phienCu }));
   // Có URL nhưng chưa đăng nhập: chỉ hiện màn đăng nhập, không dựng tab nào
   if (kho.layCaiDat().url && !phien) {
     document.getElementById('nut-cai-dat').addEventListener('click', moCaiDat);

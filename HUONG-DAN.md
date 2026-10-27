@@ -95,7 +95,7 @@ Tài khoản admin đầu tiên được tạo **trong Apps Script**, không qua
 
 1. Mở repo trên GitHub → **Settings** (Cài đặt) → mục **Pages** (cột trái).
 2. **Source**: chọn **Deploy from a branch**.
-3. **Branch**: chọn nhánh đang dùng (hiện tại: `claude/cool-ride-vkco99`; sau này nếu gộp vào `main` thì chọn `main`) → thư mục **`/ (root)`** → **Save**.
+3. **Branch**: chọn **`main`** → thư mục **`/ (root)`** → **Save**.
 4. Chờ 1–2 phút, tải lại trang: GitHub hiện link dạng
    `https://nsspace-dot.github.io/bang-gia-loi-nhuan/`
 5. Mở link đó → app hiện ra. Lưu link vào dấu trang (bookmark).

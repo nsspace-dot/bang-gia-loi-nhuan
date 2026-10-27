@@ -184,13 +184,15 @@ test('token hết hạn / bị thu hồi → xóa phiên trên máy và báo app
   const gas = taoMoiTruong();
   const kho = await taoKho(fetchQuaGas(gas));
   await kho.dangNhap('admin', 'mat-khau-thu');
-  let daBao = 0;
-  kho.dangKyHetPhien(() => daBao++);
+  const bao = [];
+  kho.dangKyHetPhien((cu) => bao.push(cu));
   gas.cache.clear(); // = hết 6 giờ
-  await kho.dongBo();
+  // 2 lệnh cùng thất bại → chỉ báo 1 lần, kèm phiên cũ (để đăng nhập lại cùng tài khoản thì giữ phần đang sửa)
+  await Promise.allSettled([kho.dongBo(), kho.docBangTinh('x')]);
   assert.equal(kho.lay().dongBo, 'loi');
   assert.equal(kho.layPhien(), null);
-  assert.equal(daBao, 1);
+  assert.equal(bao.length, 1);
+  assert.deepEqual({ ten: bao[0].ten, vaiTro: bao[0].vaiTro }, { ten: 'admin', vaiTro: 'admin' });
 });
 
 test('đăng nhập người khác trên cùng máy → bỏ dữ liệu tạm của người trước', async () => {

@@ -168,8 +168,15 @@ function doiNenTang(k) {
 function capNhatNhanLuu() {
   const el = goc.querySelector('.nhan-trang-thai-luu');
   if (!el) return;
-  el.textContent = st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : '';
-  el.className = ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'].join(' ');
+  const [chu, lop] = nhanLuu();
+  el.textContent = chu;
+  el.className = ['nhan-nho', 'nhan-trang-thai-luu', lop].join(' ');
+}
+
+/** [chữ, lớp] của nhãn trạng thái lưu. Tài khoản chỉ xem không lưu lên Sheets được → không hiện nhãn. */
+function nhanLuu() {
+  if (!kho.coQuyenGhi()) return ['', 'nhan-an'];
+  return st.thayDoi ? ['chưa lưu lên Sheets', 'nhan-vang'] : st.bangTinh ? ['đã lưu', 'nhan-xanh'] : ['', 'nhan-an'];
 }
 
 /** Sau khi sửa 1 dòng: chỉ thay dòng đó + ô tổng kết. Không lọc / sắp xếp lại (dòng không nhảy chỗ). */
@@ -190,7 +197,7 @@ function veDau() {
     h('div', null,
       h('h2', null, 'Tính lợi nhuận'),
       h('p', { class: 'mo-ta' }, '📄 ', h('b', null, ten),
-        h('span', { class: ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'] }, st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : ''),
+        h('span', { class: ['nhan-nho', 'nhan-trang-thai-luu', nhanLuu()[1]] }, nhanLuu()[0]),
         h('span', { class: 'chu-nhat' }, ` · ${st.ds.length} dòng · bản nháp tự lưu trên máy này`))),
     h('div', { class: 'hang-nut' },
       h('button', { class: 'nut', onclick: moDanhSach }, '📂 Mở bảng tính'),

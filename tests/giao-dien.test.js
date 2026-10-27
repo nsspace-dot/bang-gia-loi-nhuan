@@ -715,3 +715,47 @@ test('Đăng xuất xóa phiên + dữ liệu tạm; đăng nhập sai 5 lần t
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Hết phiên khi đang sửa bảng phí: đăng nhập lại cùng tài khoản → giữ phần đang sửa, lưu được', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('[data-san="shopee"]');
+  await p.click('#bang-phi-shopee .vien-gian:has-text("CN2")');
+  await p.fill('[aria-label="AFF — Trà"]', '4,5');
+  await p.press('[aria-label="AFF — Trà"]', 'Tab');
+  // thu hồi token (= hết 6 giờ) rồi đồng bộ
+  await p.evaluate(async () => {
+    const { token } = JSON.parse(sessionStorage.getItem('bggl.phien.v1'));
+    await fetch('/gas', { method: 'POST', body: JSON.stringify({ action: 'dangXuat', token }) });
+    document.getElementById('trang-thai-dong-bo').click();
+  });
+  await p.waitForSelector('#dn-ten');
+  assert.equal(await p.inputValue('#dn-ten'), 'admin', 'điền sẵn tên cũ');
+  await p.fill('#dn-mk', TK.admin[1]);
+  await p.click('.hop-dang-nhap button[type=submit]');
+  await p.waitForSelector('.hop-dang-nhap', { state: 'detached' });
+  assert.equal(await p.inputValue('[aria-label="AFF — Trà"]'), '4,5', 'không tải lại trang, phần đang sửa còn nguyên');
+  await p.click('#bang-phi-shopee .hang-luu .nut-chinh');
+  await p.waitForSelector('#bang-phi-shopee .ghi-chu-xanh');
+  const cn2 = (await docGas()).BANG_PHI_SHOPEE.filter((x) => x.gian === 'CN2' && x.nganh === 'Trà');
+  assert.ok(cn2.some((x) => x.aff === 4.5));
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Hết phiên rồi đăng nhập tài khoản khác → tải lại trang theo vai trò mới', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  await p.evaluate(async () => {
+    const { token } = JSON.parse(sessionStorage.getItem('bggl.phien.v1'));
+    await fetch('/gas', { method: 'POST', body: JSON.stringify({ action: 'dangXuat', token }) });
+    document.getElementById('trang-thai-dong-bo').click();
+  });
+  await p.waitForSelector('#dn-ten');
+  await dienDangNhap(p, ...TK.shopee);
+  await p.waitForSelector('#nguoi-dung:has-text("nv-shopee")');
+  await p.waitForSelector('.dong-bo-xong');
+  assert.ok(await p.locator('[data-tab="tai-khoan"]').isHidden());
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('bggl.cache.v1')).duLieu.BANG_PHI.length), 0);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
