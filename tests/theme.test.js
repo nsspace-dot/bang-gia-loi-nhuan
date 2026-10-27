@@ -13,7 +13,11 @@ function docTheme() {
   const bien = (khoi) => Object.fromEntries([...khoi.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   const goc = bien(docTep('css/app.css').match(/:root, \[data-theme="keo-hong"\] \{([\s\S]*?)\n\}/)[1]);
   const kq = { 'keo-hong': goc };
-  for (const m of docTep('css/theme.css').matchAll(/\[data-theme="([\w-]+)"\] \{([\s\S]*?)\n\}/g)) kq[m[1]] = { ...goc, ...bien(m[2]), _rieng: bien(m[2]) };
+  // mỗi theme có thể có nhiều khối (màu, hình khối) → gộp lại
+  for (const m of docTep('css/theme.css').matchAll(/\[data-theme="([\w-]+)"\] \{([\s\S]*?)\n\}/g)) {
+    const rieng = { ...(kq[m[1]]?._rieng || {}), ...bien(m[2]) };
+    kq[m[1]] = { ...goc, ...rieng, _rieng: rieng };
+  }
   return kq;
 }
 
@@ -58,7 +62,8 @@ test('có đủ 8 theme, khớp danh sách trong js/ui/theme.js và đoạn áp 
 });
 
 test('mỗi theme đặt lại ĐỦ mọi biến màu của Kẹo hồng (không sót biến nào dùng màu hồng mặc định)', () => {
-  const mau = Object.keys(THEME['keo-hong']).filter((k) => !['bo-goc', 'bo-goc-nho', 'font', 'font-so'].includes(k));
+  // biến màu = giá trị Kẹo hồng là mã màu / rgba / bóng đổ (bỏ qua biến hình khối, font)
+  const mau = Object.keys(THEME['keo-hong']).filter((k) => /^(#|rgba|transparent)/.test(THEME['keo-hong'][k]) || /^(bong|man-mo)/.test(k));
   for (const [ten, t] of Object.entries(THEME)) {
     if (ten === 'keo-hong') continue;
     const thieu = mau.filter((k) => !(k in t._rieng));
@@ -97,6 +102,11 @@ test('hiệu năng: không ảnh nền, không blur, không animation lặp mớ
   const css = boChuThich(docTep('css/app.css') + docTep('css/theme.css'));
   assert.doesNotMatch(css, /backdrop-filter|url\(/);
   assert.doesNotMatch(boChuThich(docTep('css/theme.css')), /animation|@keyframes|@font-face|font-family/);
+  // Không tải font mới: chỉ được dùng font CÓ SẴN của hệ điều hành (không url, không @font-face)
+  for (const m of boChuThich(docTep('css/theme.css')).matchAll(/--font[\w-]*:\s*([^;]+);/g)) {
+    assert.match(m[1], /^(Georgia|'Noto Serif'|'Times New Roman'|serif|,|\s)+$/, m[1]);
+  }
+  assert.equal(fs.readdirSync(path.join(GOC, 'fonts')).filter((f) => f.endsWith('.woff2')).length, 12, 'không thêm file font');
   const lap = [...css.matchAll(/animation:[^;]*infinite/g)].map((m) => m[0]);
   assert.deepEqual(lap, ['animation: nhap-nhay 1s infinite', 'animation: nghieng-dau 4s ease-in-out infinite'], 'chỉ 2 animation lặp có sẵn từ trước');
 });
@@ -160,4 +170,22 @@ test('đăng xuất / xóa dữ liệu tạm KHÔNG xóa theme (khóa riêng, kh
   const kho = docTep('js/data/kho.js');
   assert.ok(!kho.includes('bggl.theme'), 'kho dữ liệu không đụng tới khóa theme');
   assert.doesNotMatch(kho, /localStorage\.clear\(\)/);
+});
+
+test('mỗi theme có "tính cách" riêng: bộ hình khối (bo góc, viền, nút, khoảng cách, tiêu đề) khác nhau', () => {
+  const HINH = ['bo-goc', 'bo-goc-nut', 'vien-day', 'kieu-ke', 'nut-noi', 'khoang-the', 'tieu-de-dam', 'tieu-de-hoa', 'font'];
+  const bo = Object.entries(THEME).map(([ten, t]) => [ten, HINH.map((k) => t[k]).join('|')]);
+  assert.equal(new Set(bo.map(([, v]) => v)).size, 8, `phải khác nhau: ${JSON.stringify(bo)}`);
+  // Kẹo hồng giữ nguyên hình khối cũ
+  const k = THEME['keo-hong'];
+  assert.deepEqual([k['bo-goc'], k['bo-goc-nho'], k['bo-goc-nut'], k['vien-day'], k['kieu-ke'], k['nut-noi'], k['khoang-the']],
+    ['18px', '12px', '999px', '2px', 'dashed', '2px', '20px 22px']);
+});
+
+test('tab đang chọn kiểu gạch chân / khối đặc vẫn đủ tương phản', () => {
+  // Tối: chữ --chinh trên nền đầu trang; Cam Shopee / Xanh biển: chữ trắng trên khối --chinh; Sáng tối giản: --chu
+  assert.ok(tuongPhan(THEME.toi.chinh, THEME.toi['dau-trang-nen']) >= 4.5);
+  assert.ok(tuongPhan(THEME.toi.chinh, THEME.toi.the) >= 4.5);
+  for (const t of ['cam-shopee', 'xanh-bien']) assert.ok(tuongPhan(THEME[t]['chu-tren-chinh'], THEME[t].chinh) >= 4.5, t);
+  assert.ok(tuongPhan(THEME['den-cyan'].chu, THEME['den-cyan'].the) >= 4.5);
 });

@@ -844,3 +844,25 @@ test('Điện thoại (390px): thanh trên không tràn ngang, nút 🎨 và ⚙
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Cả 8 theme: thanh tab 1 hàng ở 1280px; điện thoại 390px không cuộn ngang, nút 🎨 / ⚙️ trong màn hình, bảng phí cuộn trong khung', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  const ds = ['keo-hong', 'toi-gian', 'toi', 'cam-shopee', 'den-cyan', 'xanh-bien', 'mint', 'giay'];
+  for (const th of ds) {
+    await p.evaluate((t) => document.documentElement.setAttribute('data-theme', t), th);
+    await p.setViewportSize({ width: 1280, height: 860 });
+    await p.click('[data-tab="loi-nhuan"]');
+    const hang = await p.$$eval('.thanh-tab [role=tab]:not([hidden])', (bs) => new Set(bs.map((b) => b.offsetTop)).size);
+    assert.equal(hang, 1, `${th}: tab rớt dòng ở 1280px`);
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.click('[data-tab="bang-phi"]');
+    await p.waitForTimeout(50);
+    assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${th}: cuộn ngang trên điện thoại`);
+    for (const nut of ['#nut-theme', '#nut-cai-dat']) {
+      const r = await p.locator(nut).boundingBox();
+      assert.ok(r.x >= 0 && r.x + r.width <= 390, `${th}: ${nut} ra ngoài màn hình`);
+    }
+  }
+  assert.deepEqual(loi, []);
+  await p.close();
+});

@@ -2,6 +2,7 @@
    Mỗi theme chỉ đặt lại các biến màu khai báo ở css/app.css (:root = "Kẹo hồng", mặc định).
    Áp bằng <html data-theme="...">; danh sách theme ở js/ui/theme.js (và đoạn áp sớm trong index.html).
    Chỉ màu phẳng + viền: không ảnh nền, không blur, không animation lặp, bóng đổ nhẹ.
+   Không tải font mới; riêng Giấy cổ điển dùng font có chân CÓ SẴN của máy (Georgia / Noto Serif).
    Độ tương phản được kiểm tra tự động trong tests/theme.test.js. */
 
 /* ---------- Sáng tối giản: trắng, xám, chữ rõ, ít màu ---------- */
@@ -229,3 +230,96 @@
 }
 /* Kiểu sổ sách: kẻ dòng bảng rõ hơn */
 [data-theme="giay"] .bang th, [data-theme="giay"] .bang td { border-bottom-color: var(--vien); }
+
+/* ===================================================================
+   Hình khối & "tính cách" — mỗi theme khác nhau không chỉ ở màu:
+   bo góc, độ dày / kiểu viền, nút phẳng hay nổi, khoảng cách, chữ tiêu đề,
+   kiểu tab đang chọn, kiểu bảng. Chỉ CSS phẳng, không ảnh, không blur.
+   =================================================================== */
+
+/* Sáng tối giản: vuông vức, viền mảnh 1px, không bóng, rộng rãi, tab gạch chân */
+[data-theme="toi-gian"] {
+  --bo-goc: 8px; --bo-goc-nho: 6px; --bo-goc-o: 6px; --bo-goc-mini: 4px; --bo-goc-vua: 8px; --bo-goc-hop: 10px; --bo-goc-nut: 6px;
+  --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
+  --khoang-the: 24px 28px; --khoang-o-bang: 10px 14px;
+  --tieu-de-dam: 600; --tieu-de-gian: -0.02em;
+}
+[data-theme="toi-gian"] .thanh-tab [role=tab],
+[data-theme="toi-gian"] .tab-con-san [role=tab] { border-color: transparent; background: transparent; border-radius: 0; }
+[data-theme="toi-gian"] .thanh-tab [role=tab].dang-chon,
+[data-theme="toi-gian"] .tab-con-san [role=tab].dang-chon { background: transparent; border-color: transparent; color: var(--chu); box-shadow: inset 0 -2px 0 var(--chu); }
+[data-theme="toi-gian"] .the { box-shadow: none; }
+
+/* Tối: gọn, viền mảnh, tab gạch chân màu nhấn, bảng chặt */
+[data-theme="toi"] {
+  --bo-goc: 12px; --bo-goc-nho: 8px; --bo-goc-o: 8px; --bo-goc-mini: 6px; --bo-goc-vua: 10px; --bo-goc-hop: 14px; --bo-goc-nut: 8px;
+  --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
+  --khoang-the: 18px 20px; --khoang-o-bang: 7px 10px;
+  --tieu-de-dam: 600;
+}
+[data-theme="toi"] .thanh-tab [role=tab],
+[data-theme="toi"] .tab-con-san [role=tab] { border-color: transparent; background: transparent; border-radius: 0; }
+[data-theme="toi"] .thanh-tab [role=tab].dang-chon,
+[data-theme="toi"] .tab-con-san [role=tab].dang-chon { background: transparent; border-color: transparent; color: var(--chinh); box-shadow: inset 0 -3px 0 var(--chinh); }
+
+/* Cam Shopee: kiểu sàn TMĐT — thanh cam dưới đầu trang, tab / nút khối đặc, tiêu đề rất đậm */
+[data-theme="cam-shopee"] {
+  --bo-goc: 10px; --bo-goc-nho: 6px; --bo-goc-o: 6px; --bo-goc-mini: 4px; --bo-goc-vua: 8px; --bo-goc-hop: 12px; --bo-goc-nut: 6px;
+  --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
+  --khoang-the: 18px 20px;
+  --tieu-de-dam: 800;
+}
+[data-theme="cam-shopee"] .dau-trang { border-bottom: 3px solid var(--chinh); }
+[data-theme="cam-shopee"] .thanh-tab [role=tab].dang-chon,
+[data-theme="cam-shopee"] .tab-con-san [role=tab].dang-chon,
+[data-theme="cam-shopee"] .the-thang.dang-chon { background: var(--chinh); border-color: var(--chinh); color: var(--chu-tren-chinh); }
+[data-theme="cam-shopee"] .the-dau h2 { border-left: 4px solid var(--chinh); padding-left: 10px; }
+
+/* Đen Cyan TikTok: góc vuông sắc, chữ IN HOA giãn, viền lệch hồng / xanh ngọc như logo */
+[data-theme="den-cyan"] {
+  --bo-goc: 4px; --bo-goc-nho: 3px; --bo-goc-o: 3px; --bo-goc-mini: 2px; --bo-goc-vua: 4px; --bo-goc-hop: 6px; --bo-goc-nut: 4px;
+  --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
+  --khoang-the: 18px 20px;
+  --tieu-de-dam: 800; --tieu-de-gian: 0.04em; --tieu-de-hoa: uppercase;
+}
+[data-theme="den-cyan"] .thuong-hieu h1 { color: var(--chu); text-shadow: -1px -1px 0 var(--tim), 1px 1px 0 var(--chinh); }
+[data-theme="den-cyan"] .thanh-tab [role=tab],
+[data-theme="den-cyan"] .tab-con-san [role=tab] { text-transform: uppercase; letter-spacing: .04em; font-size: 12.5px; padding-left: 12px; padding-right: 12px; }
+[data-theme="den-cyan"] .thanh-tab [role=tab].dang-chon,
+[data-theme="den-cyan"] .tab-con-san [role=tab].dang-chon { background: var(--the); border-color: var(--chu); color: var(--chu); box-shadow: -3px -3px 0 var(--tim), 3px 3px 0 var(--chinh); }
+[data-theme="den-cyan"] .nut-chinh { box-shadow: -2px -2px 0 var(--tim); }
+[data-theme="den-cyan"] .vien-gian.dang-chon { box-shadow: -2px -2px 0 var(--tim), 2px 2px 0 var(--chinh); }
+
+/* Xanh biển: nghiêm túc kiểu phần mềm kế toán — bảng kẻ ô đủ, tiêu đề cột IN HOA nhỏ, tab khối vuông */
+[data-theme="xanh-bien"] {
+  --bo-goc: 6px; --bo-goc-nho: 4px; --bo-goc-o: 4px; --bo-goc-mini: 3px; --bo-goc-vua: 6px; --bo-goc-hop: 8px; --bo-goc-nut: 4px;
+  --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
+  --khoang-the: 18px 20px; --khoang-o-bang: 6px 10px;
+  --tieu-de-dam: 600;
+}
+[data-theme="xanh-bien"] .bang th, [data-theme="xanh-bien"] .bang td { border-right: 1px solid var(--vien-nhat); border-bottom-color: var(--vien); }
+[data-theme="xanh-bien"] .bang thead th { text-transform: uppercase; letter-spacing: .04em; font-size: 11.5px; }
+[data-theme="xanh-bien"] .thanh-tab [role=tab].dang-chon,
+[data-theme="xanh-bien"] .tab-con-san [role=tab].dang-chon { background: var(--chinh); border-color: var(--chinh); color: var(--chu-tren-chinh); }
+[data-theme="xanh-bien"] .the { box-shadow: none; }
+
+/* Mint pastel: rất tròn, mềm, rộng rãi, nút nổi cao, đường kẻ chấm */
+[data-theme="mint"] {
+  --bo-goc: 26px; --bo-goc-nho: 16px; --bo-goc-o: 14px; --bo-goc-mini: 10px; --bo-goc-vua: 22px; --bo-goc-hop: 28px; --bo-goc-nut: 999px;
+  --vien-day: 2px; --kieu-ke: dotted; --nut-noi: 3px;
+  --khoang-the: 24px 26px; --khoang-o-bang: 9px 14px;
+}
+
+/* Giấy cổ điển: kiểu sổ sách — chữ có chân (font sẵn có của máy), góc gần vuông, kẻ dòng đôi ở đầu / cuối bảng */
+[data-theme="giay"] {
+  --font: Georgia, 'Noto Serif', 'Times New Roman', serif;
+  --font-tieu-de: Georgia, 'Noto Serif', 'Times New Roman', serif;
+  --bo-goc: 3px; --bo-goc-nho: 2px; --bo-goc-o: 2px; --bo-goc-mini: 2px; --bo-goc-vua: 3px; --bo-goc-hop: 4px; --bo-goc-nut: 3px;
+  --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
+  --tieu-de-dam: 700; --tieu-de-gian: 0;
+}
+[data-theme="giay"] .dau-trang { border-bottom: 3px double var(--vien-dam); }
+[data-theme="giay"] .bang thead th { border-bottom: 3px double var(--vien-dam); }
+[data-theme="giay"] .bang tfoot th, [data-theme="giay"] .bang tfoot td { border-top: 3px double var(--vien-dam); }
+[data-theme="giay"] .the { box-shadow: none; }
+[data-theme="giay"] .the-dau h2 { font-style: italic; }
