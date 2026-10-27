@@ -1,5 +1,5 @@
 // Tab con Bảng phí Shopee: gian × ngành × tháng áp dụng. Lưu ở sheet BANG_PHI_SHOPEE — riêng hoàn toàn với TikTok.
-import { h, thayNoiDung, xacNhan, veGiu } from './dom.js';
+import { h, thayNoiDung, xacNhan, veGiu, chonFile, taiXuong } from './dom.js';
 import { oSo, dangGoDo } from './o-so.js';
 import { baoDuLieuMoi, boChoTaiLai } from './du-lieu-moi.js';
 import { thongBao } from './thong-bao.js';
@@ -9,12 +9,15 @@ import * as kho from '../data/kho.js';
 import { KHOAN_PHI_SHOPEE, phiShopeeMacDinh, tyLePhiShopee } from '../core/cong-thuc.js';
 import { chonBoPhi, cacThangCoPhi, thangHienTai, hienThiThang, chuanHoaThang } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangSo, dinhDangPhanTram } from '../core/so.js';
-import { GIAN_SHOPEE, NGANH_SHOPEE, mauGian } from '../core/danh-muc.js';
+import { NGANH_SHOPEE, layDanhSach, mauGian } from '../core/danh-muc.js';
+import { khoiDanhMuc } from './danh-muc.js';
+import { docBang } from '../excel/doc.js';
+import { bangXuatPhiShopee, bangMauPhiShopee, docNhapPhiShopee, COT_EXCEL_SHOPEE } from '../core/phi-shopee-excel.js';
 
 const SHEET = 'BANG_PHI_SHOPEE';
 const TEN_TAB = 'bang-phi-shopee';
 
-const st = { gian: GIAN_SHOPEE[0], thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
+const st = { gian: null, thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
 let goc;
 let dangLuu = false;
 
@@ -34,6 +37,7 @@ function veLai() {
 }
 
 const dsPhi = () => kho.duLieu()[SHEET] || [];
+const dsGian = () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE');
 
 function coThayDoi() {
   return Object.values(st.nhap).some((o) => Object.keys(o).length);
@@ -70,6 +74,8 @@ function boPhiDangNhap(nganh) {
 }
 
 function ve() {
+  const gians = dsGian();
+  if (!st.gian || !gians.includes(st.gian)) st.gian = gians[0];
   if (!kho.layCaiDat().url && !dsPhi().length) {
     thayNoiDung(goc, manTrong('Chưa kết nối Google Sheets', 'Nhập URL Apps Script và mật khẩu ở Cài đặt để xem và lưu bảng phí Shopee.',
       h('button', { class: 'nut nut-chinh', onclick: moCaiDat }, '⚙️ Mở Cài đặt')));
@@ -79,17 +85,25 @@ function ve() {
     h('div', { class: 'the' },
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Bảng phí Shopee'),
-          h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng các khoản %.'))),
+          h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng các khoản %.')),
+        h('div', { class: 'hang-nut' },
+          kho.coQuyenGhi() ? h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập Excel') : null,
+          h('button', { class: 'nut', onclick: xuatExcel, disabled: !dsPhi().length }, '📤 Xuất Excel'),
+          h('button', { class: 'nut', onclick: taiFileMau }, '📄 File mẫu'))),
       h('div', { class: 'chon-gian', role: 'tablist', 'aria-label': 'Gian hàng Shopee' },
-        GIAN_SHOPEE.map((g) => h('button', {
-          class: ['vien-gian', `gian-${mauGian(g, GIAN_SHOPEE)}`, g === st.gian && 'dang-chon'],
+        gians.map((g) => h('button', {
+          class: ['vien-gian', `gian-${mauGian(g, gians)}`, g === st.gian && 'dang-chon'],
           role: 'tab', 'aria-selected': String(g === st.gian),
           onclick: () => doiGianThang(g, st.thang),
         }, g))),
       veChonThang(),
       veThongBaoNguon(),
       veBang(),
-      veHangLuu()));
+      kho.coQuyenGhi() ? veHangLuu() : veChiXem()),
+    kho.coQuyenGhi() && h('details', { class: 'the the-phu' },
+      h('summary', null, 'Gian hàng Shopee (thêm / bớt)'),
+      khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'),
+      h('p', { class: 'goi-y' }, 'Ngành Shopee cố định: Sách, Tranh, Lịch, Decal, Trà. Bỏ một gian chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.')));
 }
 
 async function doiGianThang(gian, thang) {
@@ -147,6 +161,7 @@ function veBang() {
         kieu: k.donVi === '%' ? 'phantram' : 'tien',
         kiemTra: (so) => loiO(k.khoa, so),
         'aria-label': `${k.ten} — ${n}`,
+        disabled: !kho.coQuyenGhi(),
         'data-o': `phi-shopee:${n}:${k.khoa}`,
         // Gõ: chỉ cập nhật ô này + dòng tổng + nút Lưu. KHÔNG vẽ lại bảng.
         khiGo: (_so, _hopLe, chuoi) => {
@@ -205,8 +220,15 @@ function coLoiNhap() {
 function capNhatNutLuu() {
   const ds = nganhCanLuu();
   const loi = coLoiNhap();
+  if (!nutLuu) return;
   nutLuu.disabled = !ds.length || loi;
   chuLuu.textContent = loi ? 'Có ô nhập sai (tô đỏ) — sửa trước khi lưu.' : ds.length ? `Sẽ lưu phí tháng ${hienThiThang(st.thang)} cho: ${ds.join(', ')}` : 'Chưa có thay đổi.';
+}
+
+/** Tài khoản không phải admin: chỉ xem (Apps Script cũng từ chối mọi lệnh ghi). */
+function veChiXem() {
+  const p = kho.layPhien();
+  return h('div', { class: 'ghi-chu ghi-chu-vang chi-xem' }, `Chỉ xem — tài khoản "${p ? p.ten : ''}" (${p ? p.vaiTro : ''}) không có quyền sửa bảng phí.`);
 }
 
 function veHangLuu() {
@@ -255,6 +277,88 @@ async function xoaThang() {
     veLai();
   } catch (e) {
     thongBao(`Chưa xóa được: ${e.message}`, 'loi');
+  } finally {
+    dangLuu = false;
+  }
+}
+
+// ---------- Nhập / xuất Excel ----------
+
+function ghiFile(tenFile, mang, tenSheet) {
+  const X = globalThis.XLSX;
+  const ws = X.utils.aoa_to_sheet(mang);
+  ws['!cols'] = COT_EXCEL_SHOPEE.map((_, i) => ({ wch: i < 3 ? 14 : 18 }));
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, tenSheet);
+  taiXuong(tenFile, X.write(wb, { type: 'array', bookType: 'xlsx' }));
+}
+
+function xuatExcel() {
+  ghiFile(`bang-phi-shopee_${thangHienTai()}.xlsx`, bangXuatPhiShopee(dsPhi()), 'Bảng phí Shopee');
+}
+
+function taiFileMau() {
+  ghiFile('mau_bang_phi_shopee.xlsx', bangMauPhiShopee(dsGian()[0], thangHienTai()), 'Bảng phí Shopee');
+}
+
+async function nhapExcel() {
+  const f = await chonFile();
+  if (!f) return;
+  let kq;
+  try {
+    kq = docNhapPhiShopee(docBang(await f.arrayBuffer()).dong, { dsHienCo: dsPhi(), gians: dsGian() });
+  } catch (e) { thongBao(`Không đọc được file: ${e.message}`, 'loi'); return; }
+  if (kq.loiFile) { thongBao(kq.loiFile, 'loi'); return; }
+  if (!kq.moi.length && !kq.doi.length && !kq.loi.length) { thongBao(kq.giongCu ? `File có ${kq.giongCu} dòng, đều giống bảng phí hiện có — không có gì để lưu.` : 'File không có dòng phí nào.', 'tt'); return; }
+  moXemTruoc(kq);
+}
+
+/** Hộp xem trước: dòng mới / dòng thay đổi / dòng lỗi. Chỉ ghi khi bấm xác nhận (và không còn dòng lỗi). */
+function moXemTruoc(kq) {
+  const soLuu = kq.moi.length + kq.doi.length;
+  const coLoi = kq.loi.length > 0;
+  const tenO = (k) => KHOAN_PHI_SHOPEE.find((x) => x.khoa === k).ten;
+  const bo = (b) => `${b.gian} · ${b.nganh} · ${hienThiThang(b.thang)}`;
+  const phan = (tieuDe, lop, dong) => (dong.length ? h('details', { class: ['xem-truoc-nhom', lop], open: true },
+    h('summary', null, tieuDe), h('ul', { class: 'ds-xem-truoc' }, dong)) : null);
+  const nutLuu = h('button', { class: 'nut nut-chinh', disabled: coLoi || !soLuu, onclick: () => luuNhap(kq, dlg, nutLuu) }, `💾 Lưu ${soLuu} bộ phí`);
+  const dlg = h('dialog', { class: 'hop-thoai hop-thoai-rong xem-truoc-nhap', 'aria-labelledby': 'xt-tieu-de' },
+    h('div', { class: 'hop-thoai-dau' },
+      h('h2', { id: 'xt-tieu-de' }, '📥 Xem trước nhập bảng phí Shopee'),
+      h('button', { class: 'nut-dong', 'aria-label': 'Đóng', onclick: () => dlg.close() }, '×')),
+    h('p', { class: 'tom-tat-nhap' },
+      h('span', { class: 'nhan-nho nhan-xanh' }, `${kq.moi.length} dòng mới`), ' ',
+      h('span', { class: 'nhan-nho nhan-vang' }, `${kq.doi.length} dòng thay đổi`), ' ',
+      h('span', { class: ['nhan-nho', coLoi ? 'nhan-do' : 'nhan-an'] }, `${kq.loi.length} dòng lỗi`),
+      kq.giongCu ? h('span', { class: 'chu-nhat' }, ` · ${kq.giongCu} dòng giống hiện có (bỏ qua)`) : null),
+    phan(`Dòng lỗi (${kq.loi.length})`, 'nhom-loi', kq.loi.map((l) => h('li', null, h('b', null, `Dòng ${l.soDong}: `), l.loi.join('; ')))),
+    phan(`Dòng mới (${kq.moi.length})`, 'nhom-moi', kq.moi.map((m) => h('li', null, h('b', null, bo(m.banGhi)), ` (dòng ${m.soDong})`))),
+    phan(`Dòng thay đổi (${kq.doi.length})`, 'nhom-doi', kq.doi.map((d) => h('li', null, h('b', null, bo(d.banGhi)), ` (dòng ${d.soDong}): `,
+      d.oDoi.map((k) => `${tenO(k)} ${dinhDangSo(d.cu[k] ?? 0)} → ${dinhDangSo(d.banGhi[k])}`).join('; ')))),
+    coLoi ? h('div', { class: 'ghi-chu ghi-chu-vang' }, 'File còn dòng lỗi — sửa file rồi nhập lại. Chưa ghi gì lên Google Sheets.') : null,
+    h('div', { class: 'hang-nut' },
+      h('span', { class: 'gian-cach' }),
+      h('button', { class: 'nut', onclick: () => dlg.close() }, 'Hủy'),
+      nutLuu));
+  dlg.addEventListener('close', () => dlg.remove());
+  document.body.append(dlg);
+  dlg.showModal();
+}
+
+async function luuNhap(kq, dlg, nut) {
+  const banGhi = [...kq.moi, ...kq.doi].map((x) => x.banGhi);
+  nut.disabled = true;
+  nut.textContent = 'Đang lưu…';
+  dangLuu = true;
+  try {
+    const daLuu = await kho.ghi(SHEET, banGhi);
+    dlg.close();
+    thongBao(`Đã lưu ${daLuu.length} bộ phí Shopee từ file.`);
+    veLai();
+  } catch (e) {
+    thongBao(`Chưa lưu được: ${e.message}`, 'loi');
+    nut.disabled = false;
+    nut.textContent = `💾 Lưu ${banGhi.length} bộ phí`;
   } finally {
     dangLuu = false;
   }

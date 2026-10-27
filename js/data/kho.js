@@ -1,10 +1,12 @@
-// Kho dữ liệu dùng chung: cache localStorage + đồng bộ với Apps Script.
+// Kho dữ liệu dùng chung: phiên đăng nhập, cache localStorage + đồng bộ với Apps Script.
+// Mọi lệnh đọc / ghi đều gửi token; quyền được kiểm tra ở Apps Script (Code.gs), không chỉ ở giao diện.
 
 import { goiGet, goiPost, LoiApi } from './api.js';
 
 const KHOA_CACHE = 'bggl.cache.v1';
 const KHOA_CAI_DAT = 'bggl.caidat.v1';
-const KHOA_MAT_KHAU = 'bggl.matkhau.v1';
+const KHOA_PHIEN = 'bggl.phien.v1'; // sessionStorage: { token, ten, vaiTro } — mất khi đóng tab trình duyệt
+const KHOA_MAT_KHAU_CU = 'bggl.matkhau.v1'; // mật khẩu ghi chung bản cũ — xóa nếu còn
 
 const KHOA_SHEET = {
   DANH_MUC: ['loai', 'ten'],
@@ -43,20 +45,61 @@ export function luuCaiDat(cd) {
   ghiJSON(localStorage, KHOA_CAI_DAT, { url: (cd.url || '').trim() });
 }
 
-export function layMatKhau() {
-  try { return sessionStorage.getItem(KHOA_MAT_KHAU) || localStorage.getItem(KHOA_MAT_KHAU) || ''; } catch { return ''; }
+// ---------- Phiên đăng nhập ----------
+
+const NEN_TANG_THEO_VAI_TRO = { admin: ['shopee', 'tiktok'], shopee: ['shopee'], tiktok: ['tiktok'] };
+const khiHetPhien = new Set();
+
+export function layPhien() {
+  return docJSON(sessionStorage, KHOA_PHIEN);
 }
 
-export function coNhoMatKhau() {
-  try { return !!localStorage.getItem(KHOA_MAT_KHAU); } catch { return false; }
+export const vaiTro = () => layPhien()?.vaiTro || null;
+/** Chỉ admin được sửa (Apps Script cũng chặn). Dùng để ẩn / khóa nút trên giao diện. */
+export const coQuyenGhi = () => vaiTro() === 'admin';
+/** Nền tảng vai trò được xem: ['shopee', 'tiktok'] | ['shopee'] | ['tiktok'] | [] */
+export const nenTangDuocXem = () => NEN_TANG_THEO_VAI_TRO[vaiTro()] || [];
+
+/** Đăng ký hàm chạy khi phiên hết hạn / bị thu hồi (Apps Script trả CAN_DANG_NHAP). fn(phienCu) */
+export function dangKyHetPhien(fn) {
+  khiHetPhien.add(fn);
 }
 
-export function luuMatKhau(mk, nho) {
+export async function dangNhap(ten, matKhau) {
+  const r = await goiPost(layCaiDat().url, { action: 'dangNhap', ten, matKhau });
+  const phien = { token: r.token, ten: r.ten, vaiTro: r.vaiTro };
+  // Dữ liệu tạm của người khác trên máy này → bỏ, không hiện cho người mới đăng nhập
+  const c = docJSON(localStorage, KHOA_CACHE);
+  if (c && c.nguoi !== phien.ten) xoaCacheMay();
+  ghiJSON(sessionStorage, KHOA_PHIEN, phien);
+  return phien;
+}
+
+/** Đăng xuất: thu hồi token ở Apps Script (nếu được), xóa phiên + dữ liệu tạm trên máy. */
+export async function dangXuat() {
+  const p = layPhien();
+  try { if (p) await goiPost(layCaiDat().url, { action: 'dangXuat', token: p.token }); } catch { /* vẫn xóa phiên trên máy */ }
+  try { sessionStorage.removeItem(KHOA_PHIEN); } catch { /* bỏ qua */ }
+  xoaCacheMay();
+}
+
+function hetPhien() {
+  const cu = layPhien();
+  if (!cu) return; // đã báo rồi (nhiều lệnh cùng thất bại)
+  try { sessionStorage.removeItem(KHOA_PHIEN); } catch { /* bỏ qua */ }
+  for (const fn of khiHetPhien) { try { fn(cu); } catch (e) { console.error(e); } }
+}
+
+/** Gọi Apps Script kèm token. Token hết hạn → xóa phiên và báo cho app (hiện lại màn đăng nhập). */
+async function goiCoToken(body) {
+  const p = layPhien();
+  if (!p) throw new LoiApi('Cần đăng nhập.', 'CAN_DANG_NHAP');
   try {
-    localStorage.removeItem(KHOA_MAT_KHAU);
-    sessionStorage.removeItem(KHOA_MAT_KHAU);
-    if (mk) (nho ? localStorage : sessionStorage).setItem(KHOA_MAT_KHAU, mk);
-  } catch { /* trình duyệt chặn bộ nhớ */ }
+    return await goiPost(layCaiDat().url, { ...body, token: p.token });
+  } catch (e) {
+    if (e.ma === 'CAN_DANG_NHAP') hetPhien();
+    throw e;
+  }
 }
 
 // ---------- Trạng thái ----------
@@ -82,17 +125,22 @@ function baoThayDoi(chiTiet = { duLieuDoi: false }) {
 const DA_GHI = { duLieuDoi: true, nguon: 'ghi' };
 
 function luuCache() {
-  ghiJSON(localStorage, KHOA_CACHE, { duLieu: trangThai.duLieu, luc: trangThai.luc });
+  const p = layPhien();
+  if (!p) return;
+  ghiJSON(localStorage, KHOA_CACHE, { duLieu: trangThai.duLieu, luc: trangThai.luc, nguoi: p.ten });
 }
 
 export function khoiDong() {
+  try { localStorage.removeItem(KHOA_MAT_KHAU_CU); sessionStorage.removeItem(KHOA_MAT_KHAU_CU); } catch { /* bỏ qua */ }
+  const p = layPhien();
   const c = docJSON(localStorage, KHOA_CACHE);
-  if (c && c.duLieu) {
+  // Chỉ dùng dữ liệu tạm của CHÍNH người đang đăng nhập
+  if (p && c && c.duLieu && c.nguoi === p.ten) {
     trangThai.duLieu = { ...rong(), ...c.duLieu };
     trangThai.luc = c.luc || null;
   }
   baoThayDoi({ duLieuDoi: true, nguon: 'cache' });
-  if (layCaiDat().url) return dongBo();
+  if (layCaiDat().url && p) return dongBo();
   return Promise.resolve();
 }
 
@@ -103,7 +151,7 @@ export function dongBo() {
   if (dangDongBo) return dangDongBo; // không chạy chồng 2 lần
   dangDongBo = (async () => {
     const { url } = layCaiDat();
-    if (!url) {
+    if (!url || !layPhien()) {
       trangThai.dongBo = 'chua';
       baoThayDoi();
       return;
@@ -113,7 +161,7 @@ export function dongBo() {
     baoThayDoi();
     let doi = false;
     try {
-      const r = await goiGet(url, { action: 'docTatCa' });
+      const r = await goiCoToken({ action: 'docTatCa' });
       const moi = { ...rong(), ...r.duLieu };
       doi = JSON.stringify(moi) !== JSON.stringify(trangThai.duLieu);
       if (doi) trangThai.duLieu = moi;
@@ -129,18 +177,9 @@ export function dongBo() {
   return dangDongBo.finally(() => { dangDongBo = null; });
 }
 
-export async function kiemTraKetNoi(url, matKhau) {
-  const ping = await goiGet(url, { action: 'ping' });
-  let matKhauDung = null;
-  if (matKhau) {
-    try {
-      await goiPost(url, { action: 'kiemTraMatKhau', matKhau });
-      matKhauDung = true;
-    } catch (e) {
-      matKhauDung = e.message;
-    }
-  }
-  return { ...ping, matKhauDung };
+/** Kiểm tra URL: { phienBan, daCoAdmin }. Không cần đăng nhập. */
+export function kiemTraKetNoi(url) {
+  return goiGet(url, { action: 'ping' });
 }
 
 // ---------- Ghi ----------
@@ -149,11 +188,9 @@ function khoaCua(sheet, o) {
   return KHOA_SHEET[sheet].map((k) => String(o[k] ?? '').trim()).join('|');
 }
 
-async function goiGhi(body) {
-  const { url } = layCaiDat();
-  const matKhau = layMatKhau();
-  if (!matKhau) throw new LoiApi('Chưa nhập mật khẩu (mở ⚙️ Cài đặt). Cần mật khẩu để lưu.');
-  return goiPost(url, { ...body, matKhau });
+function goiGhi(body) {
+  if (layPhien() && !coQuyenGhi()) return Promise.reject(new LoiApi('Tài khoản này chỉ được xem, không được sửa.', 'KHONG_CO_QUYEN'));
+  return goiCoToken(body);
 }
 
 /** Ghi các bản ghi (upsert). Chỉ cập nhật dữ liệu trên máy SAU KHI Apps Script xác nhận. */
@@ -206,7 +243,7 @@ export async function luuBangTinh(bangTinh, dong) {
 }
 
 export async function docBangTinh(id) {
-  const r = await goiGet(layCaiDat().url, { action: 'docBangTinh', id });
+  const r = await goiCoToken({ action: 'docBangTinh', id });
   return r.duLieu
     .sort((a, b) => (a.stt ?? 0) - (b.stt ?? 0))
     .map((d) => ({ ten: d.ten ?? '', phan_loai: d.phan_loai ?? '', nganh: d.nganh ?? '', gia_von: d.gia_von ?? null, gia_ban: d.gia_ban ?? null }));
@@ -233,6 +270,24 @@ export async function luuCampaign(campaign, ketQua) {
 }
 
 export async function docCampaignKQ(id) {
-  const r = await goiGet(layCaiDat().url, { action: 'docCampaignKQ', id });
+  const r = await goiCoToken({ action: 'docCampaignKQ', id });
   return r.duLieu;
+}
+
+// ---------- Tài khoản (chỉ admin — Apps Script kiểm tra) ----------
+
+export async function dsTaiKhoan() {
+  return (await goiGhi({ action: 'dsTaiKhoan' })).taiKhoan;
+}
+export async function themTaiKhoan(ten, matKhau, vaiTroMoi) {
+  return (await goiGhi({ action: 'themTaiKhoan', ten, matKhau, vaiTro: vaiTroMoi })).taiKhoan;
+}
+export async function doiMatKhau(ten, matKhau) {
+  return (await goiGhi({ action: 'doiMatKhau', ten, matKhau })).taiKhoan;
+}
+export async function doiVaiTro(ten, vaiTroMoi) {
+  return (await goiGhi({ action: 'doiVaiTro', ten, vaiTro: vaiTroMoi })).taiKhoan;
+}
+export async function xoaTaiKhoan(ten) {
+  return (await goiGhi({ action: 'xoaTaiKhoan', ten })).daXoa;
 }

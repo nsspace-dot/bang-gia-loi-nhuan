@@ -1,4 +1,4 @@
-// Khởi động app: chuyển tab, thanh trạng thái đồng bộ, cài đặt.
+// Khởi động app: đăng nhập, chuyển tab theo vai trò, thanh trạng thái đồng bộ, cài đặt.
 import { h, thayNoiDung } from './ui/dom.js';
 import { linhVat, manTrong } from './ui/linh-vat.js';
 import { moCaiDat } from './ui/cai-dat.js';
@@ -7,6 +7,8 @@ import { taoTabGiaVon } from './ui/tab-gia-von.js';
 import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
 import { taoTabSetGia } from './ui/tab-set-gia.js';
 import { taoTabCampaign } from './ui/tab-campaign.js';
+import { taoTabTaiKhoan } from './ui/tab-tai-khoan.js';
+import { moDangNhap } from './ui/dang-nhap.js';
 import * as kho from './data/kho.js';
 
 const KHOA_TAB = 'bggl.tab.v1';
@@ -18,10 +20,19 @@ const TAO_TAB = {
   'loi-nhuan': taoTabLoiNhuan,
   'set-gia': taoTabSetGia,
   campaign: taoTabCampaign,
+  'tai-khoan': taoTabTaiKhoan,
 };
 
+// Tab mỗi vai trò được mở. Giao diện chỉ ẩn / chặn mở; dữ liệu đã được Apps Script lọc theo vai trò.
+const TAB_THEO_VAI_TRO = {
+  admin: Object.keys(TAO_TAB),
+  tiktok: ['loi-nhuan', 'bang-phi', 'set-gia', 'campaign', 'gia-von'],
+  shopee: ['loi-nhuan', 'bang-phi'],
+};
+const duocMo = (ten) => (TAB_THEO_VAI_TRO[kho.vaiTro()] || ['loi-nhuan', 'bang-phi']).includes(ten);
+
 function moTab(ten) {
-  if (!TAO_TAB[ten]) ten = 'bang-phi';
+  if (!TAO_TAB[ten] || !duocMo(ten)) ten = 'bang-phi';
   document.querySelectorAll('.thanh-tab [role=tab]').forEach((b) => {
     const chon = b.dataset.tab === ten;
     b.setAttribute('aria-selected', String(chon));
@@ -47,8 +58,27 @@ function veTrangThai(ts) {
   else { chu.textContent = gio ? `Dữ liệu tạm ${gio}` : 'Chưa đồng bộ'; }
 }
 
+/** Hiện tên + vai trò, nút Đăng xuất; hiện tab Tài khoản cho admin. */
+function apDungPhien(phien) {
+  const nd = document.getElementById('nguoi-dung');
+  const nut = document.getElementById('nut-dang-xuat');
+  nd.hidden = nut.hidden = !phien;
+  if (phien) thayNoiDung(nd, '👤 ', phien.ten, ' ', h('small', null, `(${phien.vaiTro})`));
+  document.querySelector('[data-tab="tai-khoan"]').hidden = phien?.vaiTro !== 'admin';
+}
+
 function khoiDong() {
   document.getElementById('logo-meo').append(linhVat('nho'));
+  const phien = kho.layPhien();
+  apDungPhien(phien);
+  document.getElementById('nut-dang-xuat').addEventListener('click', () => kho.dangXuat().finally(() => location.reload()));
+  kho.dangKyHetPhien((phienCu) => moDangNhap({ lyDo: 'Phiên đăng nhập đã hết hạn hoặc tài khoản đã đổi — đăng nhập lại.', phienCu }));
+  // Có URL nhưng chưa đăng nhập: chỉ hiện màn đăng nhập, không dựng tab nào
+  if (kho.layCaiDat().url && !phien) {
+    document.getElementById('nut-cai-dat').addEventListener('click', moCaiDat);
+    moDangNhap();
+    return;
+  }
   document.querySelectorAll('.thanh-tab [role=tab]').forEach((b) => b.addEventListener('click', () => moTab(b.dataset.tab)));
   document.querySelector('.thanh-tab').addEventListener('keydown', (e) => {
     if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
@@ -66,7 +96,7 @@ function khoiDong() {
   if (!TAO_TAB[tab]) {
     try { tab = localStorage.getItem(KHOA_TAB) || 'loi-nhuan'; } catch { tab = 'loi-nhuan'; }
     // tab nhớ lần trước đang bị ẩn nút → về tab mặc định (vẫn mở được bằng #ten-tab)
-    if (document.querySelector(`.thanh-tab [data-tab="${tab}"]`)?.hidden) tab = 'loi-nhuan';
+    if (document.querySelector(`.thanh-tab [data-tab="${tab}"]`)?.hidden || !duocMo(tab)) tab = 'loi-nhuan';
   }
   moTab(tab);
   kho.khoiDong();
@@ -77,7 +107,7 @@ function khoiDong() {
   const DINH_KY = 5 * 60 * 1000;
   const canDongBo = (toiThieu) => {
     const ts = kho.lay();
-    if (!kho.layCaiDat().url || document.visibilityState !== 'visible' || ts.dongBo === 'dang') return;
+    if (!kho.layCaiDat().url || !kho.layPhien() || document.visibilityState !== 'visible' || ts.dongBo === 'dang') return;
     if (ts.luc && Date.now() - new Date(ts.luc).getTime() < toiThieu) return;
     kho.dongBo();
   };

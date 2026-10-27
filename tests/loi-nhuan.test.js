@@ -97,11 +97,12 @@ test('LỖI 4: không có URL Apps Script / mật khẩu ghi cứng trong code',
   }
 });
 
-test('LỖI 4: ghi bảng tính không có mật khẩu → Apps Script từ chối', () => {
+test('LỖI 4: ghi bảng tính không đăng nhập → Apps Script từ chối', () => {
   const g = taoMoiTruong();
   const r = g.post({ action: 'luuBangTinh', bangTinh: { id: 'b', ten: 'x' }, dong: [] });
   assert.equal(r.ok, false);
-  assert.equal(g.get({ action: 'docTatCa' }).duLieu.BANG_TINH.length, 0);
+  assert.equal(r.ma, 'CAN_DANG_NHAP');
+  assert.equal(g.post({ action: 'docTatCa', token: g.dangNhap('admin', 'mat-khau-thu') }).duLieu.BANG_TINH.length, 0);
 });
 
 // ---------- LỖI 5 + 6: chỉ báo "đã lưu" khi lưu thật; lưu bảng tính lên Sheets ----------
@@ -137,7 +138,7 @@ const DONG = [
 test('LỖI 6: lưu bảng tính lên Sheets (đặt tên), mở lại đúng dữ liệu, xóa', async () => {
   const gas = taoMoiTruong();
   const kho = await taoKho(fetchQuaGas(gas));
-  kho.luuMatKhau('mat-khau-thu', false);
+  assert.deepEqual(await kho.dangNhap('admin', 'mat-khau-thu'), { token: kho.layPhien().token, ten: 'admin', vaiTro: 'admin' });
   const bt = await kho.luuBangTinh({ id: 'bt1', ten: 'Bảng tháng 10', gian_hien_thi: 'G1,G2', thang_phi: '2026-10' }, DONG);
   assert.equal(bt.so_dong, 2);
   assert.equal(kho.duLieu().BANG_TINH.length, 1);
@@ -151,28 +152,73 @@ test('LỖI 6: lưu bảng tính lên Sheets (đặt tên), mở lại đúng d�
   assert.deepEqual(await kho.docBangTinh('bt1'), []);
 });
 
-test('LỖI 5: sai mật khẩu → báo lỗi, KHÔNG coi là đã lưu', async () => {
+test('LỖI 5: sai mật khẩu đăng nhập → báo lỗi, không có phiên, KHÔNG coi là đã lưu', async () => {
   const gas = taoMoiTruong();
   const kho = await taoKho(fetchQuaGas(gas));
-  kho.luuMatKhau('sai-roi', false);
-  await assert.rejects(kho.luuBangTinh({ id: 'bt1', ten: 'X' }, DONG), /Sai mật khẩu/);
+  await assert.rejects(kho.dangNhap('admin', 'sai-roi'), /Sai tên đăng nhập hoặc mật khẩu/);
+  assert.equal(kho.layPhien(), null);
+  await assert.rejects(kho.luuBangTinh({ id: 'bt1', ten: 'X' }, DONG), /Cần đăng nhập/);
   assert.equal(kho.duLieu().BANG_TINH.length, 0);
 });
 
-test('LỖI 5: chưa nhập mật khẩu → báo lỗi trước khi gửi', async () => {
+test('LỖI 5: chưa đăng nhập → báo lỗi trước khi gửi', async () => {
   let daGoi = false;
   const kho = await taoKho(async () => { daGoi = true; throw new Error('không được gọi'); });
-  await assert.rejects(kho.luuBangTinh({ id: 'bt1', ten: 'X' }, DONG), /Chưa nhập mật khẩu/);
+  await assert.rejects(kho.luuBangTinh({ id: 'bt1', ten: 'X' }, DONG), /Cần đăng nhập/);
   assert.equal(daGoi, false);
+});
+
+const phienGia = (vaiTro = 'admin') => globalThis.sessionStorage.setItem('bggl.phien.v1', JSON.stringify({ token: 'x', ten: 'nv', vaiTro }));
+
+test('tài khoản chỉ xem (shopee / tiktok) → báo lỗi trước khi gửi lệnh ghi', async () => {
+  let daGoi = false;
+  const kho = await taoKho(async () => { daGoi = true; throw new Error('không được gọi'); });
+  phienGia('shopee');
+  assert.equal(kho.coQuyenGhi(), false);
+  assert.deepEqual(kho.nenTangDuocXem(), ['shopee']);
+  await assert.rejects(kho.ghi('BANG_PHI_SHOPEE', [{ gian: 'CN1' }]), /chỉ được xem/);
+  assert.equal(daGoi, false);
+});
+
+test('token hết hạn / bị thu hồi → xóa phiên trên máy và báo app hiện lại màn đăng nhập', async () => {
+  const gas = taoMoiTruong();
+  const kho = await taoKho(fetchQuaGas(gas));
+  await kho.dangNhap('admin', 'mat-khau-thu');
+  const bao = [];
+  kho.dangKyHetPhien((cu) => bao.push(cu));
+  gas.cache.clear(); // = hết 6 giờ
+  // 2 lệnh cùng thất bại → chỉ báo 1 lần, kèm phiên cũ (để đăng nhập lại cùng tài khoản thì giữ phần đang sửa)
+  await Promise.allSettled([kho.dongBo(), kho.docBangTinh('x')]);
+  assert.equal(kho.lay().dongBo, 'loi');
+  assert.equal(kho.layPhien(), null);
+  assert.equal(bao.length, 1);
+  assert.deepEqual({ ten: bao[0].ten, vaiTro: bao[0].vaiTro }, { ten: 'admin', vaiTro: 'admin' });
+});
+
+test('đăng nhập người khác trên cùng máy → bỏ dữ liệu tạm của người trước', async () => {
+  const gas = taoMoiTruong();
+  const ad = gas.dangNhap('admin', 'mat-khau-thu');
+  gas.post({ action: 'themTaiKhoan', token: ad, ten: 'nv-shopee', matKhau: 'shopee-123', vaiTro: 'shopee' });
+  gas.post({ action: 'upsert', token: ad, sheet: 'BANG_PHI', banGhi: [{ gian: 'G', nganh: 'Tranh', thang: '2026-10', phi_san: 20 }] });
+  const kho = await taoKho(fetchQuaGas(gas));
+  await kho.dangNhap('admin', 'mat-khau-thu');
+  await kho.dongBo();
+  assert.equal(JSON.parse(globalThis.localStorage.getItem('bggl.cache.v1')).duLieu.BANG_PHI.length, 1);
+  await kho.dangXuat();
+  assert.equal(globalThis.localStorage.getItem('bggl.cache.v1'), null);
+  assert.equal(kho.duLieu().BANG_PHI.length, 0);
+  await kho.dangNhap('nv-shopee', 'shopee-123');
+  await kho.dongBo();
+  assert.deepEqual(kho.duLieu().BANG_PHI, []);
 });
 
 test('LỖI 5: mất mạng / Apps Script trả trang HTML → báo lỗi rõ, không lưu', async () => {
   let kho = await taoKho(async () => { throw new TypeError('Failed to fetch'); });
-  kho.luuMatKhau('x', false);
+  phienGia();
   await assert.rejects(kho.luuBangTinh({ id: 'a', ten: 'X' }, DONG), /Không kết nối được/);
   assert.equal(kho.duLieu().BANG_TINH.length, 0);
   kho = await taoKho(async () => ({ ok: true, status: 200, text: async () => '<html>Đăng nhập Google</html>' }));
-  kho.luuMatKhau('x', false);
+  phienGia();
   await assert.rejects(kho.luuBangTinh({ id: 'a', ten: 'X' }, DONG), /trang web/);
   assert.equal(kho.duLieu().BANG_TINH.length, 0);
 });

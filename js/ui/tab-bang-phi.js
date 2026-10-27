@@ -11,6 +11,7 @@ import { chonBoPhi, cacThangCoPhi, thangHienTai, hienThiThang, chuanHoaThang, la
 import { docSo, dinhDangTien, dinhDangSo, dinhDangPhanTram } from '../core/so.js';
 import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { docBang } from '../excel/doc.js';
+import { khoiDanhMuc } from './danh-muc.js';
 
 const st = { gian: null, thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
 let goc;
@@ -87,7 +88,7 @@ function ve() {
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Bảng phí'), h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Sửa phí tháng mới không làm mất phí tháng cũ.')),
         h('div', { class: 'hang-nut' },
-          h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập từ Excel'),
+          kho.coQuyenGhi() ? h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập từ Excel') : null,
           h('button', { class: 'nut', onclick: xuatExcel, disabled: !ts.duLieu.BANG_PHI.length }, '📤 Xuất Excel'))),
       h('div', { class: 'chon-gian', role: 'tablist', 'aria-label': 'Gian hàng' },
         gians.map((g) => h('button', {
@@ -98,8 +99,8 @@ function ve() {
       veChonThang(),
       veThongBaoNguon(),
       veBang(),
-      veHangLuu()),
-    veDanhMuc());
+      kho.coQuyenGhi() ? veHangLuu() : veChiXem()),
+    kho.coQuyenGhi() ? veDanhMuc() : null);
 }
 
 async function doiGianThang(gian, thang) {
@@ -178,6 +179,7 @@ function veBang() {
         kieu: k.donVi === '%' ? 'phantram' : 'tien',
         kiemTra: (so) => loiO(k.khoa, so),
         'aria-label': `${k.ten} — ${n}`,
+        disabled: !kho.coQuyenGhi(),
         'data-o': `phi:${n}:${k.khoa}`,
         // Gõ: chỉ cập nhật ô này + dòng tổng + nút Lưu. KHÔNG vẽ lại bảng.
         khiGo: (_so, _hopLe, chuoi) => {
@@ -236,8 +238,15 @@ function coLoiNhap() {
 function capNhatNutLuu() {
   const ds = nganhCanLuu();
   const loi = coLoiNhap();
+  if (!nutLuu) return;
   nutLuu.disabled = !ds.length || loi;
   chuLuu.textContent = loi ? 'Có ô nhập sai (tô đỏ) — sửa trước khi lưu.' : ds.length ? `Sẽ lưu phí tháng ${hienThiThang(st.thang)} cho: ${ds.join(', ')}` : 'Chưa có thay đổi.';
+}
+
+/** Tài khoản không phải admin: chỉ xem (Apps Script cũng từ chối mọi lệnh ghi). */
+function veChiXem() {
+  const p = kho.layPhien();
+  return h('div', { class: 'ghi-chu ghi-chu-vang chi-xem' }, `Chỉ xem — tài khoản "${p ? p.ten : ''}" (${p ? p.vaiTro : ''}) không có quyền sửa bảng phí.`);
 }
 
 function veHangLuu() {
@@ -294,45 +303,10 @@ async function xoaThang() {
 // ---------- Danh mục gian / ngành ----------
 
 function veDanhMuc() {
-  const khoi = (loai, tieuDe) => {
-    const ds = layDanhSach(kho.duLieu().DANH_MUC, loai);
-    const oThem = h('input', { class: 'o-nhap', placeholder: loai === 'GIAN' ? 'Tên gian mới' : 'Tên ngành mới', maxlength: 40 });
-    return h('div', { class: 'khoi-danh-muc' },
-      h('h4', null, tieuDe),
-      h('div', { class: 'ds-chip' }, ds.map((t) => h('span', { class: ['chip', loai === 'GIAN' && `gian-${mauGian(t, ds)}`] }, t,
-        h('button', { class: 'chip-xoa', title: `Bỏ ${t}`, 'aria-label': `Bỏ ${t}`, onclick: () => doiDanhMuc(loai, t, 'bo') }, '×')))),
-      h('form', { class: 'hang', onsubmit: (e) => { e.preventDefault(); const t = oThem.value.trim(); if (t) doiDanhMuc(loai, t, 'them'); } },
-        oThem, h('button', { class: 'nut nut-nho', type: 'submit' }, '+ Thêm')));
-  };
   return h('details', { class: 'the the-phu' },
     h('summary', null, 'Gian hàng & ngành (thêm / bớt)'),
-    h('div', { class: 'luoi-2' }, khoi('GIAN', 'Gian hàng'), khoi('NGANH', 'Ngành')),
+    h('div', { class: 'luoi-2' }, khoiDanhMuc('GIAN', 'Gian hàng'), khoiDanhMuc('NGANH', 'Ngành')),
     h('p', { class: 'goi-y' }, 'Bỏ một gian/ngành chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.'));
-}
-
-async function doiDanhMuc(loai, ten, hanhDong) {
-  const dm = kho.duLieu().DANH_MUC;
-  const hienCo = layDanhSach(dm, loai);
-  const banGhi = [];
-  // Lần đầu: lưu luôn danh sách mặc định để giữ thứ tự
-  if (!dm.some((d) => d.loai === loai)) hienCo.forEach((t, i) => banGhi.push({ loai, ten: t, thu_tu: i + 1, dang_dung: 'co' }));
-  if (hanhDong === 'them') {
-    if (hienCo.some((t) => t.toLowerCase() === ten.toLowerCase())) { thongBao(`"${ten}" đã có rồi.`, 'tt'); return; }
-    const maxTT = Math.max(0, ...dm.filter((d) => d.loai === loai).map((d) => d.thu_tu || 0), hienCo.length);
-    banGhi.push({ loai, ten, thu_tu: maxTT + 1, dang_dung: 'co' });
-  } else {
-    if (hienCo.length <= 1) { thongBao('Phải còn ít nhất 1 mục.', 'tt'); return; }
-    if (!(await xacNhan(`Bỏ "${ten}" khỏi danh sách?`))) return;
-    const i = banGhi.findIndex((b) => b.ten === ten);
-    if (i >= 0) banGhi[i].dang_dung = 'khong';
-    else banGhi.push({ loai, ten, dang_dung: 'khong' });
-  }
-  try {
-    await kho.ghi('DANH_MUC', banGhi);
-    thongBao(hanhDong === 'them' ? `Đã thêm "${ten}".` : `Đã bỏ "${ten}".`);
-  } catch (e) {
-    thongBao(`Chưa lưu được: ${e.message}`, 'loi');
-  }
 }
 
 // ---------- Nhập / xuất Excel ----------

@@ -37,21 +37,47 @@ after(async () => {
   mayChu?.kill();
 });
 
-async function moTrang(matKhau = 'mat-khau-thu') {
+// Tài khoản GIẢ của máy chủ thử (scripts/may-chu-thu.mjs --du-lieu-gia)
+const TK = { admin: ['admin', 'mat-khau-thu'], shopee: ['nv-shopee', 'shopee-123'], tiktok: ['nv-tiktok', 'tiktok-123'] };
+
+/** Mở trang mới (máy sạch), đặt URL Apps Script giả lập; dangNhap = vai trò cần đăng nhập, hoặc false để dừng ở màn đăng nhập. */
+async function moTrang(dangNhap = 'admin') {
   const p = await trinhDuyet.newPage();
   const loi = [];
   p.on('pageerror', (e) => loi.push(String(e)));
-  await p.addInitScript(([url, mk]) => {
+  await p.addInitScript((url) => {
     if (!sessionStorage.getItem('da-khoi-tao')) {
       localStorage.clear();
       localStorage.setItem('bggl.caidat.v1', JSON.stringify({ url }));
-      sessionStorage.setItem('bggl.matkhau.v1', mk);
       sessionStorage.setItem('da-khoi-tao', '1');
     }
-  }, [`${URL_APP}/gas`, matKhau]);
+  }, `${URL_APP}/gas`);
   await p.goto(`${URL_APP}/#loi-nhuan`);
-  await p.waitForSelector('.dong-bo-xong');
+  await p.waitForSelector('#dn-ten');
+  if (dangNhap) {
+    await dienDangNhap(p, ...TK[dangNhap]);
+    await p.waitForSelector('.dong-bo-xong');
+  }
   return { p, loi };
+}
+
+async function dienDangNhap(p, ten, mk) {
+  await p.fill('#dn-ten', ten);
+  await p.fill('#dn-mk', mk);
+  await p.click('.hop-dang-nhap button[type=submit]');
+}
+
+/** Gọi Apps Script giả lập từ Node (không qua trình duyệt). */
+async function goiGas(body) {
+  return (await fetch(`${URL_APP}/gas`, { method: 'POST', body: JSON.stringify(body) })).json();
+}
+async function tokenAdmin() {
+  return (await goiGas({ action: 'dangNhap', ten: TK.admin[0], matKhau: TK.admin[1] })).token;
+}
+
+/** Toàn bộ dữ liệu (đọc bằng token admin). */
+async function docGas() {
+  return (await goiGas({ action: 'docTatCa', token: await tokenAdmin() })).duLieu;
 }
 
 function taoFile(ten, dong) {
@@ -107,19 +133,16 @@ test('LỖI 1 + 2 + 3 trên giao diện: tên có ngoặc kép giữ nguyên, gi
   await p.close();
 });
 
-test('LỖI 5 + 6 trên giao diện: sai mật khẩu → báo lỗi, không báo "đã lưu"; đúng mật khẩu → lưu và mở lại được', { skip: boQua }, async () => {
-  let { p } = await moTrang('sai');
-  await napFile(p, taoFile('b.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['A', 1000, 5000], ['B', 2000, 9000]]));
-  await p.click('text=💾 Lưu lên Sheets');
-  await p.fill('dialog[open] input', 'Bảng thử nghiệm');
-  await p.click('dialog[open] >> text=Lưu');
-  await p.waitForSelector('.thong-bao-loi');
-  assert.match(await p.textContent('.thong-bao-loi'), /CHƯA lưu được: Sai mật khẩu/);
-  assert.equal(await p.locator('.chuc-mung', { hasText: 'Đã lưu' }).count(), 0, 'không được báo đã lưu');
-  assert.match(await p.textContent('.the-dau'), /chưa lưu lên Sheets/);
+test('LỖI 5 + 6 trên giao diện: sai mật khẩu → không vào được; đúng mật khẩu → lưu và mở lại được', { skip: boQua }, async () => {
+  let { p } = await moTrang(false);
+  await dienDangNhap(p, 'admin', 'sai-mat-khau');
+  await p.waitForSelector('.dn-loi .dong-kq-loi');
+  assert.match(await p.textContent('.dn-loi'), /Sai tên đăng nhập hoặc mật khẩu/);
+  assert.equal(await p.evaluate(() => sessionStorage.getItem('bggl.phien.v1')), null);
+  assert.equal(await p.locator('.bang-ln, .vung-tha').count(), 0, 'chưa đăng nhập thì không dựng tab nào');
   await p.close();
 
-  ({ p } = await moTrang('mat-khau-thu'));
+  ({ p } = await moTrang('admin'));
   await napFile(p, taoFile('c.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], [TEN_KHO, 1000, 5000], ['B', 2000, '']]));
   await p.click('text=💾 Lưu lên Sheets');
   await p.fill('dialog[open] input', 'Bảng thử nghiệm');
@@ -315,7 +338,7 @@ test('Bảng phí KHÔNG giựt: sửa liên tục 10 ô, lăn chuột, ↑↓, 
   assert.equal(await p.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Phí sàn — Lịch');
 
   // 4) Đồng bộ nền mang dữ liệu mới về khi đang có ô sửa chưa lưu → KHÔNG vẽ lại, chỉ hiện "Có dữ liệu mới"
-  await fetch(`${URL_APP}/gas`, { method: 'POST', body: JSON.stringify({ action: 'upsert', matKhau: 'mat-khau-thu', sheet: 'BANG_PHI', banGhi: [{ gian: 'Nhà Sách', nganh: 'Sách', thang: '2026-09', phi_san: 11, phi_vc: 1, phi_xl: 1, phi_qc: 1, aff_qc: 1, aff_noqc: 1 }] }) });
+  await goiGas({ action: 'upsert', token: await tokenAdmin(), sheet: 'BANG_PHI', banGhi: [{ gian: 'Nhà Sách', nganh: 'Sách', thang: '2026-09', phi_san: 11, phi_vc: 1, phi_xl: 1, phi_qc: 1, aff_qc: 1, aff_noqc: 1 }] });
   await p.keyboard.type('21,5'); // đang gõ dở trong ô Phí sàn — Lịch
   await p.evaluate(() => document.getElementById('trang-thai-dong-bo').dispatchEvent(new MouseEvent('click'))); // = đồng bộ nền, không mất focus
   await p.waitForSelector('.du-lieu-moi');
@@ -420,7 +443,7 @@ test('Bảng phí: tab con Shopee | TikTok; Shopee hiện mặc định, tính t
   assert.match(await p.textContent('#bang-phi-shopee .hang-luu'), /cho: Sách, Tranh, Lịch, Decal, Trà/);
   await p.click('#bang-phi-shopee .hang-luu .nut-chinh');
   await p.waitForSelector('#bang-phi-shopee .ghi-chu-xanh');
-  const du = await p.evaluate(async () => (await (await fetch('/gas?action=docTatCa')).json()).duLieu);
+  const du = await docGas();
   const cn1 = du.BANG_PHI_SHOPEE.filter((x) => x.gian === 'CN1');
   assert.equal(cn1.length, 5);
   assert.equal(cn1.find((x) => x.nganh === 'Sách').aff, 3);
@@ -483,6 +506,256 @@ test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gia
   // quay lại TikTok
   await p.click('[data-nen-tang="tiktok"]');
   assert.deepEqual((await gianDau()).map(([, n]) => n), [2, 2, 2, 2]);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Bảng phí Shopee: thêm gian mới → hiện ở Bảng phí và ở Tính lợi nhuận chế độ Shopee; không lẫn sang TikTok', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('[data-san="shopee"]');
+  await p.click('#bang-phi-shopee summary:has-text("Gian hàng Shopee")');
+  await p.fill('[aria-label="Thêm — Gian hàng Shopee"]', 'CN3');
+  await p.click('#bang-phi-shopee .khoi-danh-muc button[type=submit]');
+  await p.waitForSelector('#bang-phi-shopee .vien-gian:has-text("CN3")');
+  assert.deepEqual(await p.$$eval('#bang-phi-shopee .vien-gian', (ds) => ds.map((b) => b.textContent)),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  const du = await docGas();
+  assert.deepEqual(du.DANH_MUC.filter((d) => d.loai === 'GIAN_SHOPEE').map((d) => d.ten),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  assert.ok(!du.DANH_MUC.some((d) => d.loai === 'GIAN' && d.ten === 'CN3'));
+  // TikTok không có CN3
+  await p.click('[data-san="tiktok"]');
+  assert.equal(await p.locator('#bang-phi-tiktok .vien-gian:has-text("CN3")').count(), 0);
+  // Tính lợi nhuận → Shopee có thêm cột CN3
+  await p.click('[data-tab="loi-nhuan"]');
+  await p.click('[data-nen-tang="shopee"]');
+  await p.click('text=➕ Thêm dòng');
+  assert.deepEqual(await p.$$eval('.bang-ln .th-gian', (ds) => ds.map((d) => d.textContent)),
+    ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New', 'CN3']);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Bảng phí Shopee: file mẫu, xuất Excel, nhập Excel có xem trước (mới / thay đổi / lỗi) và chỉ ghi khi xác nhận', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang();
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const X = ctx.XLSX;
+  const docTai = async (nut) => {
+    const [tai] = await Promise.all([p.waitForEvent('download'), p.click(nut)]);
+    const wb = X.read(fs.readFileSync(await tai.path()), { type: 'buffer' });
+    return JSON.parse(JSON.stringify(X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })));
+  };
+  const docPhiSP = async () => (await docGas()).BANG_PHI_SHOPEE;
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('[data-san="shopee"]');
+  await p.waitForSelector('#bang-phi-shopee .bang-phi-shopee');
+
+  const mau = await docTai('#bang-phi-shopee button:has-text("File mẫu")');
+  assert.equal(mau.length, 6);
+  assert.equal(mau[0][0], 'Gian hàng');
+  assert.deepEqual(mau.slice(1).map((d) => d[1]), ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà']);
+  const xuat = await docTai('#bang-phi-shopee button:has-text("Xuất Excel")');
+  assert.equal(xuat.length, (await docPhiSP()).length + 1);
+  const tv = xuat.find((d) => d[0] === 'Tranh Vip' && d[1] === 'Tranh');
+  assert.equal(tv[2], '08/2026');
+
+  // file nhập: Tranh Vip × Tranh đổi AFF 12 → 13; CN2 × Sách tháng 12/2026 mới; 1 dòng lỗi
+  const tieuDe = mau[0];
+  const sua = [...tv]; sua[tieuDe.indexOf('AFF (%)')] = 13;
+  const moi = [...mau[1]]; moi[0] = 'CN2'; moi[2] = '12/2026';
+  const sai = [...mau[2]]; sai[0] = 'CN2'; sai[2] = '12/2026'; sai[tieuDe.indexOf('Phí xử lý (%)')] = 'sáu';
+  const nhap = async (ten, dong) => {
+    const [fc] = await Promise.all([p.waitForEvent('filechooser'), p.click('#bang-phi-shopee button:has-text("Nhập Excel")')]);
+    await fc.setFiles(taoFile(ten, [tieuDe, ...dong]));
+    await p.waitForSelector('.xem-truoc-nhap');
+  };
+  const truoc = JSON.stringify(await docPhiSP());
+  await nhap('loi.xlsx', [sua, moi, sai]);
+  assert.match(await p.textContent('.tom-tat-nhap'), /1 dòng mới\s+1 dòng thay đổi\s+1 dòng lỗi/);
+  assert.match(await p.textContent('.nhom-loi'), /Dòng 4: Phí xử lý: không phải số/);
+  assert.match(await p.textContent('.nhom-doi'), /Tranh Vip · Tranh · 08\/2026 .*AFF 12 → 13/);
+  assert.ok(await p.locator('.xem-truoc-nhap .nut-chinh').isDisabled(), 'còn dòng lỗi thì không cho lưu');
+  await p.click('.xem-truoc-nhap button:has-text("Hủy")');
+  assert.equal(JSON.stringify(await docPhiSP()), truoc, 'chưa xác nhận thì không ghi gì');
+
+  await nhap('dung.xlsx', [sua, moi]);
+  assert.equal(JSON.stringify(await docPhiSP()), truoc, 'mở xem trước chưa ghi gì');
+  await p.click('.xem-truoc-nhap button:has-text("Lưu 2 bộ phí")');
+  await p.waitForSelector('.xem-truoc-nhap', { state: 'detached' });
+  const sau = await docPhiSP();
+  assert.equal(sau.find((x) => x.gian === 'Tranh Vip' && x.nganh === 'Tranh' && x.thang === '2026-08').aff, 13);
+  assert.equal(sau.find((x) => x.gian === 'CN2' && x.nganh === 'Sách' && x.thang === '2026-12').phi_co_dinh, 19.1);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Vai trò shopee: chỉ thấy phần Shopee, chỉ xem; máy không giữ dữ liệu TikTok', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('shopee');
+  assert.match(await p.textContent('#nguoi-dung'), /nv-shopee\s*\(shopee\)/);
+  const tabHien = await p.$$eval('.thanh-tab [role=tab]:not([hidden])', (ds) => ds.map((b) => b.dataset.tab));
+  assert.deepEqual(tabHien, ['loi-nhuan', 'bang-phi']);
+  // Tính lợi nhuận: chỉ nền tảng Shopee, không có nút lưu
+  assert.deepEqual(await p.$$eval('[data-nen-tang]', (ds) => ds.map((b) => b.dataset.nenTang)), ['shopee']);
+  await p.click('text=➕ Thêm dòng');
+  assert.equal(await p.locator('text=💾 Lưu lên Sheets').count(), 0);
+  // Bảng phí: chỉ tab con Shopee, ô bị khóa, không có Lưu / Nhập Excel / thêm gian
+  await p.click('[data-tab="bang-phi"]');
+  assert.deepEqual(await p.$$eval('#tab-bang-phi .tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee']);
+  await p.waitForSelector('[aria-label="Phí cố định — Sách"]');
+  assert.ok(await p.locator('[aria-label="Phí cố định — Sách"]').isDisabled());
+  assert.match(await p.textContent('.chi-xem'), /Chỉ xem/);
+  assert.equal(await p.locator('#bang-phi-shopee .hang-luu').count(), 0);
+  assert.equal(await p.locator('#tab-bang-phi button:has-text("Nhập Excel")').count(), 0);
+  assert.equal(await p.locator('text=Gian hàng Shopee (thêm / bớt)').count(), 0);
+  assert.equal(await p.locator('#tab-bang-phi button:has-text("Xuất Excel")').count(), 1, 'xuất Excel vẫn được');
+  // Dữ liệu tạm trên máy chỉ có phần Shopee (Apps Script đã lọc)
+  const cache = await p.evaluate(() => JSON.parse(localStorage.getItem('bggl.cache.v1')));
+  assert.equal(cache.nguoi, 'nv-shopee');
+  for (const k of ['BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN']) assert.deepEqual(cache.duLieu[k], [], k);
+  assert.ok(cache.duLieu.BANG_PHI_SHOPEE.length > 0);
+  assert.ok(cache.duLieu.DANH_MUC.every((d) => d.loai === 'GIAN_SHOPEE'));
+  // Gõ thẳng #gia-von / #tai-khoan → không mở được
+  for (const tab of ['gia-von', 'tai-khoan']) {
+    await p.goto(`${URL_APP}/?lan=${tab}#${tab}`); // đổi query để tải lại trang thật
+    await p.waitForSelector('.dong-bo-xong');
+    assert.notEqual(await p.evaluate(() => location.hash), `#${tab}`);
+    assert.ok(await p.locator(`#tab-${tab}`).isHidden());
+  }
+  // Gọi thẳng Apps Script bằng token shopee để ghi → bị từ chối
+  const r = await p.evaluate(async () => {
+    const { token } = JSON.parse(sessionStorage.getItem('bggl.phien.v1'));
+    return (await fetch('/gas', { method: 'POST', body: JSON.stringify({ action: 'upsert', token, sheet: 'BANG_PHI_SHOPEE', banGhi: [{ gian: 'CN1', nganh: 'Sách', thang: '2026-10', phi_co_dinh: 1 }] }) })).json();
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.ma, 'KHONG_CO_QUYEN');
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Vai trò tiktok: chỉ thấy phần TikTok, chỉ xem', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('tiktok');
+  assert.deepEqual(await p.$$eval('[data-nen-tang]', (ds) => ds.map((b) => b.dataset.nenTang)), ['tiktok']);
+  await p.click('[data-tab="bang-phi"]');
+  assert.deepEqual(await p.$$eval('#tab-bang-phi .tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['TikTok']);
+  await p.waitForSelector('[aria-label="Phí sàn — Tranh"]');
+  assert.ok(await p.locator('[aria-label="Phí sàn — Tranh"]').isDisabled());
+  assert.equal(await p.locator('#bang-phi-tiktok .hang-luu').count(), 0);
+  assert.equal(await p.locator('button:has-text("Nhập từ Excel")').count(), 0);
+  assert.equal(await p.locator('[data-tab="tai-khoan"]').isHidden(), true);
+  const cache = await p.evaluate(() => JSON.parse(localStorage.getItem('bggl.cache.v1')));
+  assert.deepEqual(cache.duLieu.BANG_PHI_SHOPEE, []);
+  assert.ok(!cache.duLieu.DANH_MUC.some((d) => d.loai === 'GIAN_SHOPEE'));
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Admin quản lý tài khoản trên giao diện: thêm, đổi vai trò, đổi mật khẩu, xóa (người bị xóa bị đăng xuất)', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  await p.click('[data-tab="tai-khoan"]');
+  await p.waitForSelector('.bang-tai-khoan');
+  assert.deepEqual(await p.$$eval('.bang-tai-khoan tbody tr', (ds) => ds.map((d) => d.dataset.tk)), ['admin', 'nv-shopee', 'nv-tiktok']);
+  assert.ok(!(await p.textContent('#tab-tai-khoan')).includes('sha256'), 'không hiện hash');
+  // thêm
+  await p.fill('[aria-label="Tên đăng nhập mới"]', 'nv-moi');
+  await p.fill('[aria-label="Mật khẩu tài khoản mới"]', 'mat-khau-nv-moi');
+  await p.selectOption('[aria-label="Vai trò tài khoản mới"]', 'tiktok');
+  await p.click('.hang-them-tk button[type=submit]');
+  await p.waitForSelector('tr[data-tk="nv-moi"]');
+  // đổi vai trò
+  await p.selectOption('[aria-label="Vai trò nv-moi"]', 'shopee');
+  await p.click('dialog[open] button:has-text("Đồng ý")');
+  await p.waitForFunction(() => document.querySelector('[aria-label="Vai trò nv-moi"]')?.value === 'shopee' && !document.querySelector('dialog[open]'));
+  // đổi mật khẩu
+  await p.click('tr[data-tk="nv-moi"] >> text=🔑 Đổi mật khẩu');
+  await p.fill('#tk-mk-moi', 'mat-khau-moi-2');
+  await p.click('dialog[open] >> text=Lưu mật khẩu');
+  await p.waitForSelector('#tk-mk-moi', { state: 'detached' });
+  // nv-moi đăng nhập bằng mật khẩu mới ở máy khác → vai trò shopee
+  const p2 = await trinhDuyet.newPage();
+  await p2.addInitScript((url) => { if (!sessionStorage.getItem('x')) { localStorage.setItem('bggl.caidat.v1', JSON.stringify({ url })); sessionStorage.setItem('x', '1'); } }, `${URL_APP}/gas`);
+  await p2.goto(`${URL_APP}/#loi-nhuan`);
+  await dienDangNhap(p2, 'nv-moi', 'mat-khau-nv-moi');
+  await p2.waitForSelector('.dn-loi .dong-kq-loi');
+  await dienDangNhap(p2, 'nv-moi', 'mat-khau-moi-2');
+  await p2.waitForSelector('.dong-bo-xong');
+  assert.match(await p2.textContent('#nguoi-dung'), /nv-moi\s*\(shopee\)/);
+  // admin xóa nv-moi → lần đồng bộ sau của nv-moi hiện lại màn đăng nhập
+  await p.click('[aria-label="Xóa nv-moi"]');
+  await p.click('dialog[open] button:has-text("Xóa")');
+  await p.waitForSelector('tr[data-tk="nv-moi"]', { state: 'detached' });
+  await p2.evaluate(() => document.getElementById('trang-thai-dong-bo').click());
+  await p2.waitForSelector('#dn-ten');
+  assert.match(await p2.textContent('.dn-loi'), /hết hạn hoặc tài khoản đã đổi/);
+  assert.equal(await p2.evaluate(() => sessionStorage.getItem('bggl.phien.v1')), null);
+  // admin không tự xóa được mình: không có nút xóa ở dòng của mình
+  assert.equal(await p.locator('[aria-label="Xóa admin"]').count(), 0);
+  assert.deepEqual(loi, []);
+  await p.close();
+  await p2.close();
+});
+
+test('Đăng xuất xóa phiên + dữ liệu tạm; đăng nhập sai 5 lần thì khóa tạm', { skip: boQua }, async () => {
+  await goiGas({ action: 'themTaiKhoan', token: await tokenAdmin(), ten: 'nv-khoa', matKhau: 'mat-khau-khoa', vaiTro: 'tiktok' });
+  const { p, loi } = await moTrang('admin');
+  assert.ok(await p.evaluate(() => localStorage.getItem('bggl.cache.v1')));
+  await p.click('#nut-dang-xuat');
+  await p.waitForSelector('#dn-ten');
+  assert.equal(await p.evaluate(() => sessionStorage.getItem('bggl.phien.v1')), null);
+  assert.equal(await p.evaluate(() => localStorage.getItem('bggl.cache.v1')), null);
+  for (let i = 0; i < 5; i++) {
+    await dienDangNhap(p, 'nv-khoa', `sai-${i}`);
+    await p.waitForFunction((i) => /Sai tên đăng nhập/.test(document.querySelector('.dn-loi')?.textContent) && !document.querySelector('.hop-dang-nhap button[type=submit]').disabled, i);
+  }
+  await dienDangNhap(p, 'nv-khoa', 'mat-khau-khoa');
+  await p.waitForFunction(() => /khóa 10 phút/.test(document.querySelector('.dn-loi')?.textContent));
+  assert.equal(await p.evaluate(() => sessionStorage.getItem('bggl.phien.v1')), null);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Hết phiên khi đang sửa bảng phí: đăng nhập lại cùng tài khoản → giữ phần đang sửa, lưu được', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('[data-san="shopee"]');
+  await p.click('#bang-phi-shopee .vien-gian:has-text("CN2")');
+  await p.fill('[aria-label="AFF — Trà"]', '4,5');
+  await p.press('[aria-label="AFF — Trà"]', 'Tab');
+  // thu hồi token (= hết 6 giờ) rồi đồng bộ
+  await p.evaluate(async () => {
+    const { token } = JSON.parse(sessionStorage.getItem('bggl.phien.v1'));
+    await fetch('/gas', { method: 'POST', body: JSON.stringify({ action: 'dangXuat', token }) });
+    document.getElementById('trang-thai-dong-bo').click();
+  });
+  await p.waitForSelector('#dn-ten');
+  assert.equal(await p.inputValue('#dn-ten'), 'admin', 'điền sẵn tên cũ');
+  await p.fill('#dn-mk', TK.admin[1]);
+  await p.click('.hop-dang-nhap button[type=submit]');
+  await p.waitForSelector('.hop-dang-nhap', { state: 'detached' });
+  assert.equal(await p.inputValue('[aria-label="AFF — Trà"]'), '4,5', 'không tải lại trang, phần đang sửa còn nguyên');
+  await p.click('#bang-phi-shopee .hang-luu .nut-chinh');
+  await p.waitForSelector('#bang-phi-shopee .ghi-chu-xanh');
+  const cn2 = (await docGas()).BANG_PHI_SHOPEE.filter((x) => x.gian === 'CN2' && x.nganh === 'Trà');
+  assert.ok(cn2.some((x) => x.aff === 4.5));
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Hết phiên rồi đăng nhập tài khoản khác → tải lại trang theo vai trò mới', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  await p.evaluate(async () => {
+    const { token } = JSON.parse(sessionStorage.getItem('bggl.phien.v1'));
+    await fetch('/gas', { method: 'POST', body: JSON.stringify({ action: 'dangXuat', token }) });
+    document.getElementById('trang-thai-dong-bo').click();
+  });
+  await p.waitForSelector('#dn-ten');
+  await dienDangNhap(p, ...TK.shopee);
+  await p.waitForSelector('#nguoi-dung:has-text("nv-shopee")');
+  await p.waitForSelector('.dong-bo-xong');
+  assert.ok(await p.locator('[data-tab="tai-khoan"]').isHidden());
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('bggl.cache.v1')).duLieu.BANG_PHI.length), 0);
   assert.deepEqual(loi, []);
   await p.close();
 });

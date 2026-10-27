@@ -18,16 +18,18 @@ export function mauGian(ten, danhSach = []) {
   return MAU_DU_PHONG[i % MAU_DU_PHONG.length];
 }
 
-/** Danh sách đang dùng (theo thứ tự) từ bản ghi DANH_MUC; trống thì dùng mặc định. */
+// Shopee: gian lấy từ DANH_MUC loại GIAN_SHOPEE (6 gian dưới đây là mặc định ban đầu); ngành Shopee cố định.
+export const GIAN_SHOPEE_MAC_DINH = ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New'];
+export const NGANH_SHOPEE = ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà'];
+
+const MAC_DINH = { GIAN: GIAN_MAC_DINH, NGANH: NGANH_MAC_DINH, GIAN_SHOPEE: GIAN_SHOPEE_MAC_DINH };
+
+/** Danh sách đang dùng (theo thứ tự) từ bản ghi DANH_MUC; trống thì dùng mặc định. loai: GIAN | NGANH | GIAN_SHOPEE */
 export function layDanhSach(dsDanhMuc, loai) {
   const ds = (dsDanhMuc || []).filter((d) => d.loai === loai);
-  if (!ds.length) return loai === 'GIAN' ? [...GIAN_MAC_DINH] : [...NGANH_MAC_DINH];
+  if (!ds.length) return [...(MAC_DINH[loai] || [])];
   return ds
     .filter((d) => d.dang_dung !== 'khong')
     .sort((a, b) => (a.thu_tu ?? 0) - (b.thu_tu ?? 0))
     .map((d) => d.ten);
 }
-
-// Shopee: danh sách gian / ngành riêng (cố định), không dùng DANH_MUC của TikTok.
-export const GIAN_SHOPEE = ['Nhà Sách', 'CN1', 'CN2', 'Tường Vip', 'Tranh Vip', 'Tường Vip New'];
-export const NGANH_SHOPEE = ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà'];

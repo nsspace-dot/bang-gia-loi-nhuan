@@ -2,14 +2,19 @@
 import { h } from './dom.js';
 import { taoTabBangPhi } from './tab-bang-phi.js';
 import { taoTabBangPhiShopee } from './tab-bang-phi-shopee.js';
+import * as kho from '../data/kho.js';
 
 const KHOA_TAB_CON = 'bggl.bangphi.san.v1';
-const SAN = [
+const TAT_CA_SAN = [
   { ten: 'shopee', nhan: 'Shopee', tao: taoTabBangPhiShopee },
   { ten: 'tiktok', nhan: 'TikTok', tao: taoTabBangPhi },
 ];
 
 export function taoTabBangPhiSan(phanTu) {
+  // Chỉ hiện tab con của nền tảng vai trò được xem (chưa đăng nhập / chưa có URL: hiện cả 2 để thấy hướng dẫn kết nối)
+  const duoc = kho.layPhien() ? kho.nenTangDuocXem() : ['shopee', 'tiktok'];
+  const SAN = TAT_CA_SAN.filter((s) => duoc.includes(s.ten));
+  if (!SAN.length) return;
   const daTao = new Set();
   const nut = {}, vung = {};
   for (const s of SAN) {
@@ -31,7 +36,7 @@ export function taoTabBangPhiSan(phanTu) {
     try { localStorage.setItem(KHOA_TAB_CON, ten); } catch { /* bỏ qua */ }
   }
 
-  let dau = 'tiktok';
+  let dau = SAN.some((s) => s.ten === 'tiktok') ? 'tiktok' : SAN[0].ten;
   try { if (SAN.some((s) => s.ten === localStorage.getItem(KHOA_TAB_CON))) dau = localStorage.getItem(KHOA_TAB_CON); } catch { /* bỏ qua */ }
   mo(dau);
 }

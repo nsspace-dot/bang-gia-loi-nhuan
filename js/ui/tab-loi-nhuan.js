@@ -11,7 +11,7 @@ import { docBangSanPham, laiTaiGian, laDongLo, locVaSapXep, tongKet, bangXuat, T
 import { laiTaiGianShopee, laDongLoShopee, locVaSapXepShopee, tongKetShopee, bangXuatShopee } from '../core/bang-tinh-shopee.js';
 import { thangHienTai, hienThiThang, chuanHoaThang, thieuPhiQC, CANH_BAO_QC } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangPhanTram } from '../core/so.js';
-import { layDanhSach, mauGian, GIAN_SHOPEE } from '../core/danh-muc.js';
+import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { docBang } from '../excel/doc.js';
 
 const KHOA_NHAP = 'bggl.loinhuan.v1';
@@ -63,6 +63,13 @@ function docNenTang() {
   try { if (NEN_TANG[localStorage.getItem(KHOA_NEN_TANG)]) st.nenTang = localStorage.getItem(KHOA_NEN_TANG); } catch { /* bỏ qua */ }
 }
 
+/** Nền tảng tài khoản được xem (chưa đăng nhập: cả 2). Nền tảng đang chọn không được phép → chuyển sang nền tảng được phép. */
+function nenTangDuocXem() {
+  const ds = kho.layPhien() ? kho.nenTangDuocXem() : ['shopee', 'tiktok'];
+  if (!ds.includes(st.nenTang) && ds.length) st.nenTang = ds.includes('tiktok') ? 'tiktok' : ds[0];
+  return ds;
+}
+
 function luuNhap() {
   try {
     localStorage.setItem(KHOA_NHAP, JSON.stringify({
@@ -97,7 +104,7 @@ const NEN_TANG = {
     congThuc: 'Lãi = Giá − Vốn − Phí cố định − Giá × tổng phí %.',
   },
   shopee: {
-    ten: 'Shopee', gians: () => GIAN_SHOPEE, dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
+    ten: 'Shopee', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE'), dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
     cot: [['lai', 'Lãi', 'lãi']], khoaGianXem: 'gianXemShopee',
     laiTaiGian: laiTaiGianShopee, laDongLo: laDongLoShopee, locVaSapXep: locVaSapXepShopee, tongKet: tongKetShopee, bangXuat: bangXuatShopee,
     congThuc: 'Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng 8 khoản phí %.',
@@ -131,6 +138,7 @@ function nganhMacDinh() {
 // ---------- vẽ ----------
 
 function ve() {
+  nenTangDuocXem();
   const gians = gianDangXem();
   const dsPhi = nt().dsPhi();
 
@@ -141,7 +149,7 @@ function ve() {
 
 function veChonNenTang() {
   return h('div', { class: 'tab-con-san', role: 'tablist', 'aria-label': 'Nền tảng' },
-    ['shopee', 'tiktok'].map((k) => h('button', {
+    ['shopee', 'tiktok'].filter((k) => nenTangDuocXem().includes(k)).map((k) => h('button', {
       role: 'tab', type: 'button', 'data-nen-tang': k, class: k === st.nenTang && 'dang-chon', 'aria-selected': String(k === st.nenTang),
       onclick: () => doiNenTang(k),
     }, NEN_TANG[k].ten)));
@@ -160,8 +168,15 @@ function doiNenTang(k) {
 function capNhatNhanLuu() {
   const el = goc.querySelector('.nhan-trang-thai-luu');
   if (!el) return;
-  el.textContent = st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : '';
-  el.className = ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'].join(' ');
+  const [chu, lop] = nhanLuu();
+  el.textContent = chu;
+  el.className = ['nhan-nho', 'nhan-trang-thai-luu', lop].join(' ');
+}
+
+/** [chữ, lớp] của nhãn trạng thái lưu. Tài khoản chỉ xem không lưu lên Sheets được → không hiện nhãn. */
+function nhanLuu() {
+  if (!kho.coQuyenGhi()) return ['', 'nhan-an'];
+  return st.thayDoi ? ['chưa lưu lên Sheets', 'nhan-vang'] : st.bangTinh ? ['đã lưu', 'nhan-xanh'] : ['', 'nhan-an'];
 }
 
 /** Sau khi sửa 1 dòng: chỉ thay dòng đó + ô tổng kết. Không lọc / sắp xếp lại (dòng không nhảy chỗ). */
@@ -182,12 +197,12 @@ function veDau() {
     h('div', null,
       h('h2', null, 'Tính lợi nhuận'),
       h('p', { class: 'mo-ta' }, '📄 ', h('b', null, ten),
-        h('span', { class: ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'] }, st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : ''),
+        h('span', { class: ['nhan-nho', 'nhan-trang-thai-luu', nhanLuu()[1]] }, nhanLuu()[0]),
         h('span', { class: 'chu-nhat' }, ` · ${st.ds.length} dòng · bản nháp tự lưu trên máy này`))),
     h('div', { class: 'hang-nut' },
       h('button', { class: 'nut', onclick: moDanhSach }, '📂 Mở bảng tính'),
-      h('button', { class: 'nut nut-chinh', onclick: () => luuLenSheets(false), disabled: !st.ds.length }, '💾 Lưu lên Sheets'),
-      st.bangTinh ? h('button', { class: 'nut', onclick: () => luuLenSheets(true), disabled: !st.ds.length }, 'Lưu thành bản mới') : null,
+      kho.coQuyenGhi() ? h('button', { class: 'nut nut-chinh', onclick: () => luuLenSheets(false), disabled: !st.ds.length }, '💾 Lưu lên Sheets') : null,
+      kho.coQuyenGhi() && st.bangTinh ? h('button', { class: 'nut', onclick: () => luuLenSheets(true), disabled: !st.ds.length }, 'Lưu thành bản mới') : null,
       h('button', { class: 'nut', onclick: taoMoi, disabled: !st.ds.length && !st.bangTinh }, '🧹 Bảng mới')));
 }
 
@@ -486,7 +501,7 @@ function moDanhSach() {
         h('td', { class: 'chu-nhat' }, ngay(b.cap_nhat_luc)),
         h('td', { class: 'o-thao-tac' },
           h('button', { class: 'nut nut-nho nut-chinh', onclick: () => moBangTinh(b, dlg) }, 'Mở'),
-          h('button', { class: 'nut-icon', title: 'Xóa', 'aria-label': `Xóa ${b.ten}`, onclick: () => xoaBangTinh(b, dlg) }, '🗑')))))))
+          kho.coQuyenGhi() ? h('button', { class: 'nut-icon', title: 'Xóa', 'aria-label': `Xóa ${b.ten}`, onclick: () => xoaBangTinh(b, dlg) }, '🗑') : null))))))
       : manTrong('Chưa có bảng tính nào', 'Nhập sản phẩm rồi bấm "💾 Lưu lên Sheets" để lưu và mở lại trên máy khác.'));
   dlg.addEventListener('close', () => dlg.remove());
   document.body.append(dlg);

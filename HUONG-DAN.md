@@ -12,7 +12,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 4. [Mở app lần đầu](#4-mở-app-lần-đầu)
 5. [Cách dùng hằng ngày](#5-cách-dùng-hằng-ngày)
 6. [Cập nhật Code.gs khi có phiên bản mới](#6-cập-nhật-codegs-khi-có-phiên-bản-mới)
-7. [Đổi mật khẩu, xem lịch sử, sao lưu](#7-đổi-mật-khẩu-xem-lịch-sử-sao-lưu)
+7. [Tài khoản nhân viên, đổi mật khẩu, lịch sử, sao lưu](#7-tài-khoản-nhân-viên-đổi-mật-khẩu-lịch-sử-sao-lưu)
 8. [Lỗi thường gặp](#8-lỗi-thường-gặp)
 9. [Dành cho người phát triển](#9-dành-cho-người-phát-triển)
 
@@ -24,10 +24,20 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 |---|---|---|
 | **App** (giao diện, cách tính) | GitHub Pages — một đường link web | Repo public: ai có link đều mở được app, nhưng **không thấy dữ liệu** nếu không có URL Apps Script |
 | **Dữ liệu dùng chung** (bảng phí, giá vốn, gán tay SKU, campaign, bảng tính đã lưu, lịch sử) | Google Sheets **của shop** | Truy cập qua Google Apps Script (Web App) |
-| **URL Apps Script + mật khẩu** | Trình duyệt **từng máy** (nhập ở ⚙️ Cài đặt) | Không bao giờ nằm trong code |
+| **URL Apps Script** | Trình duyệt **từng máy** (nhập ở ⚙️ Cài đặt) | Không bao giờ nằm trong code |
+| **Tài khoản** (tên đăng nhập, vai trò, mật khẩu đã mã hóa) | Sheet `TAI_KHOAN` trong Google Sheets của shop | Mật khẩu lưu dạng hash SHA-256 + salt, **không** lưu mật khẩu thô; không nằm trong code |
+| **Phiên đăng nhập** | Trình duyệt, chỉ trong tab đang mở | Tự hết sau 6 giờ hoặc khi đóng tab / bấm Đăng xuất |
 | **File Excel** bạn thả vào (prefill, file sản phẩm, giá vốn…) | Chỉ trong trình duyệt | Không gửi lên máy chủ nào |
 
-> ⚠️ **Giữ kín URL Apps Script.** Ai có URL là **xem được** bảng phí, giá vốn (xem không cần mật khẩu). Muốn **sửa / lưu / xóa** thì phải có mật khẩu.
+**Vai trò** (Apps Script kiểm tra ở mọi lần đọc / ghi, không chỉ ẩn nút trên giao diện):
+
+| Vai trò | Được xem | Được sửa |
+|---|---|---|
+| `admin` | Tất cả (Shopee + TikTok) | Bảng phí, danh mục, bảng tính… + **quản lý tài khoản** (tab 👥 Tài khoản) |
+| `shopee` | Bảng phí Shopee, Tính lợi nhuận chế độ Shopee | Không (chỉ xem) |
+| `tiktok` | Bảng phí TikTok, Tính lợi nhuận chế độ TikTok | Không (chỉ xem) |
+
+> ⚠️ Vẫn nên **giữ kín URL Apps Script**: không có tài khoản thì không đọc được dữ liệu, nhưng URL lộ thì người lạ có thể thử đoán mật khẩu (mỗi tài khoản bị khóa 10 phút sau 5 lần sai).
 
 ---
 
@@ -43,20 +53,28 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 3. Mở file [`apps-script/Code.gs`](apps-script/Code.gs) trong repo này trên GitHub → bấm nút **Copy raw file** (biểu tượng 2 tờ giấy) → quay lại Apps Script → **dán** vào.
 4. Bấm 💾 **Lưu** (hoặc Ctrl + S). Đặt tên dự án nếu được hỏi, ví dụ `Bang gia API`.
 
-### 2.3. Đặt mật khẩu
-1. Bên trái màn hình Apps Script, bấm ⚙️ **Cài đặt dự án** (Project Settings).
-2. Kéo xuống **Thuộc tính của tập lệnh** (Script properties) → **Thêm thuộc tính**:
-   - **Thuộc tính** (Property): `MAT_KHAU` — viết HOA, đúng như vậy.
-   - **Giá trị** (Value): mật khẩu bạn chọn (nên dài, khó đoán; ví dụ 4 từ ngẫu nhiên ghép lại).
-3. Bấm **Lưu thuộc tính tập lệnh**.
+### 2.3. Tạo admin đầu tiên (làm 1 lần)
+Tài khoản admin đầu tiên được tạo **trong Apps Script**, không qua app (vì lúc đó chưa ai đăng nhập được):
 
-> Mật khẩu chỉ nằm trong Apps Script. Sai mật khẩu quá 10 lần thì bị khóa 10 phút.
+1. Bên trái màn hình Apps Script, bấm ⚙️ **Cài đặt dự án** (Project Settings).
+2. Kéo xuống **Thuộc tính của tập lệnh** (Script properties) → **Thêm thuộc tính** 2 lần:
+   - `SETUP_ADMIN_TEN` = tên đăng nhập admin (3–32 ký tự, chữ không dấu, số, `.` `_` `-`; ví dụ `chu-shop`)
+   - `SETUP_ADMIN_MAT_KHAU` = mật khẩu admin (ít nhất 8 ký tự; nên dài, khó đoán — ví dụ 4 từ ngẫu nhiên ghép lại)
+3. Bấm **Lưu thuộc tính tập lệnh**.
+4. Quay lại trình soạn thảo (biểu tượng `< >`). Ô chọn hàm ở thanh trên → chọn **`taoAdminDauTien`** → bấm ▶ **Chạy**.
+   Lần đầu Google hỏi quyền: **Xem xét quyền** → chọn tài khoản → "Google chưa xác minh…" → **Nâng cao** → **Đi tới … (không an toàn)** → **Cho phép** (script của chính bạn).
+5. **Nhật ký thực thi** hiện `Đã tạo admin "…"`. Hàm **tự xóa** 2 thuộc tính ở bước 2 (kiểm tra lại: phải không còn `SETUP_ADMIN_MAT_KHAU`).
+6. Nhớ tên + mật khẩu admin. Từ giờ đăng nhập app bằng tài khoản này và tạo tài khoản cho nhân viên trong app (mục 7).
+
+> Hàm chỉ chạy được khi **chưa có admin nào** — người khác vào được Apps Script cũng không dùng nó để tạo thêm admin. Quên mật khẩu admin duy nhất: mở sheet `TAI_KHOAN`, xóa dòng admin đó rồi làm lại các bước trên.
 
 ### 2.4. Tạo sẵn các sheet (không bắt buộc, nhưng nên làm)
 1. Quay lại trình soạn thảo (biểu tượng `< >` bên trái).
 2. Ở thanh trên cùng, ô chọn hàm → chọn **`taoCacSheet`** → bấm ▶ **Chạy**.
 3. Lần đầu Google sẽ hỏi quyền: **Xem xét quyền** → chọn tài khoản → nếu thấy "Google chưa xác minh ứng dụng này" bấm **Nâng cao** → **Đi tới … (không an toàn)** → **Cho phép**. (Đây là script của chính bạn nên an toàn.)
-4. Mở lại file Sheets: sẽ có các sheet `DANH_MUC`, `BANG_PHI`, `BANG_PHI_SHOPEE`, `GIA_VON`, `NOI_SKU`, `CAMPAIGN`, `CAMPAIGN_KQ`, `BANG_TINH`, `BANG_TINH_DONG`, `LICH_SU`.
+4. Mở lại file Sheets: sẽ có các sheet `DANH_MUC`, `BANG_PHI`, `BANG_PHI_SHOPEE`, `GIA_VON`, `NOI_SKU`, `CAMPAIGN`, `CAMPAIGN_KQ`, `BANG_TINH`, `BANG_TINH_DONG`, `LICH_SU`, `TAI_KHOAN`.
+
+> Chia sẻ file Google Sheets cho ai thì người đó thấy được mọi sheet (kể cả cột hash trong `TAI_KHOAN`). Chỉ chia sẻ cho người được làm admin.
 
 > **Không sửa tay** tên sheet, dòng tiêu đề (dòng 1) hay thứ tự cột. Muốn sửa số liệu thì sửa trong app để có lịch sử.
 
@@ -77,7 +95,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 
 1. Mở repo trên GitHub → **Settings** (Cài đặt) → mục **Pages** (cột trái).
 2. **Source**: chọn **Deploy from a branch**.
-3. **Branch**: chọn nhánh đang dùng (hiện tại: `claude/cool-ride-vkco99`; sau này nếu gộp vào `main` thì chọn `main`) → thư mục **`/ (root)`** → **Save**.
+3. **Branch**: chọn **`main`** → thư mục **`/ (root)`** → **Save**.
 4. Chờ 1–2 phút, tải lại trang: GitHub hiện link dạng
    `https://nsspace-dot.github.io/bang-gia-loi-nhuan/`
 5. Mở link đó → app hiện ra. Lưu link vào dấu trang (bookmark).
@@ -93,13 +111,14 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 Làm trên **mỗi máy** sẽ dùng app.
 
 1. Mở link app → cửa sổ **⚙️ Cài đặt** tự hiện (hoặc bấm ⚙️ góc phải trên).
-2. Dán **URL Apps Script** (bước 2.5).
-3. Nhập **mật khẩu** (bước 2.3). Máy dùng chung thì **đừng tích** "Nhớ mật khẩu" (khi đó phải nhập lại mỗi lần mở trình duyệt).
-4. Bấm **Kiểm tra kết nối** → phải thấy 2 dòng xanh: "Kết nối được Apps Script" và "Mật khẩu đúng".
-5. Bấm **Lưu cài đặt**. Góc trên phải hiện 🟢 **Đã đồng bộ hh:mm**.
+2. Dán **URL Apps Script** (bước 2.5) → **Kiểm tra kết nối** → phải thấy dòng xanh "Kết nối được Apps Script (phiên bản 2.x)". Nếu báo "chưa có tài khoản admin" thì làm bước 2.3.
+3. Bấm **Lưu cài đặt** → trang tải lại và hiện **🔐 Đăng nhập**.
+4. Nhập tên đăng nhập + mật khẩu → **Đăng nhập**. Góc phải trên hiện 👤 tên (vai trò) và 🟢 **Đã đồng bộ hh:mm**.
+
+Mỗi lần mở tab mới hoặc sau 6 giờ, app hỏi đăng nhập lại. Máy dùng chung: bấm **Đăng xuất** khi xong (xóa luôn dữ liệu tạm trên máy).
 
 ### 4.1. Nạp bảng phí ban đầu
-1. Tab **💸 Bảng phí** → **📥 Nhập từ Excel** → chọn file `bang-phi-khoi-tao.xlsx` (file đã gửi riêng, không có trong repo).
+1. Đăng nhập bằng **admin**. Tab **💸 Bảng phí** → **📥 Nhập từ Excel** → chọn file `bang-phi-khoi-tao.xlsx` (file đã gửi riêng, không có trong repo).
 2. Xác nhận **Lưu 17 bộ phí** → thông báo "Đã lưu…".
 3. Kiểm tra lại từng gian. Sửa ô nào thì ô đó tô vàng; bấm **💾 Lưu bộ phí tháng …**.
 
@@ -135,11 +154,13 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - **Gian hàng & ngành (thêm / bớt)** ở cuối trang.
 
 **Shopee**
-- Gian: Nhà Sách, CN1, CN2, Tường Vip, Tranh Vip, Tường Vip New. Ngành: Sách, Tranh, Lịch, Decal, Trà (danh sách cố định).
+- Gian mặc định: Nhà Sách, CN1, CN2, Tường Vip, Tranh Vip, Tường Vip New. Thêm / bớt gian ở mục **Gian hàng Shopee (thêm / bớt)** cuối trang (lưu ở sheet `DANH_MUC`, loại `GIAN_SHOPEE`); gian mới tự hiện ở Tính lợi nhuận chế độ Shopee. Ngành cố định: Sách, Tranh, Lịch, Decal, Trà.
 - 9 khoản phí: Phí cố định, Voucher Xtra, Phí hạ tầng (đ/đơn), Phí xử lý, Phí dịch vụ, Quảng cáo, Voucher shop, AFF, Phí hoàn V/C KTC.
 - Gian/ngành chưa lưu bộ phí nào thì hiện **giá trị mặc định** (cột ghi "mặc định"): Phí cố định 18,7% (Lịch) / 19,1% (ngành khác), Voucher Xtra 5,5%, Phí hạ tầng 3.000 đ, Phí xử lý 6%, Phí dịch vụ 7,5%, Quảng cáo 8,2%, Voucher shop 1,2%, AFF 2%, Phí hoàn V/C KTC 0,5%. Bấm **Lưu** để lưu thành bộ phí của tháng đang chọn.
 - Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × (tổng 8 khoản %).
 - Chọn gian → tháng áp dụng → sửa → Lưu, giống TikTok.
+- **📤 Xuất Excel**: tải toàn bộ bảng phí Shopee (mỗi dòng: gian, ngành, tháng áp dụng, 9 khoản phí). **📄 File mẫu**: file đúng cột, sẵn 5 ngành với giá trị mặc định.
+- **📥 Nhập Excel**: chọn file đúng mẫu → app kiểm tra và hiện **bản xem trước**: dòng mới, dòng thay đổi (ô nào đổi, cũ → mới), dòng lỗi (gian chưa có, ngành sai, tháng sai, ô trống / không phải số / âm / % ≥ 100, trùng dòng). **Chưa ghi gì** cho tới khi bấm **Lưu**; còn dòng lỗi thì không lưu được — sửa file rồi nhập lại. Dòng giống hệt bảng phí hiện có được bỏ qua. Mỗi ô đổi được ghi vào `LICH_SU_BANG_PHI_SHOPEE`.
 
 ### 📦 Giá vốn
 - Bộ phận giá vốn gửi file mới → thả vào → xem trước → Lưu. Chỉ dòng thay đổi được ghi (có lịch sử).
@@ -198,13 +219,31 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 
 > ❌ Nếu lỡ bấm "Tùy chọn triển khai mới" thì sẽ ra **URL mới**; các máy phải nhập lại URL. Bản cũ vẫn chạy code cũ.
 
+### Nâng cấp lên Code.gs 2.x (có đăng nhập) từ bản cũ dùng mật khẩu chung
+1. Dán Code.gs mới và triển khai **phiên bản mới** như các bước 1–6 ở trên.
+2. Làm **bước 2.3** để tạo admin đầu tiên.
+3. Apps Script → ⚙️ Cài đặt dự án → Thuộc tính tập lệnh → **xóa** thuộc tính `MAT_KHAU` cũ (bản 2.x không dùng nữa).
+4. Trên mỗi máy: mở app (Ctrl + F5) → đăng nhập. Mật khẩu chung cũ còn nhớ trong trình duyệt sẽ tự bị xóa.
+5. Đăng nhập admin → tab **👥 Tài khoản** → tạo tài khoản cho nhân viên (mục 7).
+
 ---
 
-## 7. Đổi mật khẩu, xem lịch sử, sao lưu
+## 7. Tài khoản nhân viên, đổi mật khẩu, lịch sử, sao lưu
 
-- **Đổi mật khẩu**: Apps Script → ⚙️ Cài đặt dự án → Thuộc tính tập lệnh → sửa giá trị `MAT_KHAU` → Lưu. Không cần triển khai lại. Sau đó nhập mật khẩu mới ở ⚙️ Cài đặt trên mỗi máy.
+**Tạo tài khoản cho nhân viên** (admin):
+1. Đăng nhập admin → tab **👥 Tài khoản**.
+2. Mục **Thêm tài khoản**: nhập tên đăng nhập (vd `nv-shopee-lan`), mật khẩu tạm (≥ 8 ký tự), chọn vai trò **shopee** / **tiktok** (chỉ xem phần của nền tảng đó) hoặc **admin** → **+ Thêm**.
+3. Gửi tên + mật khẩu cho nhân viên qua kênh riêng (không gửi chung nhóm). Nhân viên mở link app → đăng nhập.
+
+**Sửa tài khoản** (admin, tab 👥 Tài khoản):
+- **Đổi vai trò**: chọn vai trò mới ở cột Vai trò → Đồng ý. Có hiệu lực ngay, kể cả khi người đó đang mở app.
+- **Đổi mật khẩu** (kể cả của chính mình): 🔑 **Đổi mật khẩu** → nhập mật khẩu mới. Mật khẩu lưu dạng mã hóa một chiều nên **không xem lại được** — quên thì đặt mật khẩu mới.
+- **Xóa** (nhân viên nghỉ việc): 🗑 → người đó bị đăng xuất ở lần đồng bộ kế tiếp.
+- Luôn phải còn ít nhất 1 admin; admin không tự xóa / tự bỏ quyền admin của mình được.
+
+- **Đăng nhập sai 5 lần** liên tiếp: tài khoản đó tạm khóa **10 phút**.
 - **Lịch sử bảng phí**: sheet `LICH_SU_BANG_PHI` (TikTok) và `LICH_SU_BANG_PHI_SHOPEE` (Shopee) — mỗi ô thay đổi 1 dòng: thời gian, hành động (THEM / SUA / XOA), tháng, gian, ngành, ô, giá trị cũ → mới.
-- **Lịch sử**: sheet `LICH_SU` — mỗi lần thêm / sửa / xóa có: thời gian, hành động (THEM / SUA / XOA), sheet, khóa, dữ liệu cũ, dữ liệu mới. Lưu campaign / bảng tính ghi 1 dòng tóm tắt.
+- **Lịch sử**: sheet `LICH_SU` — mỗi lần thêm / sửa / xóa có: thời gian, hành động (THEM / SUA / XOA), sheet, khóa, dữ liệu cũ, dữ liệu mới, **người làm**. Lưu campaign / bảng tính ghi 1 dòng tóm tắt. Tạo / đổi vai trò / đổi mật khẩu / xóa tài khoản cũng được ghi (không ghi mật khẩu). Các sheet lịch sử bảng phí cũng có cột người làm.
 - **Sao lưu**: Google Sheets → **Tệp** → **Tạo bản sao**, hoặc **Tải xuống** → Excel. Nên làm hằng tháng.
 - **Dung lượng**: mỗi campaign lưu khoảng 6.000 dòng kết quả. Google Sheets giới hạn 10 triệu ô (đủ vài chục campaign). Khi sheet `CAMPAIGN_KQ` quá lớn, sao lưu file rồi xóa bớt dòng của các campaign cũ.
 
@@ -216,8 +255,12 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 |---|---|---|
 | Không kết nối được Apps Script | Mất mạng, URL sai, chưa triển khai | Kiểm tra mạng; URL phải kết thúc bằng `/exec`; làm lại bước 2.5 |
 | Apps Script trả về trang web thay vì dữ liệu | Quyền truy cập không phải "Bất kỳ ai" | Quản lý các bản triển khai → Chỉnh sửa → "Bất kỳ ai" → Phiên bản mới |
-| Chưa đặt mật khẩu | Thiếu thuộc tính `MAT_KHAU` | Làm bước 2.3 |
-| Sai mật khẩu / Sai quá nhiều lần | Gõ sai | Kiểm tra lại; bị khóa thì chờ 10 phút |
+| Apps Script chưa có tài khoản admin | Chưa chạy `taoAdminDauTien` | Làm bước 2.3 |
+| Code.gs … là bản cũ (chưa có đăng nhập) | Apps Script chưa cập nhật | Mục 6 → "Nâng cấp lên Code.gs 2.x" |
+| Sai tên đăng nhập hoặc mật khẩu | Gõ sai | Kiểm tra lại; quên mật khẩu thì nhờ admin đặt lại |
+| Đăng nhập sai quá 5 lần… tạm khóa 10 phút | Sai liên tiếp | Chờ 10 phút |
+| Phiên đăng nhập đã hết hạn… | Quá 6 giờ, hoặc admin vừa xóa / đổi tài khoản | Đăng nhập lại |
+| … chỉ được xem, không được sửa | Tài khoản shopee / tiktok | Nhờ admin sửa, hoặc đổi vai trò |
 | Máy chủ đang bận | Người khác đang lưu cùng lúc | Chờ vài giây, bấm lưu lại |
 | chưa có phí (trong bảng) | Gian/ngành chưa có bộ phí ≤ tháng đang tính | Tab Bảng phí → nhập phí cho ngành đó |
 | Không thấy sheet "Template" | Thả nhầm file vào ô file sản phẩm | Dùng file `…all_information….xlsx` tải từ TikTok |
@@ -233,7 +276,7 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
   ```
   node scripts/may-chu-thu.mjs 8080 --du-lieu-gia
   ```
-  Mở <http://localhost:8080> — URL Apps Script: `http://localhost:8080/gas`, mật khẩu `mat-khau-thu`.
+  Mở <http://localhost:8080> — URL Apps Script: `http://localhost:8080/gas`. Tài khoản GIẢ (chỉ có trong máy chủ thử): `admin` / `mat-khau-thu`, `nv-shopee` / `shopee-123`, `nv-tiktok` / `tiktok-123`.
 - Test: `node --test "tests/*.test.js"` (test trình duyệt tự bỏ qua nếu máy không có Playwright).
-- File mẫu thật để trong `mau/` (đã chặn bằng `.gitignore`). **Repo public — không commit số liệu kinh doanh, URL Apps Script, mật khẩu.**
+- File mẫu thật để trong `mau/` (đã chặn bằng `.gitignore`). **Repo public — không commit số liệu kinh doanh, URL Apps Script, tài khoản / mật khẩu thật.**
 - Chi tiết thiết kế: [docs/KE-HOACH.md](docs/KE-HOACH.md).
