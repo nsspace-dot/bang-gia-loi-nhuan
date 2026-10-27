@@ -5,8 +5,8 @@ import * as kho from '../data/kho.js';
 
 const VAI_TRO = [
   ['admin', 'admin — xem + sửa tất cả, quản lý tài khoản'],
-  ['shopee', 'shopee — chỉ xem phần Shopee'],
-  ['tiktok', 'tiktok — chỉ xem phần TikTok'],
+  ['shopee', 'shopee — xem + sửa bảng phí Shopee'],
+  ['tiktok', 'tiktok — xem + sửa bảng phí TikTok'],
 ];
 
 let goc;
@@ -48,7 +48,7 @@ function ve() {
     h('div', { class: 'the' },
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Tài khoản'),
-          h('p', { class: 'mo-ta' }, 'admin: xem + sửa tất cả. shopee / tiktok: chỉ xem phần của nền tảng đó (Apps Script chỉ gửi dữ liệu của nền tảng được phép).'))),
+          h('p', { class: 'mo-ta' }, 'admin: xem + sửa tất cả, quản lý tài khoản. shopee / tiktok: xem phần của nền tảng đó và sửa bảng phí + gian của nền tảng đó; không đụng được nền tảng kia (Apps Script kiểm tra).'))),
       h('div', { class: 'khung-bang' }, h('table', { class: 'bang bang-tai-khoan' },
         h('thead', null, h('tr', null, h('th', null, 'Tên đăng nhập'), h('th', null, 'Vai trò'), h('th', null, 'Tạo lúc'), h('th', null, h('span', { class: 'an-chu' }, 'Thao tác')))),
         h('tbody', null, ds.map((tk) => {

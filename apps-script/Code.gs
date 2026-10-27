@@ -5,14 +5,15 @@
  * - GET ?action=ping (không cần đăng nhập). Mọi lệnh khác: POST (Content-Type text/plain) body JSON { action, token, ... }
  * - Đăng nhập: POST { action: 'dangNhap', ten, matKhau } → token (giữ 6 giờ trong CacheService).
  *   Tài khoản ở sheet TAI_KHOAN: mật khẩu lưu dạng hash SHA-256 + salt, không lưu mật khẩu thô.
- * - Vai trò: admin (xem + sửa tất cả, quản lý tài khoản), shopee / tiktok (chỉ XEM dữ liệu nền tảng của mình).
+ * - Vai trò: admin (xem + sửa tất cả, quản lý tài khoản); shopee / tiktok: xem dữ liệu nền tảng của mình và
+ *   SỬA bảng phí + danh mục gian của đúng nền tảng đó (QUYEN_GHI). Không đụng được nền tảng kia.
  *   Quyền được kiểm tra ở đây cho MỌI lệnh đọc và ghi, không dựa vào giao diện.
  * - Tạo admin đầu tiên: đặt Script properties SETUP_ADMIN_TEN + SETUP_ADMIN_MAT_KHAU rồi chạy tay hàm taoAdminDauTien().
  * - Mọi thay đổi ghi vào sheet LICH_SU (kèm người sửa); riêng bảng phí ghi thêm từng ô vào LICH_SU_BANG_PHI
  *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '2.0.0';
+var PHIEN_BAN = '2.1.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -93,6 +94,13 @@ var QUYEN_DOC = {
   tiktok: { sheet: ['DANH_MUC', 'BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'], danhMuc: ['GIAN', 'NGANH'] },
 };
 
+// Dữ liệu vai trò không phải admin được GHI (upsert / xoa): bảng phí + loại danh mục của đúng nền tảng.
+// Mọi lệnh ghi khác (bảng tính, campaign, giá vốn, tài khoản…) chỉ admin.
+var QUYEN_GHI = {
+  shopee: { sheet: ['BANG_PHI_SHOPEE'], danhMuc: ['GIAN_SHOPEE'] },
+  tiktok: { sheet: ['BANG_PHI'], danhMuc: ['GIAN', 'NGANH'] },
+};
+
 var NGUOI_DUNG_ = ''; // người đang gọi (ghi vào lịch sử)
 
 var TEN_O_PHI = {
@@ -138,11 +146,18 @@ function doPost(e) {
       case 'docBangTinh': canDoc_(phien, 'BANG_TINH'); return { duLieu: docCon_('BANG_TINH_DONG', body.id) };
       case 'docCampaignKQ': canDoc_(phien, 'CAMPAIGN'); return { duLieu: docCon_('CAMPAIGN_KQ', body.id) };
     }
-    // --- chỉ admin: ghi dữ liệu + quản lý tài khoản ---
+    // --- ghi bảng phí / danh mục: admin, hoặc vai trò của ĐÚNG nền tảng (kiểm tra từng bản ghi) ---
+    switch (body.action) {
+      case 'upsert':
+        canGhi_(phien, body.sheet, (body.banGhi || []).map(function (b) { return b ? b.loai : undefined; }));
+        return { banGhi: upsert_(body.sheet, body.banGhi || []) };
+      case 'xoa':
+        canGhi_(phien, body.sheet, (body.khoa || []).map(loaiCuaKhoa_));
+        return { daXoa: xoa_(body.sheet, body.khoa || []) };
+    }
+    // --- chỉ admin: bảng tính, campaign + quản lý tài khoản ---
     canAdmin_(phien);
     switch (body.action) {
-      case 'upsert': return { banGhi: upsert_(body.sheet, body.banGhi || []) };
-      case 'xoa': return { daXoa: xoa_(body.sheet, body.khoa || []) };
       case 'luuCampaign': return luuCha_('CAMPAIGN', body.campaign, 'CAMPAIGN_KQ', body.ketQua || [], 'id');
       case 'luuBangTinh': return luuCha_('BANG_TINH', body.bangTinh, 'BANG_TINH_DONG', body.dong || [], 'id');
       case 'xoaBangTinh': return { daXoa: xoaCha_('BANG_TINH', 'BANG_TINH_DONG', body.id) };
@@ -252,7 +267,25 @@ function xacThuc_(token) {
 }
 
 function canAdmin_(phien) {
-  if (phien.vaiTro !== 'admin') throw loi_('Tài khoản "' + phien.ten + '" (' + phien.vaiTro + ') chỉ được xem, không được sửa.', 'KHONG_CO_QUYEN');
+  if (phien.vaiTro !== 'admin') throw loi_('Tài khoản "' + phien.ten + '" (' + phien.vaiTro + ') không được làm việc này (chỉ admin).', 'KHONG_CO_QUYEN');
+}
+
+/**
+ * Quyền ghi (upsert / xoa) vào sheet. admin: mọi sheet ghi được. shopee / tiktok: chỉ sheet bảng phí của mình,
+ * hoặc DANH_MUC khi MỌI bản ghi / khóa thuộc loại danh mục của mình (dsLoai = loại của từng bản ghi / khóa).
+ */
+function canGhi_(phien, sheet, dsLoai) {
+  if (phien.vaiTro === 'admin') return;
+  var q = QUYEN_GHI[phien.vaiTro];
+  if (q && q.sheet.indexOf(sheet) >= 0) return;
+  if (q && sheet === 'DANH_MUC' && dsLoai.length && dsLoai.every(function (l) { return q.danhMuc.indexOf(String(l)) >= 0; })) return;
+  throw loi_('Tài khoản "' + phien.ten + '" (' + phien.vaiTro + ') không được sửa dữ liệu này.', 'KHONG_CO_QUYEN');
+}
+
+/** Loại danh mục của 1 khóa xóa: chuỗi "loai|ten" hoặc object { loai, ten }. */
+function loaiCuaKhoa_(k) {
+  if (typeof k === 'string') return k.split('|')[0];
+  return k ? k.loai : undefined;
 }
 
 function canDoc_(phien, sheet) {

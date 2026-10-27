@@ -170,14 +170,31 @@ test('LỖI 5: chưa đăng nhập → báo lỗi trước khi gửi', async () 
 
 const phienGia = (vaiTro = 'admin') => globalThis.sessionStorage.setItem('bggl.phien.v1', JSON.stringify({ token: 'x', ten: 'nv', vaiTro }));
 
-test('tài khoản chỉ xem (shopee / tiktok) → báo lỗi trước khi gửi lệnh ghi', async () => {
-  let daGoi = false;
-  const kho = await taoKho(async () => { daGoi = true; throw new Error('không được gọi'); });
+test('shopee / tiktok: sửa sai nền tảng hoặc việc chỉ admin → báo lỗi trước khi gửi; đúng nền tảng thì gửi lên Apps Script', async () => {
+  let soLanGoi = 0;
+  const kho = await taoKho(async () => { soLanGoi++; return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true, banGhi: [], daXoa: 0 }) }; });
   phienGia('shopee');
-  assert.equal(kho.coQuyenGhi(), false);
+  assert.equal(kho.coQuyenGhi(), false, 'không phải admin');
+  assert.equal(kho.coQuyenSuaPhi('shopee'), true);
+  assert.equal(kho.coQuyenSuaPhi('tiktok'), false);
   assert.deepEqual(kho.nenTangDuocXem(), ['shopee']);
-  await assert.rejects(kho.ghi('BANG_PHI_SHOPEE', [{ gian: 'CN1' }]), /chỉ được xem/);
-  assert.equal(daGoi, false);
+  for (const [sheet, ban] of [['BANG_PHI', [{ gian: 'G' }]], ['DANH_MUC', [{ loai: 'GIAN', ten: 'X' }]], ['DANH_MUC', [{ loai: 'GIAN_SHOPEE', ten: 'A' }, { loai: 'NGANH', ten: 'B' }]], ['GIA_VON', [{ nhom: 'N' }]]]) {
+    await assert.rejects(kho.ghi(sheet, ban), /không được sửa/, sheet);
+  }
+  await assert.rejects(kho.xoa('BANG_PHI', [{ gian: 'G', nganh: 'Tranh', thang: '2026-10' }]), /không được sửa/);
+  await assert.rejects(kho.luuBangTinh({ id: 'b', ten: 'X' }, []), /không được sửa/);
+  await assert.rejects(kho.dsTaiKhoan(), /không được sửa/);
+  assert.equal(soLanGoi, 0, 'chưa gửi lệnh nào');
+  await kho.ghi('BANG_PHI_SHOPEE', [{ gian: 'CN1', nganh: 'Sách', thang: '2026-10' }]);
+  await kho.ghi('DANH_MUC', [{ loai: 'GIAN_SHOPEE', ten: 'CN9' }]);
+  await kho.xoa('BANG_PHI_SHOPEE', [{ gian: 'CN1', nganh: 'Sách', thang: '2026-10' }]);
+  assert.equal(soLanGoi, 3);
+  phienGia('tiktok');
+  assert.equal(kho.coQuyenSuaPhi('tiktok'), true);
+  assert.equal(kho.coQuyenSuaPhi('shopee'), false);
+  await assert.rejects(kho.ghi('BANG_PHI_SHOPEE', [{ gian: 'CN1' }]), /không được sửa/);
+  await kho.ghi('DANH_MUC', [{ loai: 'NGANH', ten: 'Gốm' }]);
+  assert.equal(soLanGoi, 4);
 });
 
 test('token hết hạn / bị thu hồi → xóa phiên trên máy và báo app hiện lại màn đăng nhập', async () => {

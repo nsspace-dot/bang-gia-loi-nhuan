@@ -34,8 +34,10 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 | Vai trò | Được xem | Được sửa |
 |---|---|---|
 | `admin` | Tất cả (Shopee + TikTok) | Bảng phí, danh mục, bảng tính… + **quản lý tài khoản** (tab 👥 Tài khoản) |
-| `shopee` | Bảng phí Shopee, Tính lợi nhuận chế độ Shopee | Không (chỉ xem) |
-| `tiktok` | Bảng phí TikTok, Tính lợi nhuận chế độ TikTok | Không (chỉ xem) |
+| `shopee` | Bảng phí Shopee, Tính lợi nhuận chế độ Shopee | **Bảng phí Shopee**: sửa ô, Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian Shopee. Không xem / sửa được gì của TikTok |
+| `tiktok` | Bảng phí TikTok, Tính lợi nhuận chế độ TikTok | **Bảng phí TikTok**: sửa ô, Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian và ngành TikTok. Không xem / sửa được gì của Shopee |
+
+Bảng tính đã lưu ở Tính lợi nhuận (có giá vốn) và tab Tài khoản: chỉ admin sửa / vào được; shopee / tiktok chỉ mở xem bảng tính. Mọi lần sửa đều ghi tên người sửa vào lịch sử.
 
 > ⚠️ Vẫn nên **giữ kín URL Apps Script**: không có tài khoản thì không đọc được dữ liệu, nhưng URL lộ thì người lạ có thể thử đoán mật khẩu (mỗi tài khoản bị khóa 10 phút sau 5 lần sai).
 
@@ -236,7 +238,7 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 
 **Tạo tài khoản cho nhân viên** (admin):
 1. Đăng nhập admin → tab **👥 Tài khoản**.
-2. Mục **Thêm tài khoản**: nhập tên đăng nhập (vd `nv-shopee-lan`), mật khẩu tạm (≥ 8 ký tự), chọn vai trò **shopee** / **tiktok** (chỉ xem phần của nền tảng đó) hoặc **admin** → **+ Thêm**.
+2. Mục **Thêm tài khoản**: nhập tên đăng nhập (vd `nv-shopee-lan`), mật khẩu tạm (≥ 8 ký tự), chọn vai trò **shopee** / **tiktok** (xem + sửa bảng phí của nền tảng đó) hoặc **admin** → **+ Thêm**.
 3. Gửi tên + mật khẩu cho nhân viên qua kênh riêng (không gửi chung nhóm). Nhân viên mở link app → đăng nhập.
 
 **Sửa tài khoản** (admin, tab 👥 Tài khoản):
@@ -264,7 +266,7 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 | Sai tên đăng nhập hoặc mật khẩu | Gõ sai | Kiểm tra lại; quên mật khẩu thì nhờ admin đặt lại |
 | Đăng nhập sai quá 5 lần… tạm khóa 10 phút | Sai liên tiếp | Chờ 10 phút |
 | Phiên đăng nhập đã hết hạn… | Quá 6 giờ, hoặc admin vừa xóa / đổi tài khoản | Đăng nhập lại |
-| … chỉ được xem, không được sửa | Tài khoản shopee / tiktok | Nhờ admin sửa, hoặc đổi vai trò |
+| … không được sửa dữ liệu này / chỉ admin | Tài khoản shopee / tiktok sửa phần của nền tảng khác, hoặc việc chỉ admin làm (bảng tính, tài khoản) | Nhờ admin, hoặc admin đổi vai trò |
 | Máy chủ đang bận | Người khác đang lưu cùng lúc | Chờ vài giây, bấm lưu lại |
 | chưa có phí (trong bảng) | Gian/ngành chưa có bộ phí ≤ tháng đang tính | Tab Bảng phí → nhập phí cho ngành đó |
 | Không thấy sheet "Template" | Thả nhầm file vào ô file sản phẩm | Dùng file `…all_information….xlsx` tải từ TikTok |

@@ -88,7 +88,7 @@ function ve() {
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Bảng phí'), h('p', { class: 'mo-ta' }, 'Phí theo gian hàng × ngành × tháng áp dụng. Sửa phí tháng mới không làm mất phí tháng cũ.')),
         h('div', { class: 'hang-nut' },
-          kho.coQuyenGhi() ? h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập từ Excel') : null,
+          coSua() ? h('button', { class: 'nut', onclick: nhapExcel }, '📥 Nhập từ Excel') : null,
           h('button', { class: 'nut', onclick: xuatExcel, disabled: !ts.duLieu.BANG_PHI.length }, '📤 Xuất Excel'))),
       h('div', { class: 'chon-gian', role: 'tablist', 'aria-label': 'Gian hàng' },
         gians.map((g) => h('button', {
@@ -99,8 +99,8 @@ function ve() {
       veChonThang(),
       veThongBaoNguon(),
       veBang(),
-      kho.coQuyenGhi() ? veHangLuu() : veChiXem()),
-    kho.coQuyenGhi() ? veDanhMuc() : null);
+      coSua() ? veHangLuu() : veChiXem()),
+    coSua() ? veDanhMuc() : null);
 }
 
 async function doiGianThang(gian, thang) {
@@ -179,7 +179,7 @@ function veBang() {
         kieu: k.donVi === '%' ? 'phantram' : 'tien',
         kiemTra: (so) => loiO(k.khoa, so),
         'aria-label': `${k.ten} — ${n}`,
-        disabled: !kho.coQuyenGhi(),
+        disabled: !coSua(),
         'data-o': `phi:${n}:${k.khoa}`,
         // Gõ: chỉ cập nhật ô này + dòng tổng + nút Lưu. KHÔNG vẽ lại bảng.
         khiGo: (_so, _hopLe, chuoi) => {
@@ -243,10 +243,13 @@ function capNhatNutLuu() {
   chuLuu.textContent = loi ? 'Có ô nhập sai (tô đỏ) — sửa trước khi lưu.' : ds.length ? `Sẽ lưu phí tháng ${hienThiThang(st.thang)} cho: ${ds.join(', ')}` : 'Chưa có thay đổi.';
 }
 
-/** Tài khoản không phải admin: chỉ xem (Apps Script cũng từ chối mọi lệnh ghi). */
+/** Được sửa bảng phí TikTok: admin hoặc vai trò tiktok (Apps Script kiểm tra lại). */
+const coSua = () => kho.coQuyenSuaPhi('tiktok');
+
+/** Không có quyền sửa (vd tài khoản của nền tảng khác): chỉ xem. */
 function veChiXem() {
   const p = kho.layPhien();
-  return h('div', { class: 'ghi-chu ghi-chu-vang chi-xem' }, `Chỉ xem — tài khoản "${p ? p.ten : ''}" (${p ? p.vaiTro : ''}) không có quyền sửa bảng phí.`);
+  return h('div', { class: 'ghi-chu ghi-chu-vang chi-xem' }, `Chỉ xem — tài khoản "${p ? p.ten : ''}" (${p ? p.vaiTro : ''}) không có quyền sửa bảng phí này.`);
 }
 
 function veHangLuu() {

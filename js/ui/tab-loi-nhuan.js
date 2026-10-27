@@ -381,7 +381,7 @@ function veDong(i, gians, dsPhi) {
     h('td', { class: 'so' }, oTien('gia_ban', 'Giá bán')),
     gians.map((g) => { const r = n.laiTaiGian(d, g, dsPhi, thangNay()); return n.cot.map(([k]) => oLai(r, k)); }),
     h('td', { class: 'o-thao-tac' },
-      h('button', { class: 'nut-icon', title: 'Nhân bản dòng', 'aria-label': `Nhân bản dòng ${i + 1}`, onclick: () => { st.ds.splice(i + 1, 0, { ...d, _id: moiId() }); daSua(); veLai(); } }, '⧉'),
+      h('button', { class: 'nut-icon', title: 'Nhân bản dòng', 'aria-label': `Nhân bản dòng ${i + 1}`, onclick: () => { st.ds.splice(i + 1, 0, { ...d, _id: moiId() }); daSua(); veLai(); } }, '📋'),
       h('button', { class: 'nut-icon', title: 'Xóa dòng', 'aria-label': `Xóa dòng ${i + 1}`, onclick: () => { st.ds.splice(i, 1); daSua(); veLai(); } }, '🗑')));
 }
 
