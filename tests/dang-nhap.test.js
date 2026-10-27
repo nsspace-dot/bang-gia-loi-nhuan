@@ -103,32 +103,110 @@ test('shopee chỉ nhận dữ liệu Shopee; tiktok chỉ nhận dữ liệu Ti
   assert.equal(g.post({ action: 'docBangTinh', token: sp, id: 'b1' }).duLieu.length, 1);
 });
 
-test('chỉ admin được ghi: shopee / tiktok bị từ chối mọi lệnh ghi và quản lý tài khoản', () => {
+// Lệnh ghi theo nền tảng. Bảng phí: Lưu (upsert), Nhập Excel (upsert nhiều dòng), Xóa bộ phí tháng (xoa).
+// Danh mục: thêm gian (upsert), bớt gian (upsert dang_dung = 'khong'), xóa thẳng (xoa).
+// "Hoàn tác" chỉ bỏ phần đang sửa trên máy, không gửi lệnh nào lên Apps Script.
+const GHI_SHOPEE = [
+  { ten: 'Lưu bảng phí Shopee', body: { action: 'upsert', sheet: 'BANG_PHI_SHOPEE', banGhi: [{ gian: 'CN1', nganh: 'Sách', thang: '2026-10', phi_co_dinh: 18 }] } },
+  { ten: 'Nhập Excel bảng phí Shopee', body: { action: 'upsert', sheet: 'BANG_PHI_SHOPEE', banGhi: [
+    { gian: 'CN1', nganh: 'Lịch', thang: '2026-11', phi_co_dinh: 18.7 }, { gian: 'CN1', nganh: 'Trà', thang: '2026-11', phi_co_dinh: 19.1 }] } },
+  { ten: 'Thêm gian Shopee', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN_SHOPEE', ten: 'CN9', thu_tu: 9, dang_dung: 'co' }] } },
+  { ten: 'Bớt gian Shopee', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN_SHOPEE', ten: 'CN9', dang_dung: 'khong' }] } },
+  { ten: 'Xóa bộ phí tháng Shopee', body: { action: 'xoa', sheet: 'BANG_PHI_SHOPEE', khoa: [{ gian: 'CN1', nganh: 'Tranh', thang: '2026-10' }] } },
+];
+const GHI_TIKTOK = [
+  { ten: 'Lưu bảng phí TikTok', body: { action: 'upsert', sheet: 'BANG_PHI', banGhi: [{ gian: 'Gian TT', nganh: 'Sách', thang: '2026-10', phi_san: 21 }] } },
+  { ten: 'Nhập Excel bảng phí TikTok', body: { action: 'upsert', sheet: 'BANG_PHI', banGhi: [
+    { gian: 'Gian TT', nganh: 'Lịch', thang: '2026-11', phi_san: 19 }, { gian: 'Gian TT', nganh: 'Trà', thang: '2026-11', phi_san: 18 }] } },
+  { ten: 'Thêm gian TikTok', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN', ten: 'Gian 2', thu_tu: 2, dang_dung: 'co' }] } },
+  { ten: 'Thêm ngành TikTok', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH', ten: 'Gốm', thu_tu: 6, dang_dung: 'co' }] } },
+  { ten: 'Bớt gian TikTok', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN', ten: 'Gian 2', dang_dung: 'khong' }] } },
+  { ten: 'Xóa bộ phí tháng TikTok', body: { action: 'xoa', sheet: 'BANG_PHI', khoa: [{ gian: 'Gian TT', nganh: 'Tranh', thang: '2026-10' }] } },
+];
+// Chỉ admin, với mọi vai trò khác
+const CHI_ADMIN = [
+  { action: 'upsert', sheet: 'GIA_VON', banGhi: [{ nhom: 'N', phan_loai: '30x40', gia_von: 1 }] },
+  { action: 'upsert', sheet: 'NOI_SKU', banGhi: [{ sku_id: '9' }] },
+  { action: 'upsert', sheet: 'CAMPAIGN', banGhi: [{ id: 'c9' }] },
+  { action: 'xoa', sheet: 'GIA_VON', khoa: [{ nhom: 'N', phan_loai: '30x40' }] },
+  { action: 'luuBangTinh', bangTinh: { id: 'b2', ten: 'X' }, dong: [] },
+  { action: 'xoaBangTinh', id: 'b1' },
+  { action: 'luuCampaign', campaign: { id: 'c2' }, ketQua: [] },
+  { action: 'dsTaiKhoan' },
+  { action: 'themTaiKhoan', ten: 'hacker', matKhau: '12345678', vaiTro: 'admin' },
+  { action: 'doiVaiTro', ten: 'nv-shopee', vaiTro: 'admin' },
+  { action: 'doiMatKhau', ten: 'admin', matKhau: '12345678' },
+  { action: 'xoaTaiKhoan', ten: 'admin' },
+];
+
+function tuChoi(g, token, body, nhan) {
+  const r = g.post({ ...body, token });
+  assert.equal(r.ok, false, `${nhan} phải bị từ chối`);
+  assert.equal(r.ma, 'KHONG_CO_QUYEN', nhan);
+}
+
+test('shopee sửa được bảng phí + gian Shopee; lịch sử ghi tên người sửa', () => {
+  const { g, ad, sp } = moiTruongDayDu();
+  for (const { ten, body } of GHI_SHOPEE) {
+    const r = g.post({ ...body, token: sp });
+    assert.equal(r.ok, true, `${ten}: ${r.loi}`);
+  }
+  const du = g.post({ action: 'docTatCa', token: ad }).duLieu;
+  assert.equal(du.BANG_PHI_SHOPEE.find((x) => x.nganh === 'Sách').phi_co_dinh, 18);
+  assert.equal(du.BANG_PHI_SHOPEE.filter((x) => x.thang === '2026-11').length, 2);
+  assert.equal(du.BANG_PHI_SHOPEE.some((x) => x.nganh === 'Tranh' && x.thang === '2026-10'), false, 'đã xóa bộ phí tháng');
+  assert.equal(du.DANH_MUC.find((d) => d.ten === 'CN9').dang_dung, 'khong');
+  const ls = g.duLieuSheet('LICH_SU_BANG_PHI_SHOPEE').slice(1).filter((d) => d[8] !== 'admin'); // bỏ dòng dữ liệu giả admin tạo sẵn
+  assert.ok(ls.length >= 4 && ls.every((d) => d[8] === 'nv-shopee'), 'lịch sử bảng phí ghi người sửa');
+  const lsGian = g.duLieuSheet('LICH_SU').filter((d) => d[2] === 'DANH_MUC' && d[3] === 'GIAN_SHOPEE|CN9');
+  assert.deepEqual(lsGian.map((d) => [d[1], d[6]]), [['THEM', 'nv-shopee'], ['SUA', 'nv-shopee']]);
+});
+
+test('tiktok sửa được bảng phí + gian / ngành TikTok; lịch sử ghi tên người sửa', () => {
+  const { g, ad, tt } = moiTruongDayDu();
+  for (const { ten, body } of GHI_TIKTOK) {
+    const r = g.post({ ...body, token: tt });
+    assert.equal(r.ok, true, `${ten}: ${r.loi}`);
+  }
+  const du = g.post({ action: 'docTatCa', token: ad }).duLieu;
+  assert.equal(du.BANG_PHI.find((x) => x.nganh === 'Sách').phi_san, 21);
+  assert.ok(du.DANH_MUC.some((d) => d.loai === 'NGANH' && d.ten === 'Gốm'));
+  assert.equal(du.BANG_PHI.some((x) => x.nganh === 'Tranh' && x.thang === '2026-10'), false);
+  const ls = g.duLieuSheet('LICH_SU_BANG_PHI').slice(1).filter((d) => d[8] !== 'admin');
+  assert.ok(ls.length >= 4 && ls.every((d) => d[8] === 'nv-tiktok'));
+});
+
+test('gọi thẳng Apps Script bằng token shopee để ghi TikTok (và ngược lại) → từ chối, không ghi gì', () => {
   const { g, ad, sp, tt } = moiTruongDayDu();
   const truoc = JSON.stringify(g.post({ action: 'docTatCa', token: ad }).duLieu);
-  const lenh = [
-    { action: 'upsert', sheet: 'BANG_PHI_SHOPEE', banGhi: [{ gian: 'CN1', nganh: 'Sách', thang: '2026-10', phi_co_dinh: 1 }] },
-    { action: 'upsert', sheet: 'BANG_PHI', banGhi: [{ gian: 'Gian TT', nganh: 'Sách', thang: '2026-10', phi_san: 1 }] },
-    { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN_SHOPEE', ten: 'CN9' }] },
-    { action: 'xoa', sheet: 'BANG_PHI_SHOPEE', khoa: [{ gian: 'CN1', nganh: 'Tranh', thang: '2026-10' }] },
-    { action: 'luuBangTinh', bangTinh: { id: 'b2', ten: 'X' }, dong: [] },
-    { action: 'xoaBangTinh', id: 'b1' },
-    { action: 'luuCampaign', campaign: { id: 'c2' }, ketQua: [] },
-    { action: 'dsTaiKhoan' },
-    { action: 'themTaiKhoan', ten: 'hacker', matKhau: '12345678', vaiTro: 'admin' },
-    { action: 'doiVaiTro', ten: 'nv-shopee', vaiTro: 'admin' },
-    { action: 'doiMatKhau', ten: 'admin', matKhau: '12345678' },
-    { action: 'xoaTaiKhoan', ten: 'admin' },
-  ];
-  for (const token of [sp, tt]) {
-    for (const body of lenh) {
-      const r = g.post({ ...body, token });
-      assert.equal(r.ok, false, body.action);
-      assert.equal(r.ma, 'KHONG_CO_QUYEN', body.action);
-    }
-  }
+  const lsTruoc = JSON.stringify([g.duLieuSheet('LICH_SU'), g.duLieuSheet('LICH_SU_BANG_PHI'), g.duLieuSheet('LICH_SU_BANG_PHI_SHOPEE')]);
+  for (const { ten, body } of GHI_TIKTOK) tuChoi(g, sp, body, `shopee → ${ten}`);
+  for (const { ten, body } of GHI_SHOPEE) tuChoi(g, tt, body, `tiktok → ${ten}`);
+  // trộn: 1 bản ghi đúng nền tảng + 1 bản ghi nền tảng kia trong cùng lệnh → từ chối CẢ lệnh
+  tuChoi(g, sp, { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN_SHOPEE', ten: 'CN8' }, { loai: 'GIAN', ten: 'Gian TT', dang_dung: 'khong' }] }, 'trộn danh mục');
+  tuChoi(g, tt, { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH', ten: 'X' }, { loai: 'GIAN_SHOPEE', ten: 'CN1', dang_dung: 'khong' }] }, 'trộn danh mục 2');
+  // xóa danh mục bằng khóa chuỗi "loai|ten", khóa thiếu loại, danh mục rỗng
+  tuChoi(g, sp, { action: 'xoa', sheet: 'DANH_MUC', khoa: ['GIAN|Gian TT'] }, 'xóa gian TikTok bằng khóa chuỗi');
+  tuChoi(g, tt, { action: 'xoa', sheet: 'DANH_MUC', khoa: [{ loai: 'GIAN_SHOPEE', ten: 'CN1' }] }, 'xóa gian Shopee');
+  tuChoi(g, sp, { action: 'xoa', sheet: 'DANH_MUC', khoa: [{ ten: 'CN1' }] }, 'khóa thiếu loại');
+  tuChoi(g, sp, { action: 'upsert', sheet: 'DANH_MUC', banGhi: [] }, 'danh mục rỗng');
+  // sheet lạ / sheet hệ thống
+  for (const sheet of ['LICH_SU', 'TAI_KHOAN', 'BANG_TINH', 'XYZ']) tuChoi(g, sp, { action: 'upsert', sheet, banGhi: [{ id: 'x' }] }, `shopee → ${sheet}`);
+  assert.equal(JSON.stringify(g.post({ action: 'docTatCa', token: ad }).duLieu), truoc, 'dữ liệu không đổi');
+  assert.equal(JSON.stringify([g.duLieuSheet('LICH_SU'), g.duLieuSheet('LICH_SU_BANG_PHI'), g.duLieuSheet('LICH_SU_BANG_PHI_SHOPEE')]), lsTruoc, 'lịch sử không đổi');
+});
+
+test('shopee / tiktok vẫn KHÔNG được: bảng tính đã lưu, campaign, giá vốn, quản lý tài khoản', () => {
+  const { g, ad, sp, tt } = moiTruongDayDu();
+  const truoc = JSON.stringify(g.post({ action: 'docTatCa', token: ad }).duLieu);
+  for (const token of [sp, tt]) for (const body of CHI_ADMIN) tuChoi(g, token, body, body.action + (body.sheet ? ` ${body.sheet}` : ''));
   assert.equal(JSON.stringify(g.post({ action: 'docTatCa', token: ad }).duLieu), truoc);
   assert.equal(g.post({ action: 'dsTaiKhoan', token: ad }).taiKhoan.length, 3);
+});
+
+test('admin vẫn ghi được cả 2 nền tảng', () => {
+  const { g, ad } = moiTruongDayDu();
+  for (const { ten, body } of [...GHI_SHOPEE, ...GHI_TIKTOK]) assert.equal(g.post({ ...body, token: ad }).ok, true, ten);
 });
 
 test('admin quản lý tài khoản: thêm, đổi vai trò, đổi mật khẩu, xóa — có hiệu lực ngay với token đang dùng', () => {

@@ -104,7 +104,8 @@ test('hiệu năng: không ảnh nền, không blur, không animation lặp mớ
   assert.doesNotMatch(boChuThich(docTep('css/theme.css')), /animation|@keyframes|@font-face|font-family/);
   // Không tải font mới: chỉ được dùng font CÓ SẴN của hệ điều hành (không url, không @font-face)
   for (const m of boChuThich(docTep('css/theme.css')).matchAll(/--font[\w-]*:\s*([^;]+);/g)) {
-    assert.match(m[1], /^(Georgia|'Noto Serif'|'Times New Roman'|serif|,|\s)+$/, m[1]);
+    assert.match(m[1], /^('Times New Roman'|'Noto Serif'|'Liberation Serif'|'DejaVu Serif'|serif|,|\s)+$/, m[1]);
+    assert.doesNotMatch(m[1], /Georgia/, 'Georgia thiếu chữ tiếng Việt có dấu');
   }
   assert.equal(fs.readdirSync(path.join(GOC, 'fonts')).filter((f) => f.endsWith('.woff2')).length, 12, 'không thêm file font');
   const lap = [...css.matchAll(/animation:[^;]*infinite/g)].map((m) => m[0]);
@@ -188,4 +189,14 @@ test('tab đang chọn kiểu gạch chân / khối đặc vẫn đủ tương p
   assert.ok(tuongPhan(THEME.toi.chinh, THEME.toi.the) >= 4.5);
   for (const t of ['cam-shopee', 'xanh-bien']) assert.ok(tuongPhan(THEME[t]['chu-tren-chinh'], THEME[t].chinh) >= 4.5, t);
   assert.ok(tuongPhan(THEME['den-cyan'].chu, THEME['den-cyan'].the) >= 4.5);
+});
+
+test('phông chữ: không độ đậm nào vượt quá 700 (Quicksand chỉ có 400–700, đậm hơn sẽ bị "giả đậm" làm nhòe)', () => {
+  const css = (docTep('css/app.css') + docTep('css/theme.css')).replace(/\/\*[\s\S]*?\*\//g, '');
+  const doDam = [...css.matchAll(/(?:font-weight|--tieu-de-dam)\s*:\s*(\d+)/g)].map((m) => +m[1]);
+  assert.ok(doDam.length > 10);
+  assert.deepEqual(doDam.filter((d) => d > 700 || d < 400), []);
+  assert.doesNotMatch(css, /font-weight\s*:\s*(bold|bolder|900|800)/);
+  const coSan = [...docTep('css/fonts.css').matchAll(/font-weight:\s*(\d+)/g)].map((m) => +m[1]);
+  assert.deepEqual([...new Set(coSan)].sort(), [400, 500, 600, 700]);
 });

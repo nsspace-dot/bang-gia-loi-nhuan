@@ -159,7 +159,7 @@ Quy tắc Apps Script (`apps-script/Code.gs`):
 - `GET ?action=ping` — không cần đăng nhập. Mọi lệnh khác là `POST {action, token, …}`.
 - `POST {action:'dangNhap', ten, matKhau}` → token ngẫu nhiên (CacheService, hết hạn 6 giờ). Sai 5 lần / tên đăng nhập → khóa 10 phút.
 - Mỗi lệnh: token → tên → đọc lại vai trò trong `TAI_KHOAN` (xóa / đổi vai trò có hiệu lực ngay).
-  `docTatCa` chỉ trả sheet của vai trò (shopee: DANH_MUC loại GIAN_SHOPEE, BANG_PHI_SHOPEE, BANG_TINH; tiktok: DANH_MUC GIAN/NGANH, BANG_PHI, GIA_VON, NOI_SKU, CAMPAIGN, BANG_TINH). Mọi lệnh ghi + quản lý tài khoản: chỉ admin.
+  `docTatCa` chỉ trả sheet của vai trò (shopee: DANH_MUC loại GIAN_SHOPEE, BANG_PHI_SHOPEE, BANG_TINH; tiktok: DANH_MUC GIAN/NGANH, BANG_PHI, GIA_VON, NOI_SKU, CAMPAIGN, BANG_TINH). Ghi (`upsert` / `xoa`): admin mọi sheet; shopee chỉ `BANG_PHI_SHOPEE` + `DANH_MUC` loại `GIAN_SHOPEE`; tiktok chỉ `BANG_PHI` + `DANH_MUC` loại `GIAN` / `NGANH` (kiểm tra từng bản ghi / khóa, sai 1 là từ chối cả lệnh). Bảng tính, campaign, quản lý tài khoản: chỉ admin.
 - Admin đầu tiên: hàm `taoAdminDauTien()` chạy tay, đọc Script Properties `SETUP_ADMIN_TEN` / `SETUP_ADMIN_MAT_KHAU` rồi xóa chúng.
 - Ghi theo từng bản ghi (upsert theo khóa) trong `LockService`. Ghi lại y hệt dữ liệu cũ thì bỏ qua.
 - Mỗi thay đổi → 1 dòng `LICH_SU`. Campaign / bảng tính (nhiều dòng con) → 1 dòng tóm tắt.

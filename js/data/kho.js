@@ -55,8 +55,27 @@ export function layPhien() {
 }
 
 export const vaiTro = () => layPhien()?.vaiTro || null;
-/** Chỉ admin được sửa (Apps Script cũng chặn). Dùng để ẩn / khóa nút trên giao diện. */
+/** Chỉ admin: bảng tính đã lưu, campaign, giá vốn, tài khoản (Apps Script cũng chặn). */
 export const coQuyenGhi = () => vaiTro() === 'admin';
+
+// Giống QUYEN_GHI trong Code.gs: vai trò không phải admin chỉ sửa bảng phí + danh mục gian của nền tảng mình.
+const QUYEN_GHI = {
+  shopee: { sheet: ['BANG_PHI_SHOPEE'], danhMuc: ['GIAN_SHOPEE'] },
+  tiktok: { sheet: ['BANG_PHI'], danhMuc: ['GIAN', 'NGANH'] },
+};
+/** Được sửa bảng phí (Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian) của nền tảng 'shopee' | 'tiktok'? */
+export const coQuyenSuaPhi = (nenTang) => vaiTro() === 'admin' || vaiTro() === nenTang;
+
+/** Lệnh ghi này có được phép với vai trò hiện tại? (Apps Script kiểm tra lại — đây chỉ để báo lỗi sớm.) */
+function duocGhi(body) {
+  if (vaiTro() === 'admin') return true;
+  const q = QUYEN_GHI[vaiTro()];
+  if (!q || !['upsert', 'xoa'].includes(body.action)) return false;
+  if (q.sheet.includes(body.sheet)) return true;
+  const ds = body.action === 'upsert' ? body.banGhi : body.khoa;
+  const loai = (ds || []).map((x) => (typeof x === 'string' ? x.split('|')[0] : x?.loai));
+  return body.sheet === 'DANH_MUC' && loai.length > 0 && loai.every((l) => q.danhMuc.includes(l));
+}
 /** Nền tảng vai trò được xem: ['shopee', 'tiktok'] | ['shopee'] | ['tiktok'] | [] */
 export const nenTangDuocXem = () => NEN_TANG_THEO_VAI_TRO[vaiTro()] || [];
 
@@ -189,7 +208,7 @@ function khoaCua(sheet, o) {
 }
 
 function goiGhi(body) {
-  if (layPhien() && !coQuyenGhi()) return Promise.reject(new LoiApi('Tài khoản này chỉ được xem, không được sửa.', 'KHONG_CO_QUYEN'));
+  if (layPhien() && !duocGhi(body)) return Promise.reject(new LoiApi('Tài khoản này không được sửa dữ liệu này.', 'KHONG_CO_QUYEN'));
   return goiCoToken(body);
 }
 

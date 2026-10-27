@@ -2,7 +2,7 @@
    Mỗi theme chỉ đặt lại các biến màu khai báo ở css/app.css (:root = "Kẹo hồng", mặc định).
    Áp bằng <html data-theme="...">; danh sách theme ở js/ui/theme.js (và đoạn áp sớm trong index.html).
    Chỉ màu phẳng + viền: không ảnh nền, không blur, không animation lặp, bóng đổ nhẹ.
-   Không tải font mới; riêng Giấy cổ điển dùng font có chân CÓ SẴN của máy (Georgia / Noto Serif).
+   Không tải font mới; riêng Giấy cổ điển dùng font có chân CÓ SẴN của máy (Times New Roman / Noto Serif), có đủ tiếng Việt.
    Độ tương phản được kiểm tra tự động trong tests/theme.test.js. */
 
 /* ---------- Sáng tối giản: trắng, xám, chữ rõ, ít màu ---------- */
@@ -267,7 +267,7 @@
   --bo-goc: 10px; --bo-goc-nho: 6px; --bo-goc-o: 6px; --bo-goc-mini: 4px; --bo-goc-vua: 8px; --bo-goc-hop: 12px; --bo-goc-nut: 6px;
   --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
   --khoang-the: 18px 20px;
-  --tieu-de-dam: 800;
+  --tieu-de-dam: 700; --tieu-de-gian: -0.02em; /* Quicksand chỉ có 400–700: 800 sẽ bị trình duyệt "giả đậm" làm nhòe chữ */
 }
 [data-theme="cam-shopee"] .dau-trang { border-bottom: 3px solid var(--chinh); }
 [data-theme="cam-shopee"] .thanh-tab [role=tab].dang-chon,
@@ -280,7 +280,7 @@
   --bo-goc: 4px; --bo-goc-nho: 3px; --bo-goc-o: 3px; --bo-goc-mini: 2px; --bo-goc-vua: 4px; --bo-goc-hop: 6px; --bo-goc-nut: 4px;
   --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
   --khoang-the: 18px 20px;
-  --tieu-de-dam: 800; --tieu-de-gian: 0.04em; --tieu-de-hoa: uppercase;
+  --tieu-de-dam: 700; --tieu-de-gian: 0.04em; --tieu-de-hoa: uppercase;
 }
 [data-theme="den-cyan"] .thuong-hieu h1 { color: var(--chu); text-shadow: -1px -1px 0 var(--tim), 1px 1px 0 var(--chinh); }
 [data-theme="den-cyan"] .thanh-tab [role=tab],
@@ -310,10 +310,13 @@
   --khoang-the: 24px 26px; --khoang-o-bang: 9px 14px;
 }
 
-/* Giấy cổ điển: kiểu sổ sách — chữ có chân (font sẵn có của máy), góc gần vuông, kẻ dòng đôi ở đầu / cuối bảng */
+/* Giấy cổ điển: kiểu sổ sách — chữ có chân (font sẵn có của máy), góc gần vuông, kẻ dòng đôi ở đầu / cuối bảng.
+   KHÔNG dùng Georgia: Georgia thiếu chữ tiếng Việt có dấu (ệ, ở, ữ…) → trình duyệt lấy từng chữ từ phông khác, nhìn lệch.
+   Times New Roman có đủ tiếng Việt (Windows, macOS, iOS); Android: Noto Serif; Linux: Liberation / DejaVu Serif. */
 [data-theme="giay"] {
-  --font: Georgia, 'Noto Serif', 'Times New Roman', serif;
-  --font-tieu-de: Georgia, 'Noto Serif', 'Times New Roman', serif;
+  --font: 'Times New Roman', 'Noto Serif', 'Liberation Serif', 'DejaVu Serif', serif;
+  --font-tieu-de: 'Times New Roman', 'Noto Serif', 'Liberation Serif', 'DejaVu Serif', serif;
+  --font-so: 'Times New Roman', 'Noto Serif', 'Liberation Serif', 'DejaVu Serif', serif; /* chữ số cũng có chân, không lẫn 2 kiểu chữ */
   --bo-goc: 3px; --bo-goc-nho: 2px; --bo-goc-o: 2px; --bo-goc-mini: 2px; --bo-goc-vua: 3px; --bo-goc-hop: 4px; --bo-goc-nut: 3px;
   --vien-day: 1px; --kieu-ke: solid; --nut-noi: 0px;
   --tieu-de-dam: 700; --tieu-de-gian: 0;
