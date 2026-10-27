@@ -9,6 +9,7 @@ import { taoTabSetGia } from './ui/tab-set-gia.js';
 import { taoTabCampaign } from './ui/tab-campaign.js';
 import { taoTabTaiKhoan } from './ui/tab-tai-khoan.js';
 import { moDangNhap } from './ui/dang-nhap.js';
+import { ganNutTheme, apDungTheme, layTheme } from './ui/theme.js';
 import * as kho from './data/kho.js';
 
 const KHOA_TAB = 'bggl.tab.v1';
@@ -68,6 +69,8 @@ function apDungPhien(phien) {
 }
 
 function khoiDong() {
+  apDungTheme(layTheme()); // <head> đã áp sớm; gọi lại cho chắc (vd trang mở từ bộ nhớ đệm)
+  ganNutTheme(document.getElementById('nut-theme'));
   document.getElementById('logo-meo').append(linhVat('nho'));
   const phien = kho.layPhien();
   apDungPhien(phien);

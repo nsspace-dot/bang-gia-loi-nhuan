@@ -759,3 +759,110 @@ test('Hết phiên rồi đăng nhập tài khoản khác → tải lại trang 
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Theme: chọn ở nút 🎨 áp ngay không tải lại trang, giữ khi đổi Shopee/TikTok, tải lại trang, đăng xuất', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  const theme = () => p.evaluate(() => document.documentElement.dataset.theme);
+  const nenTrang = () => p.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  assert.equal(await theme(), 'keo-hong', 'mặc định');
+  await p.evaluate(() => { window.__chuaTaiLai = true; });
+  await p.click('#nut-theme');
+  assert.equal(await p.getAttribute('#nut-theme', 'aria-expanded'), 'true');
+  const muc = await p.$$eval('.menu-theme .muc-theme', (ds) => ds.map((b) => [b.querySelector('.ten-theme').textContent, b.querySelectorAll('.o-mau i').length]));
+  assert.deepEqual(muc.map(([t]) => t), ['Kẹo hồng', 'Sáng tối giản', 'Tối', 'Cam Shopee', 'Đen Cyan TikTok', 'Xanh biển', 'Mint pastel', 'Giấy cổ điển']);
+  assert.ok(muc.every(([, n]) => n === 3), 'mỗi dòng có ô màu xem trước');
+  await p.click('.muc-theme[data-theme-id="toi"]');
+  assert.equal(await theme(), 'toi');
+  assert.equal(await nenTrang(), 'rgb(14, 22, 38)');
+  assert.equal(await p.evaluate(() => window.__chuaTaiLai), true, 'không tải lại trang');
+  assert.equal(await p.evaluate(() => localStorage.getItem('bggl.theme.v1')), 'toi');
+  assert.equal(await p.getAttribute('.muc-theme[data-theme-id="toi"]', 'aria-checked'), 'true');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.locator('.menu-theme').count(), 0);
+  await p.click('#nut-theme');
+  await p.mouse.click(5, 500); // bấm ra ngoài → đóng
+  assert.equal(await p.locator('.menu-theme').count(), 0);
+  assert.equal(await theme(), 'toi');
+  // đổi nền tảng Shopee / TikTok → theme giữ nguyên
+  await p.click('[data-nen-tang="shopee"]');
+  await p.click('[data-nen-tang="tiktok"]');
+  assert.equal(await theme(), 'toi');
+  // tải lại → khôi phục
+  await p.reload();
+  await p.waitForSelector('.dong-bo-xong');
+  assert.equal(await theme(), 'toi');
+  // đăng xuất → màn đăng nhập vẫn dùng theme đã lưu
+  await p.click('#nut-dang-xuat');
+  await p.waitForSelector('#dn-ten');
+  assert.equal(await theme(), 'toi');
+  assert.equal(await p.evaluate(() => localStorage.getItem('bggl.theme.v1')), 'toi');
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('.hop-dang-nhap')).backgroundColor), 'rgb(21, 31, 50)');
+  // người khác đăng nhập trên cùng máy → theme vẫn giữ
+  await dienDangNhap(p, ...TK.shopee);
+  await p.waitForSelector('.dong-bo-xong');
+  assert.equal(await theme(), 'toi');
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Theme: áp ngay trong <head> trước khi vẽ (không nháy); giá trị lưu không hợp lệ → Kẹo hồng', { skip: boQua }, async () => {
+  const p = await trinhDuyet.newPage();
+  // ghi lại theme tại thời điểm <body> vừa xuất hiện (trước khi app.js chạy)
+  await p.addInitScript(() => {
+    localStorage.setItem('bggl.theme.v1', 'giay');
+    new MutationObserver((_, ob) => { if (document.body) { window.__themeLucDau = document.documentElement.dataset.theme; ob.disconnect(); } })
+      .observe(document, { childList: true, subtree: true });
+  });
+  await p.goto(`${URL_APP}/`);
+  await p.waitForSelector('#nut-theme');
+  assert.equal(await p.evaluate(() => window.__themeLucDau), 'giay');
+  await p.close();
+
+  const q = await trinhDuyet.newPage();
+  await q.addInitScript(() => localStorage.setItem('bggl.theme.v1', 'theme-la'));
+  await q.goto(`${URL_APP}/`);
+  await q.waitForSelector('#nut-theme');
+  assert.equal(await q.evaluate(() => document.documentElement.dataset.theme), 'keo-hong');
+  await q.close();
+});
+
+test('Điện thoại (390px): thanh trên không tràn ngang, nút 🎨 và ⚙️ nằm trong màn hình, menu theme vừa màn hình', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.waitForTimeout(100);
+  assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'không cuộn ngang');
+  for (const nut of ['#nut-theme', '#nut-cai-dat', '#nut-dang-xuat']) {
+    const r = await p.locator(nut).boundingBox();
+    assert.ok(r && r.x >= 0 && r.x + r.width <= 390, `${nut} nằm trong màn hình`);
+  }
+  assert.ok((await p.locator('#nut-dang-xuat').boundingBox()).height < 40, 'Đăng xuất 1 dòng');
+  await p.click('#nut-theme');
+  const m = await p.locator('.menu-theme').boundingBox();
+  assert.ok(m.x >= 0 && m.x + m.width <= 390 && m.y + m.height <= 844, 'menu vừa màn hình');
+  await p.click('.muc-theme[data-theme-id="mint"]');
+  assert.equal(await p.evaluate(() => document.documentElement.dataset.theme), 'mint');
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Cả 8 theme: thanh tab 1 hàng ở 1280px; điện thoại 390px không cuộn ngang, nút 🎨 / ⚙️ trong màn hình, bảng phí cuộn trong khung', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('admin');
+  const ds = ['keo-hong', 'toi-gian', 'toi', 'cam-shopee', 'den-cyan', 'xanh-bien', 'mint', 'giay'];
+  for (const th of ds) {
+    await p.evaluate((t) => document.documentElement.setAttribute('data-theme', t), th);
+    await p.setViewportSize({ width: 1280, height: 860 });
+    await p.click('[data-tab="loi-nhuan"]');
+    const hang = await p.$$eval('.thanh-tab [role=tab]:not([hidden])', (bs) => new Set(bs.map((b) => b.offsetTop)).size);
+    assert.equal(hang, 1, `${th}: tab rớt dòng ở 1280px`);
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.click('[data-tab="bang-phi"]');
+    await p.waitForTimeout(50);
+    assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${th}: cuộn ngang trên điện thoại`);
+    for (const nut of ['#nut-theme', '#nut-cai-dat']) {
+      const r = await p.locator(nut).boundingBox();
+      assert.ok(r.x >= 0 && r.x + r.width <= 390, `${th}: ${nut} ra ngoài màn hình`);
+    }
+  }
+  assert.deepEqual(loi, []);
+  await p.close();
+});
