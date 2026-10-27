@@ -6,8 +6,18 @@
 <title>Bảng giá & Lợi nhuận</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E">
+<script>
+  // Áp theme đã chọn TRƯỚC khi vẽ trang để không nháy màu cũ. Danh sách phải khớp js/ui/theme.js (có test).
+  (function () {
+    var DS = ['keo-hong', 'toi-gian', 'toi', 'cam-shopee', 'den-cyan', 'xanh-bien', 'mint', 'giay'];
+    var t = 'keo-hong';
+    try { var luu = localStorage.getItem('bggl.theme.v1'); if (DS.indexOf(luu) >= 0) t = luu; } catch (e) { /* trình duyệt chặn bộ nhớ */ }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/theme.css">
 <script src="vendor/xlsx.full.min.js" defer></script>
 <script src="vendor/jszip.min.js" defer></script>
 <script type="module" src="js/app.js"></script>
@@ -35,6 +45,7 @@
     </button>
     <span id="nguoi-dung" class="nguoi-dung" hidden></span>
     <button id="nut-dang-xuat" class="nut nut-nho" type="button" hidden>Đăng xuất</button>
+    <button id="nut-theme" class="nut-tron" type="button" title="Giao diện" aria-label="Chọn giao diện" aria-haspopup="menu" aria-expanded="false">🎨</button>
     <button id="nut-cai-dat" class="nut-tron" type="button" title="Cài đặt" aria-label="Cài đặt">⚙️</button>
   </div>
 </header>

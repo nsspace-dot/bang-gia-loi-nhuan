@@ -138,6 +138,10 @@ Mỗi lần mở tab mới hoặc sau 6 giờ, app hỏi đăng nhập lại. M�
 
 App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấy "**CHƯA lưu được: …**" nghĩa là chưa lưu — đọc lý do và làm lại.
 
+### 🎨 Giao diện (theme)
+- Bấm **🎨** góc phải trên → chọn 1 trong 8 giao diện: Kẹo hồng (mặc định), Sáng tối giản, Tối, Cam Shopee, Đen Cyan TikTok, Xanh biển, Mint pastel, Giấy cổ điển. Áp ngay, không tải lại trang; chỉ đổi màu, không đổi dữ liệu.
+- Lựa chọn nhớ **riêng trên từng máy / trình duyệt** (không lưu lên Google Sheets), giữ nguyên khi đăng xuất, khi người khác đăng nhập, và khi chuyển Shopee / TikTok.
+
 ### Nhập số nhanh (mọi bảng)
 - Gõ số kiểu nào cũng được: `8,14` hoặc `8.14` (%), `2.008` hoặc `2008` (đ). App tự chuẩn hóa khi bạn **rời ô** hoặc bấm **Enter**.
 - **Enter** hoặc **Tab**: sang ô kế tiếp · **Shift + Enter**: về ô trước · **Esc**: hủy phần đang gõ.

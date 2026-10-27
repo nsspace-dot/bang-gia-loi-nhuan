@@ -1,0 +1,231 @@
+/* ============ Theme giao diện ============
+   Mỗi theme chỉ đặt lại các biến màu khai báo ở css/app.css (:root = "Kẹo hồng", mặc định).
+   Áp bằng <html data-theme="...">; danh sách theme ở js/ui/theme.js (và đoạn áp sớm trong index.html).
+   Chỉ màu phẳng + viền: không ảnh nền, không blur, không animation lặp, bóng đổ nhẹ.
+   Độ tương phản được kiểm tra tự động trong tests/theme.test.js. */
+
+/* ---------- Sáng tối giản: trắng, xám, chữ rõ, ít màu ---------- */
+[data-theme="toi-gian"] {
+  color-scheme: light;
+  --nen: #f6f7f9; --nen-2: #eceef1; --the: #ffffff;
+  --vien: #dde1e6; --vien-dam: #c4cad2; --vien-nhat: #eceff2;
+  --chu: #1c2128; --chu-phu: #4a5260; --chu-nhat: #6b7280;
+  --chinh: #2f3b4a; --chinh-dam: #1d2632; --chinh-nhat: #e6e9ee; --chinh-vien: #b9c1cc;
+  --chu-tren-chinh: #ffffff; --chu-tren-mau: #ffffff;
+  --lai: #146c3d; --lai-nen: #e5f3eb; --lai-nen-nhat: #f3f9f5; --lai-vien: #a6d3b8; --lai-chu-dam: #0f5730;
+  --lo: #b42318; --lo-nen: #fcebe9; --lo-nen-nhat: #fdf4f3; --lo-vien: #efb2ab; --lo-dam: #8f1c13; --lo-chu-dam: #7a1a12; --chu-tren-lo: #ffffff;
+  --vang: #7a5200; --vang-nen: #fbf1d6; --vang-nen-nhat: #fdf9ee; --vang-vien: #e5cb84; --vang-chu-dam: #5c3e00;
+  --tim: #45498f; --tim-nen: #ebecf7; --tim-nen-nhat: #f4f5fb; --tim-vien: #c0c3e6; --tim-sang: #6168b8;
+  --cham-chua: #b6bcc5; --cham-dang: #d99a1e; --cham-xong: #23a35f;
+  --o-nhap-nen: #ffffff; --o-so-nen: #f3f5f7; --khoa-nen: #eceef1;
+  --vien-focus: #5b6b80; --vong-focus: #dde3ea;
+  --bang-dau-nen: #f2f4f6; --bang-hover: #f8f9fa; --bang-chan-nen: #f4f5f7; --bang-nhom-nen: #f2f4f6;
+  --vung-tha-nen: #fafbfc; --dau-trang-nen: #ffffff; --o-tong-so-nen: rgba(255, 255, 255, 0.8);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #e6e8ec;
+  --bac-ha: #e2f0e8;   --bac-ha-chu: #1c5a3d;
+  --oai-huong: #eae8f5; --oai-huong-chu: #453a85;
+  --dao: #f5e5e5;      --dao-chu: #85303d;
+  --bo: #f5eedb;       --bo-chu: #6b4800;
+  --troi: #e2ecf6;     --troi-chu: #1e4d7c;
+  --chanh: #edf1dc;    --chanh-chu: #4a5711;
+  --hong: #f3e5ec;     --hong-chu: #7c2957;
+  --xam: #eceef1;      --xam-chu: #3d4450;
+  --bong: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --bong-hop: 0 12px 32px rgba(16, 24, 40, 0.18);
+  --bong-noi: 0 6px 18px rgba(16, 24, 40, 0.14);
+  --man-mo: rgba(16, 24, 40, 0.35);
+}
+
+/* ---------- Tối: nền xanh đen, chữ sáng ---------- */
+[data-theme="toi"] {
+  color-scheme: dark;
+  --nen: #0e1626; --nen-2: #1a2539; --the: #151f32;
+  --vien: #2a3a55; --vien-dam: #3b4e6d; --vien-nhat: #212e46;
+  --chu: #e7edf6; --chu-phu: #b6c2d4; --chu-nhat: #8d9bb1;
+  --chinh: #6cb2ff; --chinh-dam: #9ccbff; --chinh-nhat: #1c3557; --chinh-vien: #3c6da6;
+  --chu-tren-chinh: #0a1322; --chu-tren-mau: #0a1322;
+  --lai: #4ade80; --lai-nen: #10392a; --lai-nen-nhat: #13281f; --lai-vien: #2f7a52; --lai-chu-dam: #8af0b0;
+  --lo: #ff8080; --lo-nen: #46192a; --lo-nen-nhat: #2d1824; --lo-vien: #8c3a48; --lo-dam: #ffa6a6; --lo-chu-dam: #ffbaba; --chu-tren-lo: #1c0a10;
+  --vang: #fbbf24; --vang-nen: #3a2e10; --vang-nen-nhat: #282414; --vang-vien: #7a5f1a; --vang-chu-dam: #fde68a;
+  --tim: #bba9ff; --tim-nen: #2b2550; --tim-nen-nhat: #211e3c; --tim-vien: #5b4fa0; --tim-sang: #9b87f5;
+  --cham-chua: #5b6b85; --cham-dang: #fbbf24; --cham-xong: #34d399;
+  --o-nhap-nen: #0f192b; --o-so-nen: #1b263b; --khoa-nen: #19223a;
+  --vien-focus: #6cb2ff; --vong-focus: #1c3557;
+  --bang-dau-nen: #1c2840; --bang-hover: #1b2740; --bang-chan-nen: #18233a; --bang-nhom-nen: #1a2742;
+  --vung-tha-nen: #131d31; --dau-trang-nen: #111a2d; --o-tong-so-nen: rgba(0, 0, 0, 0.28);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #1f2b42;
+  --bac-ha: #163b2e;   --bac-ha-chu: #90e8bf;
+  --oai-huong: #2c2552; --oai-huong-chu: #cbbcff;
+  --dao: #45222b;      --dao-chu: #ffb6c1;
+  --bo: #3c3214;       --bo-chu: #f6d47c;
+  --troi: #17324d;     --troi-chu: #a2d2ff;
+  --chanh: #2e3714;    --chanh-chu: #d7e98c;
+  --hong: #43203a;     --hong-chu: #ffb3df;
+  --xam: #29303f;      --xam-chu: #ccd3e0;
+  --bong: 0 1px 0 #0a101c;
+  --bong-hop: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --bong-noi: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --man-mo: rgba(0, 0, 0, 0.55);
+}
+
+/* ---------- Cam Shopee: trắng và cam đỏ ---------- */
+[data-theme="cam-shopee"] {
+  color-scheme: light;
+  --nen: #fff7f4; --nen-2: #fdede7; --the: #ffffff;
+  --vien: #f3dcd2; --vien-dam: #e6c3b4; --vien-nhat: #f7e8e2;
+  --chu: #2a211f; --chu-phu: #5e4f4a; --chu-nhat: #84746e;
+  --chinh: #d0391a; --chinh-dam: #a92b10; --chinh-nhat: #feebe4; --chinh-vien: #f5b6a3;
+  --chu-tren-chinh: #ffffff; --chu-tren-mau: #ffffff;
+  --lai: #13724a; --lai-nen: #e3f5ec; --lai-nen-nhat: #f2faf6; --lai-vien: #9fd8bd; --lai-chu-dam: #0f5a3a;
+  --lo: #a8102e; --lo-nen: #fce6ea; --lo-nen-nhat: #fef2f4; --lo-vien: #efa9b6; --lo-dam: #840b23; --lo-chu-dam: #7a0a21; --chu-tren-lo: #ffffff;
+  --vang: #7d5200; --vang-nen: #fff2d4; --vang-nen-nhat: #fffaee; --vang-vien: #f0d088; --vang-chu-dam: #5f3e00;
+  --tim: #5a46a6; --tim-nen: #eee9fb; --tim-nen-nhat: #f7f4fe; --tim-vien: #c8bdf0; --tim-sang: #8676d6;
+  --cham-chua: #cdbfb9; --cham-dang: #f2a33d; --cham-xong: #26a865;
+  --o-nhap-nen: #ffffff; --o-so-nen: #fdf5f2; --khoa-nen: #f8efeb;
+  --vien-focus: #ee6a4a; --vong-focus: #fde0d6;
+  --bang-dau-nen: #fef1ec; --bang-hover: #fffaf8; --bang-chan-nen: #fdf6f3; --bang-nhom-nen: #fff4ef;
+  --vung-tha-nen: #fffaf8; --dau-trang-nen: #ffffff; --o-tong-so-nen: rgba(255, 255, 255, 0.78);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #f6e0d7;
+  --bac-ha: #d8f1e4;   --bac-ha-chu: #1f6a4a;
+  --oai-huong: #e8e0fa; --oai-huong-chu: #563f9c;
+  --dao: #ffe1d9;      --dao-chu: #9c3420;
+  --bo: #fff0c9;       --bo-chu: #845300;
+  --troi: #dcecfd;     --troi-chu: #215c95;
+  --chanh: #eff6cf;    --chanh-chu: #576609;
+  --hong: #ffe2ec;     --hong-chu: #962f5e;
+  --xam: #efeae8;      --xam-chu: #4c4442;
+  --bong: 0 2px 0 #f6e4dc, 0 6px 18px rgba(208, 57, 26, 0.06);
+  --bong-hop: 0 18px 50px rgba(120, 50, 30, 0.22);
+  --bong-noi: 0 10px 28px rgba(120, 50, 30, 0.16);
+  --man-mo: rgba(60, 25, 15, 0.32);
+}
+
+/* ---------- Đen Cyan TikTok: nền đen, điểm nhấn hồng và xanh ngọc ---------- */
+[data-theme="den-cyan"] {
+  color-scheme: dark;
+  --nen: #08080a; --nen-2: #19191e; --the: #121216;
+  --vien: #2b2b33; --vien-dam: #3d3d48; --vien-nhat: #202027;
+  --chu: #f3f3f6; --chu-phu: #bcbcc7; --chu-nhat: #92929e;
+  --chinh: #fe2c55; --chinh-dam: #ff5c7c; --chinh-nhat: #3b0f1c; --chinh-vien: #82203a;
+  --chu-tren-chinh: #0a0a0c; --chu-tren-mau: #0a0a0c;
+  --lai: #3ddc84; --lai-nen: #0f3523; --lai-nen-nhat: #0f241a; --lai-vien: #237a4c; --lai-chu-dam: #86efb5;
+  --lo: #ff7a5c; --lo-nen: #441c14; --lo-nen-nhat: #2a1611; --lo-vien: #8a3a28; --lo-dam: #ffa08a; --lo-chu-dam: #ffb8a6; --chu-tren-lo: #1a0905;
+  --vang: #ffcc4d; --vang-nen: #3a2f0e; --vang-nen-nhat: #262110; --vang-vien: #7d6418; --vang-chu-dam: #ffe39a;
+  --tim: #25f4ee; --tim-nen: #0b3433; --tim-nen-nhat: #0c2322; --tim-vien: #1a7c79; --tim-sang: #25f4ee;
+  --cham-chua: #55555f; --cham-dang: #ffcc4d; --cham-xong: #25f4ee;
+  --o-nhap-nen: #0d0d10; --o-so-nen: #1b1b21; --khoa-nen: #18181d;
+  --vien-focus: #25f4ee; --vong-focus: #0b3433;
+  --bang-dau-nen: #1a1a20; --bang-hover: #1a1a21; --bang-chan-nen: #16161b; --bang-nhom-nen: #1d1219;
+  --vung-tha-nen: #111115; --dau-trang-nen: #0d0d10; --o-tong-so-nen: rgba(0, 0, 0, 0.35);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #1f1f26;
+  --bac-ha: #0f3a33;   --bac-ha-chu: #7ff5e0;
+  --oai-huong: #2a1f45; --oai-huong-chu: #cbb8ff;
+  --dao: #3f1520;      --dao-chu: #ff9fb3;
+  --bo: #3a2f0e;       --bo-chu: #ffd773;
+  --troi: #0e3040;     --troi-chu: #8fe6ff;
+  --chanh: #2b3510;    --chanh-chu: #d4ec85;
+  --hong: #3f1230;     --hong-chu: #ffa6d9;
+  --xam: #26262e;      --xam-chu: #d0d0da;
+  --bong: 0 1px 0 #000000;
+  --bong-hop: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --bong-noi: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --man-mo: rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Xanh biển: xanh dương dịu, nghiêm túc ---------- */
+[data-theme="xanh-bien"] {
+  color-scheme: light;
+  --nen: #f2f6fa; --nen-2: #e6eef7; --the: #ffffff;
+  --vien: #d4e0ec; --vien-dam: #b9cbde; --vien-nhat: #e5edf5;
+  --chu: #1a2a3c; --chu-phu: #43576d; --chu-nhat: #647a90;
+  --chinh: #1f66a6; --chinh-dam: #174f82; --chinh-nhat: #e0ecf8; --chinh-vien: #a6c6e6;
+  --chu-tren-chinh: #ffffff; --chu-tren-mau: #ffffff;
+  --lai: #11704a; --lai-nen: #e1f3ea; --lai-nen-nhat: #f1f9f5; --lai-vien: #9cd3b9; --lai-chu-dam: #0d5838;
+  --lo: #b02235; --lo-nen: #fbe7ea; --lo-nen-nhat: #fdf3f4; --lo-vien: #eeb0b9; --lo-dam: #8c1a2a; --lo-chu-dam: #7d1726; --chu-tren-lo: #ffffff;
+  --vang: #7a5200; --vang-nen: #fcf1d5; --vang-nen-nhat: #fdf9ee; --vang-vien: #e8cc86; --vang-chu-dam: #5c3e00;
+  --tim: #43509e; --tim-nen: #e8ebf8; --tim-nen-nhat: #f3f5fc; --tim-vien: #bcc4ea; --tim-sang: #6475c8;
+  --cham-chua: #b3c1cf; --cham-dang: #e0a326; --cham-xong: #23a35f;
+  --o-nhap-nen: #ffffff; --o-so-nen: #f2f6fa; --khoa-nen: #e9eff5;
+  --vien-focus: #3b82c4; --vong-focus: #d6e6f6;
+  --bang-dau-nen: #edf3f9; --bang-hover: #f7fafd; --bang-chan-nen: #f1f5f9; --bang-nhom-nen: #ebf2f9;
+  --vung-tha-nen: #f8fbfd; --dau-trang-nen: #ffffff; --o-tong-so-nen: rgba(255, 255, 255, 0.8);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #dfe8f1;
+  --bac-ha: #d9f0e5;   --bac-ha-chu: #1d6446;
+  --oai-huong: #e5e3f8; --oai-huong-chu: #4a3f99;
+  --dao: #fbe3e5;      --dao-chu: #923347;
+  --bo: #fbf0cf;       --bo-chu: #7b5100;
+  --troi: #d9eafb;     --troi-chu: #1d5891;
+  --chanh: #ecf3d4;    --chanh-chu: #52610d;
+  --hong: #f8e3ef;     --hong-chu: #8b2c63;
+  --xam: #e7ecf2;      --xam-chu: #3e4b5c;
+  --bong: 0 1px 2px rgba(20, 50, 90, 0.08);
+  --bong-hop: 0 14px 36px rgba(20, 50, 90, 0.2);
+  --bong-noi: 0 8px 22px rgba(20, 50, 90, 0.15);
+  --man-mo: rgba(15, 35, 60, 0.35);
+}
+
+/* ---------- Mint pastel: xanh bạc hà, nhẹ nhàng ---------- */
+[data-theme="mint"] {
+  color-scheme: light;
+  --nen: #f1faf6; --nen-2: #e2f5ec; --the: #ffffff;
+  --vien: #cbe9db; --vien-dam: #addcc5; --vien-nhat: #e0f2e9;
+  --chu: #1d3730; --chu-phu: #46665c; --chu-nhat: #678a7f;
+  --chinh: #1b7d5f; --chinh-dam: #136349; --chinh-nhat: #dcf4e9; --chinh-vien: #9fd9c0;
+  --chu-tren-chinh: #ffffff; --chu-tren-mau: #ffffff;
+  --lai: #0f6a3c; --lai-nen: #ddf3e6; --lai-nen-nhat: #effaf4; --lai-vien: #98d4b2; --lai-chu-dam: #0b552f;
+  --lo: #b3263a; --lo-nen: #fce7ea; --lo-nen-nhat: #fef3f5; --lo-vien: #efb1ba; --lo-dam: #8f1d2e; --lo-chu-dam: #7f1a29; --chu-tren-lo: #ffffff;
+  --vang: #7a5200; --vang-nen: #fbf2d6; --vang-nen-nhat: #fdf9ee; --vang-vien: #e7cd87; --vang-chu-dam: #5c3e00;
+  --tim: #574aa8; --tim-nen: #ece9fa; --tim-nen-nhat: #f5f3fd; --tim-vien: #c5bfee; --tim-sang: #7d71d0;
+  --cham-chua: #b2cfc3; --cham-dang: #e6a72d; --cham-xong: #22a565;
+  --o-nhap-nen: #ffffff; --o-so-nen: #f2faf6; --khoa-nen: #e9f4ef;
+  --vien-focus: #3aa780; --vong-focus: #d3f0e3;
+  --bang-dau-nen: #eaf7f1; --bang-hover: #f6fcf9; --bang-chan-nen: #eef8f3; --bang-nhom-nen: #e8f6ef;
+  --vung-tha-nen: #f6fcf9; --dau-trang-nen: #fbfefc; --o-tong-so-nen: rgba(255, 255, 255, 0.78);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #d8eee3;
+  --bac-ha: #d3f1e2;   --bac-ha-chu: #1b6646;
+  --oai-huong: #e6e0fa; --oai-huong-chu: #5340a0;
+  --dao: #ffe2e2;      --dao-chu: #9b3a4c;
+  --bo: #fdf0cc;       --bo-chu: #7f5300;
+  --troi: #d9eefc;     --troi-chu: #1f5d94;
+  --chanh: #eef6d0;    --chanh-chu: #55650c;
+  --hong: #fde3f0;     --hong-chu: #922f69;
+  --xam: #e7efeb;      --xam-chu: #3f4f49;
+  --bong: 0 2px 0 #dcefe5, 0 6px 18px rgba(30, 120, 90, 0.07);
+  --bong-hop: 0 18px 50px rgba(20, 80, 60, 0.2);
+  --bong-noi: 0 10px 28px rgba(20, 80, 60, 0.15);
+  --man-mo: rgba(15, 50, 40, 0.3);
+}
+
+/* ---------- Giấy cổ điển: nền kem, chữ nâu, kiểu sổ sách ---------- */
+[data-theme="giay"] {
+  color-scheme: light;
+  --nen: #f4eedf; --nen-2: #ebe2cd; --the: #fbf7ec;
+  --vien: #dbcdaf; --vien-dam: #c6b28c; --vien-nhat: #e6dcc4;
+  --chu: #3a2817; --chu-phu: #5c4630; --chu-nhat: #7a6449;
+  --chinh: #7a4a20; --chinh-dam: #5c3714; --chinh-nhat: #eee0c4; --chinh-vien: #ccb083;
+  --chu-tren-chinh: #fbf7ec; --chu-tren-mau: #fbf7ec;
+  --lai: #2c632a; --lai-nen: #e1e9cf; --lai-nen-nhat: #eef1e0; --lai-vien: #aac38f; --lai-chu-dam: #224f20;
+  --lo: #9e2417; --lo-nen: #f3dccf; --lo-nen-nhat: #f6e8dc; --lo-vien: #dca58f; --lo-dam: #7c1b10; --lo-chu-dam: #74190f; --chu-tren-lo: #fbf7ec;
+  --vang: #6f4b00; --vang-nen: #f3e6bf; --vang-nen-nhat: #f7efd8; --vang-vien: #d8bd75; --vang-chu-dam: #553900;
+  --tim: #573a77; --tim-nen: #ebe0e8; --tim-nen-nhat: #f3ece9; --tim-vien: #c4adc3; --tim-sang: #7b5c9c;
+  --cham-chua: #c4b596; --cham-dang: #c9881e; --cham-xong: #3f8f3c;
+  --o-nhap-nen: #fffdf6; --o-so-nen: #f5efe0; --khoa-nen: #efe7d4;
+  --vien-focus: #9a6a38; --vong-focus: #ecdcbc;
+  --bang-dau-nen: #efe5cf; --bang-hover: #f7f1e2; --bang-chan-nen: #f1e9d6; --bang-nhom-nen: #f0e6d0;
+  --vung-tha-nen: #f9f4e7; --dau-trang-nen: #f7f1e3; --o-tong-so-nen: rgba(255, 253, 246, 0.75);
+  --trang-tri-1: transparent; --trang-tri-2: transparent; --meo-bong: #e3d8bf;
+  --bac-ha: #dce8d3;   --bac-ha-chu: #2c5a2a;
+  --oai-huong: #e6dde6; --oai-huong-chu: #533a6e;
+  --dao: #f1d9cc;      --dao-chu: #8a2e1f;
+  --bo: #f2e2b8;       --bo-chu: #684500;
+  --troi: #d9e3e6;     --troi-chu: #2c5163;
+  --chanh: #e8e8c3;    --chanh-chu: #535010;
+  --hong: #eedad8;     --hong-chu: #82304a;
+  --xam: #e6dfd0;      --xam-chu: #4a3f30;
+  --bong: 0 1px 0 #d8cbad;
+  --bong-hop: 0 14px 36px rgba(70, 45, 15, 0.22);
+  --bong-noi: 0 8px 22px rgba(70, 45, 15, 0.16);
+  --man-mo: rgba(50, 35, 15, 0.32);
+}
+/* Kiểu sổ sách: kẻ dòng bảng rõ hơn */
+[data-theme="giay"] .bang th, [data-theme="giay"] .bang td { border-bottom-color: var(--vien); }
