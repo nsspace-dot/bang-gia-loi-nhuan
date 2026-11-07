@@ -648,3 +648,6 @@ main { overflow-anchor: none; }
 .o-gcd { min-width: 84px; line-height: 1.25; }
 .o-gcd .gia-gcd { font-weight: 700; }
 .o-gcd-thieu { background: var(--lo-nen-nhat); }
+/* Lịch sử sửa phí */
+.khoi-lich-su .hang { margin-bottom: 8px; }
+.bang-lich-su td, .bang-lich-su th { padding: 5px 10px; font-size: 13px; white-space: nowrap; }

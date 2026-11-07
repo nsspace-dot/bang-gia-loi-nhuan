@@ -13,7 +13,7 @@
  *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '2.1.0';
+var PHIEN_BAN = '2.2.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -145,6 +145,7 @@ function doPost(e) {
       case 'docTatCa': return { duLieu: docTatCa_(phien.vaiTro) };
       case 'docBangTinh': canDoc_(phien, 'BANG_TINH'); return { duLieu: docCon_('BANG_TINH_DONG', body.id) };
       case 'docCampaignKQ': canDoc_(phien, 'CAMPAIGN'); return { duLieu: docCon_('CAMPAIGN_KQ', body.id) };
+      case 'docLichSuPhi': return { duLieu: docLichSuPhi_(phien, body) };
     }
     // --- ghi bảng phí / danh mục: admin, hoặc vai trò của ĐÚNG nền tảng (kiểm tra từng bản ghi) ---
     switch (body.action) {
@@ -497,6 +498,26 @@ function bo_(o) {
   var r = {};
   for (var k in o) if (k.charAt(0) !== '_') r[k] = o[k];
   return r;
+}
+
+var LICH_SU_THEO_NEN_TANG = {
+  tiktok: { bangPhi: 'BANG_PHI', lichSu: 'LICH_SU_BANG_PHI' },
+  shopee: { bangPhi: 'BANG_PHI_SHOPEE', lichSu: 'LICH_SU_BANG_PHI_SHOPEE' },
+};
+
+/**
+ * Lịch sử sửa từng ô bảng phí của 1 nền tảng, MỚI NHẤT TRƯỚC. Ai xem được bảng phí nền tảng nào thì xem được lịch sử của nó.
+ * body: { nenTang: 'shopee'|'tiktok', gian?, thang?, gioiHan? (mặc định 300, tối đa 2000) }
+ */
+function docLichSuPhi_(phien, body) {
+  var nt = LICH_SU_THEO_NEN_TANG[body.nenTang];
+  if (!nt) throw loi_('Nền tảng không hợp lệ.');
+  canDoc_(phien, nt.bangPhi);
+  var gioiHan = Math.min(Math.max(Number(body.gioiHan) || 300, 1), 2000);
+  var ds = docSheet_(nt.lichSu).ds.map(bo_).filter(function (o) {
+    return (!body.gian || o.gian === String(body.gian)) && (!body.thang || o.thang === String(body.thang));
+  });
+  return ds.reverse().slice(0, gioiHan);
 }
 
 /** Chỉ trả dữ liệu vai trò được xem; sheet không được xem trả mảng rỗng. */

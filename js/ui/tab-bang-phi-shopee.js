@@ -11,6 +11,7 @@ import { chonBoPhi, cacThangCoPhi, thangHienTai, hienThiThang, chuanHoaThang } f
 import { docSo, dinhDangTien, dinhDangSo, dinhDangPhanTram } from '../core/so.js';
 import { NGANH_SHOPEE, layDanhSach, mauGian } from '../core/danh-muc.js';
 import { khoiDanhMuc } from './danh-muc.js';
+import { veLichSuPhi } from './lich-su-phi.js';
 import { docBang } from '../excel/doc.js';
 import { bangXuatPhiShopee, bangMauPhiShopee, docNhapPhiShopee, COT_EXCEL_SHOPEE } from '../core/phi-shopee-excel.js';
 
@@ -103,7 +104,8 @@ function ve() {
     coSua() && h('details', { class: 'the the-phu' },
       h('summary', null, 'Gian hàng Shopee (thêm / bớt)'),
       khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'),
-      h('p', { class: 'goi-y' }, 'Ngành Shopee cố định: Sách, Tranh, Lịch, Decal, Trà. Bỏ một gian chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.')));
+      h('p', { class: 'goi-y' }, 'Ngành Shopee cố định: Sách, Tranh, Lịch, Decal, Trà. Bỏ một gian chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.')),
+    kho.layPhien() ? veLichSuPhi({ nenTang: 'shopee', gian: st.gian, thang: st.thang }) : null);
 }
 
 async function doiGianThang(gian, thang) {

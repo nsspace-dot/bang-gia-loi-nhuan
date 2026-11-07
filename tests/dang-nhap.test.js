@@ -272,3 +272,27 @@ test('chưa có admin: không đăng nhập được, không đọc / ghi đư�
   assert.equal(g.post({ action: 'dangNhap', ten: 'admin', matKhau: MK }).ok, false);
   assert.equal(g.post({ action: 'docTatCa' }).ma, 'CAN_DANG_NHAP');
 });
+
+test('docLichSuPhi: mới nhất trước, lọc gian / tháng, có tên người sửa; mỗi vai trò chỉ đọc lịch sử nền tảng của mình', () => {
+  const { g, ad, sp, tt } = moiTruongDayDu();
+  g.post({ action: 'upsert', token: sp, sheet: 'BANG_PHI_SHOPEE', banGhi: [{ gian: 'CN1', nganh: 'Tranh', thang: '2026-10', phi_co_dinh: 20 }] });
+  g.post({ action: 'upsert', token: sp, sheet: 'BANG_PHI_SHOPEE', banGhi: [{ gian: 'CN1', nganh: 'Lịch', thang: '2026-11', phi_co_dinh: 18.7 }] });
+  g.post({ action: 'upsert', token: tt, sheet: 'BANG_PHI', banGhi: [{ gian: 'Gian TT', nganh: 'Tranh', thang: '2026-10', phi_san: 22 }] });
+  const r = g.post({ action: 'docLichSuPhi', token: sp, nenTang: 'shopee' });
+  assert.equal(r.ok, true, r.loi);
+  assert.deepEqual(r.duLieu.slice(0, 2).map((x) => [x.nganh, x.hanh_dong, x.gia_tri_cu, x.gia_tri_moi, x.nguoi_dung]),
+    [['Lịch', 'THEM', '', '18.7', 'nv-shopee'], ['Tranh', 'SUA', '19.1', '20', 'nv-shopee']]);
+  assert.equal(r.duLieu.at(-1).nguoi_dung, 'admin', 'dòng cũ nhất (admin tạo dữ liệu giả) ở cuối');
+  assert.deepEqual(g.post({ action: 'docLichSuPhi', token: sp, nenTang: 'shopee', thang: '2026-11' }).duLieu.map((x) => x.nganh), ['Lịch']);
+  assert.equal(g.post({ action: 'docLichSuPhi', token: sp, nenTang: 'shopee', gian: 'CN9' }).duLieu.length, 0);
+  assert.equal(g.post({ action: 'docLichSuPhi', token: sp, nenTang: 'shopee', gioiHan: 1 }).duLieu.length, 1);
+  assert.equal(g.post({ action: 'docLichSuPhi', token: tt, nenTang: 'tiktok' }).duLieu[0].nguoi_dung, 'nv-tiktok');
+  // sai nền tảng → từ chối
+  assert.equal(g.post({ action: 'docLichSuPhi', token: sp, nenTang: 'tiktok' }).ma, 'KHONG_CO_QUYEN');
+  assert.equal(g.post({ action: 'docLichSuPhi', token: tt, nenTang: 'shopee' }).ma, 'KHONG_CO_QUYEN');
+  assert.equal(g.post({ action: 'docLichSuPhi', nenTang: 'shopee' }).ma, 'CAN_DANG_NHAP');
+  assert.equal(g.post({ action: 'docLichSuPhi', token: ad, nenTang: 'xyz' }).ok, false);
+  // admin đọc được cả 2
+  assert.ok(g.post({ action: 'docLichSuPhi', token: ad, nenTang: 'tiktok' }).duLieu.length > 0);
+  assert.ok(g.post({ action: 'docLichSuPhi', token: ad, nenTang: 'shopee' }).duLieu.length > 0);
+});

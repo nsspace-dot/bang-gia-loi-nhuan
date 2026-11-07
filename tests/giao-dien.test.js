@@ -1022,3 +1022,49 @@ test('Giá cần đạt: mỗi sàn có ô nhập riêng; cột giá cần đạ
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Lịch sử sửa phí trong app: hiện ai sửa ô nào, cũ → mới; lọc gian / tháng; tự tải lại sau khi lưu; mỗi vai trò chỉ thấy lịch sử sàn mình', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('shopee');
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('#bang-phi-shopee .vien-gian:has-text("CN2")');
+  const o = '[aria-label="Quảng cáo — Lịch"]';
+  await p.waitForSelector(o);
+  await p.click('#bang-phi-shopee summary:has-text("Lịch sử sửa phí")');
+  await p.waitForSelector('#bang-phi-shopee .lich-su-phi :is(table, p.chu-nhat:not(:has-text("Đang tải")))');
+  const truoc = await p.locator('#bang-phi-shopee .bang-lich-su tbody tr').count();
+  // sửa 1 ô rồi lưu → lịch sử (đang mở) tự tải lại, dòng mới nhất ở đầu
+  await p.fill(o, '9,3'); await p.press(o, 'Tab');
+  await p.click('#bang-phi-shopee .hang-luu .nut-chinh');
+  await p.waitForSelector('#bang-phi-shopee .ghi-chu-xanh');
+  await p.waitForFunction((n) => document.querySelectorAll('#bang-phi-shopee .bang-lich-su tbody tr').length > n, truoc);
+  // CN2 có thể chưa từng lưu → Lưu ghi cả 5 ngành; tìm dòng của ô vừa sửa (mới nhất trước)
+  const dau = await p.$$eval('#bang-phi-shopee .bang-lich-su tbody tr', (ts) => ts.map((t) => [...t.children].map((d) => d.textContent))
+    .find((d) => d[5] === 'Lịch' && d[6] === 'Quảng cáo (%)'));
+  assert.equal(dau[1], 'nv-shopee', 'ghi tên người sửa');
+  assert.equal(dau[4], 'CN2');
+  assert.equal(dau[5], 'Lịch');
+  assert.equal(dau[6], 'Quảng cáo (%)');
+  assert.match(dau[7], /→ 9,3$/);
+  assert.match(dau[0], /^\d\d\/\d\d\/\d{4} \d\d:\d\d$/);
+  // lọc: bỏ "chỉ gian CN2" → thấy cả gian khác (Tranh Vip có dữ liệu giả)
+  const chiGian = await p.locator('#bang-phi-shopee .bang-lich-su tbody tr').count();
+  await p.uncheck('#bang-phi-shopee .lich-su-phi label:has-text("Chỉ gian CN2") input');
+  assert.ok(await p.locator('#bang-phi-shopee .bang-lich-su tbody tr').count() > chiGian);
+  assert.ok(await p.locator('#bang-phi-shopee .bang-lich-su td:has-text("Tranh Vip")').count() > 0);
+  // shopee không có tab TikTok nên không có lịch sử TikTok; gọi thẳng API cũng bị từ chối
+  assert.equal(await p.locator('#bang-phi-tiktok').count(), 0);
+  assert.equal((await goiBangTokenTrang(p, { action: 'docLichSuPhi', nenTang: 'tiktok' })).ma, 'KHONG_CO_QUYEN');
+  assert.deepEqual(loi, []);
+  await p.close();
+
+  const t = await moTrang('tiktok');
+  await t.p.click('[data-tab="bang-phi"]');
+  await t.p.waitForSelector('#bang-phi-tiktok [aria-label="Phí sàn — Tranh"]');
+  await t.p.click('#bang-phi-tiktok summary:has-text("Lịch sử sửa phí")');
+  await t.p.uncheck('#bang-phi-tiktok .lich-su-phi label:has-text("Chỉ gian") input');
+  await t.p.waitForSelector('#bang-phi-tiktok .bang-lich-su tbody tr');
+  assert.equal(await t.p.locator('#bang-phi-tiktok .bang-lich-su td:has-text("CN2")').count(), 0, 'không lẫn lịch sử Shopee');
+  assert.equal((await goiBangTokenTrang(t.p, { action: 'docLichSuPhi', nenTang: 'shopee' })).ma, 'KHONG_CO_QUYEN');
+  assert.deepEqual(t.loi, []);
+  await t.p.close();
+});

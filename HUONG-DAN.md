@@ -249,6 +249,7 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 - Luôn phải còn ít nhất 1 admin; admin không tự xóa / tự bỏ quyền admin của mình được.
 
 - **Đăng nhập sai 5 lần** liên tiếp: tài khoản đó tạm khóa **10 phút**.
+- **Xem lịch sử sửa phí ngay trong app**: cuối tab Bảng phí › Shopee / › TikTok → mở **🕘 Lịch sử sửa phí**: thời gian, **người sửa**, thêm / sửa / xóa, tháng, gian, ngành, khoản phí, cũ → mới (mới nhất trước, 300 lần gần nhất; lọc theo gian / tháng đang xem). Tự tải lại sau mỗi lần Lưu. Ai xem được bảng phí sàn nào thì xem được lịch sử sàn đó.
 - **Lịch sử bảng phí**: sheet `LICH_SU_BANG_PHI` (TikTok) và `LICH_SU_BANG_PHI_SHOPEE` (Shopee) — mỗi ô thay đổi 1 dòng: thời gian, hành động (THEM / SUA / XOA), tháng, gian, ngành, ô, giá trị cũ → mới.
 - **Lịch sử**: sheet `LICH_SU` — mỗi lần thêm / sửa / xóa có: thời gian, hành động (THEM / SUA / XOA), sheet, khóa, dữ liệu cũ, dữ liệu mới, **người làm**. Lưu campaign / bảng tính ghi 1 dòng tóm tắt. Tạo / đổi vai trò / đổi mật khẩu / xóa tài khoản cũng được ghi (không ghi mật khẩu). Các sheet lịch sử bảng phí cũng có cột người làm.
 - **Sao lưu**: Google Sheets → **Tệp** → **Tạo bản sao**, hoặc **Tải xuống** → Excel. Nên làm hằng tháng.
