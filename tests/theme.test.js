@@ -11,8 +11,11 @@ const docTep = (t) => fs.readFileSync(path.join(GOC, t), 'utf8');
 /** { tenTheme: { bien: giaTri } } — Kẹo hồng = :root; theme khác = :root đè bằng khối của nó. */
 function docTheme() {
   const bien = (khoi) => Object.fromEntries([...khoi.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-  const goc = bien(docTep('css/app.css').match(/:root, \[data-theme="keo-hong"\] \{([\s\S]*?)\n\}/)[1]);
-  const kq = { 'keo-hong': goc };
+  const app = docTep('css/app.css');
+  const goc = bien(app.match(/:root, \[data-theme="keo-hong"\] \{([\s\S]*?)\n\}/)[1]);
+  // khối riêng của Kẹo hồng (vd màu nút) — không áp cho theme khác
+  const rieng = bien(app.match(/\n\[data-theme="keo-hong"\] \{([\s\S]*?)\n\}/)?.[1] || '');
+  const kq = { 'keo-hong': { ...goc, ...rieng } };
   // mỗi theme có thể có nhiều khối (màu, hình khối) → gộp lại
   for (const m of docTep('css/theme.css').matchAll(/\[data-theme="([\w-]+)"\] \{([\s\S]*?)\n\}/g)) {
     const rieng = { ...(kq[m[1]]?._rieng || {}), ...bien(m[2]) };
@@ -43,12 +46,14 @@ const CAP = [
   ['lai-chu-dam', 'lai-nen', 4.5], ['lo-chu-dam', 'lo-nen', 4.5], ['vang-chu-dam', 'vang-nen', 4.5],
   ['vang', 'vang-nen', 4.5], ['vang', 'the', 4.5], ['tim', 'tim-nen', 4.5], ['tim', 'the', 4.5],
   ['chinh-dam', 'chinh-nhat', 3], ['chinh-dam', 'the', 3],
-  ['chu-tren-chinh', 'chinh', 4.5], ['chu-tren-chinh', 'chinh-dam', 4.5], ['chu-tren-lo', 'lo', 4.5], ['chu-tren-lo', 'lo-dam', 4.5],
+  ['chu-tren-lo', 'lo', 4.5], ['chu-tren-lo', 'lo-dam', 4.5],
   ...['bac-ha', 'oai-huong', 'dao', 'bo', 'troi', 'chanh', 'hong', 'xam'].map((g) => [`${g}-chu`, g, 4.5]),
 ];
-// Kẹo hồng giữ ĐÚNG như trước theo yêu cầu. 3 cặp vốn đã thấp từ trước — ngoại lệ đã biết, không đổi màu:
-// chữ trắng trên nút hồng (2,99), chữ trắng trên nút hồng khi rê chuột (4,13), chữ nhạt trên nền kem (2,92).
-const NGOAI_LE = { 'keo-hong': { 'chu-tren-chinh/chinh': 2.95, 'chu-tren-chinh/chinh-dam': 4.1, 'chu-nhat/nen': 2.9 } };
+// Kẹo hồng: nút chính đã làm đậm (biến --nut-chinh-nen / --nut-chinh-dam) nên chữ trên nút đạt chuẩn.
+// Còn lại 1 ngoại lệ đã biết từ trước: chữ nhạt (--chu-nhat) trên nền kem 2,92 — chưa được yêu cầu đổi.
+const NGOAI_LE = { 'keo-hong': { 'chu-nhat/nen': 2.9 } };
+const nutNen = (t) => t['nut-chinh-nen'] || t.chinh;
+const nutDam = (t) => t['nut-chinh-dam'] || t['chinh-dam'];
 
 test('có đủ 8 theme, khớp danh sách trong js/ui/theme.js và đoạn áp sớm trong index.html', async () => {
   const { DS_THEME, THEME_MAC_DINH } = await import('../js/ui/theme.js');
@@ -63,7 +68,8 @@ test('có đủ 8 theme, khớp danh sách trong js/ui/theme.js và đoạn áp 
 
 test('mỗi theme đặt lại ĐỦ mọi biến màu của Kẹo hồng (không sót biến nào dùng màu hồng mặc định)', () => {
   // biến màu = giá trị Kẹo hồng là mã màu / rgba / bóng đổ (bỏ qua biến hình khối, font)
-  const mau = Object.keys(THEME['keo-hong']).filter((k) => /^(#|rgba|transparent)/.test(THEME['keo-hong'][k]) || /^(bong|man-mo)/.test(k));
+  const mau = Object.keys(THEME['keo-hong']).filter((k) => (/^(#|rgba|transparent)/.test(THEME['keo-hong'][k]) || /^(bong|man-mo)/.test(k))
+    && !k.startsWith('nut-chinh-')); // màu nút riêng của Kẹo hồng: theme khác dùng --chinh
   for (const [ten, t] of Object.entries(THEME)) {
     if (ten === 'keo-hong') continue;
     const thieu = mau.filter((k) => !(k in t._rieng));
@@ -199,4 +205,13 @@ test('phông chữ: không độ đậm nào vượt quá 700 (Quicksand chỉ c
   assert.doesNotMatch(css, /font-weight\s*:\s*(bold|bolder|900|800)/);
   const coSan = [...docTep('css/fonts.css').matchAll(/font-weight:\s*(\d+)/g)].map((m) => +m[1]);
   assert.deepEqual([...new Set(coSan)].sort(), [400, 500, 600, 700]);
+});
+
+test('chữ trên nút chính (nền nút + khi rê chuột) đạt ≥ 4,5:1 ở cả 8 theme, kể cả Kẹo hồng', () => {
+  for (const [ten, t] of Object.entries(THEME)) {
+    assert.ok(tuongPhan(t['chu-tren-chinh'], nutNen(t)) >= 4.5, `${ten}: nút ${tuongPhan(t['chu-tren-chinh'], nutNen(t)).toFixed(2)}`);
+    assert.ok(tuongPhan(t['chu-tren-chinh'], nutDam(t)) >= 4.5, `${ten}: rê chuột`);
+  }
+  assert.equal(THEME['keo-hong'].chinh, '#e2709a', 'hồng điểm nhấn của Kẹo hồng giữ nguyên, chỉ nút đậm hơn');
+  for (const t of ['toi-gian', 'toi', 'cam-shopee', 'den-cyan', 'xanh-bien', 'mint', 'giay']) assert.equal(THEME[t]['nut-chinh-nen'], undefined, `${t} không dùng màu nút của Kẹo hồng`);
 });
