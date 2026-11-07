@@ -120,3 +120,15 @@ export function tinhLaiShopee(von, gia, phi) {
   const lai = gia - von - so(phi.phi_ha_tang) - gia * tyLePhiShopee(phi);
   return { lai, pt: gia > 0 ? lai / gia : null };
 }
+
+/**
+ * Giá Shopee tối thiểu để đạt mức lãi mong muốn.
+ * Giá = (Vốn + Phí hạ tầng + L) / (1 − tổng % − m)
+ * @param {object} tuyChon { laiPhanTram?: 0.15, laiDong?: 10000 }
+ * @returns {number|null} null nếu không thể đạt (tổng phí % + lãi % ≥ 100%)
+ */
+export function giaCanDatShopee(von, phi, tuyChon = {}) {
+  const mauSo = 1 - tyLePhiShopee(phi) - so(tuyChon.laiPhanTram);
+  if (mauSo <= 0) return null;
+  return (so(von) + so(phi.phi_ha_tang) + so(tuyChon.laiDong)) / mauSo;
+}

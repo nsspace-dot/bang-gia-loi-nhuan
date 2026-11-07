@@ -8,6 +8,7 @@ import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
 import { taoTabSetGia } from './ui/tab-set-gia.js';
 import { taoTabCampaign } from './ui/tab-campaign.js';
 import { taoTabTaiKhoan } from './ui/tab-tai-khoan.js';
+import { taoTabSoSanh } from './ui/tab-so-sanh.js';
 import { moDangNhap } from './ui/dang-nhap.js';
 import { ganNutTheme, apDungTheme, layTheme } from './ui/theme.js';
 import * as kho from './data/kho.js';
@@ -22,6 +23,7 @@ const TAO_TAB = {
   'set-gia': taoTabSetGia,
   campaign: taoTabCampaign,
   'tai-khoan': taoTabTaiKhoan,
+  'so-sanh': taoTabSoSanh, // chỉ admin: cần dữ liệu cả 2 sàn
 };
 
 // Tab mỗi vai trò được mở. Giao diện chỉ ẩn / chặn mở; dữ liệu đã được Apps Script lọc theo vai trò.
@@ -43,6 +45,7 @@ function moTab(ten) {
   document.querySelectorAll('.tab').forEach((s) => { s.hidden = s.id !== `tab-${ten}`; });
   const el = document.getElementById(`tab-${ten}`);
   if (!daTao.has(ten)) { daTao.add(ten); TAO_TAB[ten](el); }
+  else document.dispatchEvent(new CustomEvent('bggl:mo-tab', { detail: ten })); // tab đã tạo: báo để tự làm mới nếu cần
   try { localStorage.setItem(KHOA_TAB, ten); } catch { /* bỏ qua */ }
   if (location.hash !== `#${ten}`) history.replaceState(null, '', `#${ten}`);
 }
@@ -64,8 +67,8 @@ function apDungPhien(phien) {
   const nd = document.getElementById('nguoi-dung');
   const nut = document.getElementById('nut-dang-xuat');
   nd.hidden = nut.hidden = !phien;
-  if (phien) thayNoiDung(nd, '👤 ', phien.ten, ' ', h('small', null, `(${phien.vaiTro})`));
-  document.querySelector('[data-tab="tai-khoan"]').hidden = phien?.vaiTro !== 'admin';
+  if (phien) { thayNoiDung(nd, '👤 ', phien.ten, ' ', h('small', null, `(${phien.vaiTro})`)); nd.title = `${phien.ten} — vai trò ${phien.vaiTro}`; }
+  for (const t of ['tai-khoan', 'so-sanh']) document.querySelector(`[data-tab="${t}"]`).hidden = phien?.vaiTro !== 'admin';
 }
 
 function khoiDong() {

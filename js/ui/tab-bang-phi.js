@@ -12,6 +12,7 @@ import { docSo, dinhDangTien, dinhDangSo, dinhDangPhanTram } from '../core/so.js
 import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { docBang } from '../excel/doc.js';
 import { khoiDanhMuc } from './danh-muc.js';
+import { veLichSuPhi } from './lich-su-phi.js';
 
 const st = { gian: null, thang: thangHienTai(), nhap: {} }; // nhap[nganh][khoa] = chuỗi người dùng gõ
 let goc;
@@ -100,7 +101,8 @@ function ve() {
       veThongBaoNguon(),
       veBang(),
       coSua() ? veHangLuu() : veChiXem()),
-    coSua() ? veDanhMuc() : null);
+    coSua() ? veDanhMuc() : null,
+    kho.layPhien() ? veLichSuPhi({ nenTang: 'tiktok', gian: st.gian, thang: st.thang }) : null);
 }
 
 async function doiGianThang(gian, thang) {

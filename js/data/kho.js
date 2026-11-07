@@ -310,3 +310,10 @@ export async function doiVaiTro(ten, vaiTroMoi) {
 export async function xoaTaiKhoan(ten) {
   return (await goiGhi({ action: 'xoaTaiKhoan', ten })).daXoa;
 }
+
+// ---------- Lịch sử sửa bảng phí (Apps Script kiểm tra quyền xem theo nền tảng) ----------
+
+/** loc: { gian?, thang?, gioiHan? } → các dòng lịch sử từng ô, MỚI NHẤT TRƯỚC. */
+export async function docLichSuPhi(nenTang, loc = {}) {
+  return (await goiCoToken({ action: 'docLichSuPhi', nenTang, ...loc })).duLieu;
+}
