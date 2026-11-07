@@ -1068,3 +1068,69 @@ test('Lịch sử sửa phí trong app: hiện ai sửa ô nào, cũ → mới; 
   assert.deepEqual(t.loi, []);
   await t.p.close();
 });
+
+test('Tab So sánh 2 sàn (chỉ admin): lãi TikTok vs Shopee đúng theo bảng phí; dùng chung danh sách với Tính lợi nhuận; sắp xếp; xuất Excel', { skip: boQua }, async () => {
+  const { soSanhDong } = await import('../js/core/so-sanh.js');
+  const { thangHienTai } = await import('../js/core/phi.js');
+  const { p, loi } = await moTrang('admin');
+  await p.evaluate(() => localStorage.setItem('bggl.loinhuan.v1', JSON.stringify({ ds: [
+    { ten: 'Tranh A', phan_loai: '30x40', nganh: 'Tranh', gia_von: 20000, gia_ban: 100000 },
+    { ten: 'Tranh B', phan_loai: '60x90', nganh: 'Tranh', gia_von: 60000, gia_ban: 150000 },
+    { ten: 'Chưa giá', phan_loai: '', nganh: 'Tranh', gia_von: 1000, gia_ban: null }] })));
+  await p.reload();
+  await p.waitForSelector('.dong-bo-xong');
+  assert.ok(await p.locator('[data-tab="so-sanh"]').isVisible(), 'admin thấy tab So sánh 2 sàn');
+  await p.click('[data-tab="so-sanh"]');
+  await p.waitForSelector('.bang-so-sanh tbody tr');
+  await p.selectOption('[aria-label="Gian TikTok"]', 'Nhà Sách');
+  await p.selectOption('[aria-label="Gian Shopee"]', 'Tranh Vip');
+  await p.selectOption('[aria-label="Kịch bản"]', 'khongqc');
+  const du = await docGas();
+  const cd = { gianTT: 'Nhà Sách', kichBanTT: 'khongqc', dsPhiTT: du.BANG_PHI, gianSP: 'Tranh Vip', dsPhiSP: du.BANG_PHI_SHOPEE, thang: thangHienTai() };
+  const dong = await p.$$eval('.bang-so-sanh tbody tr', (ts) => ts.map((t) => [...t.children].map((c) => c.textContent)));
+  const vn = (x) => Math.round(x).toLocaleString('vi-VN');
+  [{ gia_von: 20000, gia_ban: 100000 }, { gia_von: 60000, gia_ban: 150000 }].forEach((d, i) => {
+    const r = soSanhDong({ nganh: 'Tranh', ...d }, cd);
+    assert.ok(dong[i][6].startsWith(vn(r.tiktok.lai)), `TikTok dòng ${i + 1}: ${dong[i][6]}`);
+    assert.ok(dong[i][7].startsWith(vn(r.shopee.lai)), `Shopee dòng ${i + 1}: ${dong[i][7]}`);
+    assert.equal(dong[i][8], `${r.chenh > 0 ? '+' : ''}${vn(r.chenh)}`);
+    assert.equal(dong[i][9], { tiktok: 'TikTok', shopee: 'Shopee', ngang: 'Ngang' }[r.nen]);
+  });
+  assert.deepEqual(dong[2].slice(6), ['—', '—', '—', '—'], 'thiếu giá bán: không so');
+  assert.match(await p.textContent('#tab-so-sanh .luoi-tong-ket'), /2 \/ 3/);
+  // sắp xếp theo chênh lệch: giảm dần, dòng chưa so được cuối
+  await p.click('.bang-so-sanh .nut-sap-xep');
+  const ten = await p.$$eval('.bang-so-sanh tbody tr td:nth-child(2)', (ds) => ds.map((d) => d.textContent));
+  assert.equal(ten.at(-1), 'Chưa giá');
+  // nhớ lựa chọn
+  await p.reload();
+  await p.waitForSelector('.dong-bo-xong');
+  await p.click('[data-tab="so-sanh"]');
+  assert.equal(await p.inputValue('[aria-label="Gian Shopee"]'), 'Tranh Vip');
+  assert.equal(await p.inputValue('[aria-label="Kịch bản"]'), 'khongqc');
+  // sửa danh sách ở Tính lợi nhuận → quay lại So sánh thấy ngay
+  await p.click('[data-tab="loi-nhuan"]');
+  await p.click('text=➕ Thêm dòng');
+  await p.click('[data-tab="so-sanh"]');
+  await p.waitForFunction(() => document.querySelectorAll('.bang-so-sanh tbody tr').length === 4);
+  // xuất Excel
+  const [tai] = await Promise.all([p.waitForEvent('download'), p.click('#tab-so-sanh button:has-text("Xuất Excel")')]);
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const wb = ctx.XLSX.read(fs.readFileSync(await tai.path()), { type: 'buffer' });
+  const hang = JSON.parse(JSON.stringify(ctx.XLSX.utils.sheet_to_json(wb.Sheets['So sánh 2 sàn'], { header: 1 })));
+  assert.deepEqual(hang[0].slice(-2), ['Chênh lệch (Shopee − TikTok)', 'Nên bán']);
+  assert.equal(hang.length, 5);
+  assert.deepEqual(loi, []);
+  await p.close();
+  // shopee / tiktok không thấy, không mở được tab này
+  for (const vt of ['shopee', 'tiktok']) {
+    const q = await moTrang(vt);
+    assert.ok(await q.p.locator('[data-tab="so-sanh"]').isHidden(), vt);
+    await q.p.goto(`${URL_APP}/?lan=ss#so-sanh`);
+    await q.p.waitForSelector('.dong-bo-xong');
+    assert.ok(await q.p.locator('#tab-so-sanh').isHidden(), `${vt} không mở được #so-sanh`);
+    await q.p.close();
+  }
+});

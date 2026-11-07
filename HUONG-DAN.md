@@ -183,6 +183,13 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - **💾 Lưu lên Sheets**: đặt tên bảng tính để mở lại trên máy khác (**📂 Mở bảng tính**). Bản nháp vẫn tự giữ trên máy đang dùng.
 - **📤 Xuất Excel**: 5 cột đầu đúng mẫu nhập (nhập lại được) + lãi từng gian.
 
+### ⚖️ So sánh 2 sàn (chỉ admin)
+- Dùng **chung danh sách sản phẩm** với tab Tính lợi nhuận (sửa ở đó, quay lại đây thấy ngay).
+- Chọn **1 gian TikTok** (và kịch bản Có QC / Không QC) và **1 gian Shopee** → mỗi sản phẩm hiện lãi ở 2 sàn với **cùng giá vốn, cùng giá bán**, chênh lệch (Shopee − TikTok: dương = Shopee lời hơn) và **Nên bán** ở sàn nào (chênh dưới 1.000 đ = Ngang).
+- Ô tổng kết: số sản phẩm lời hơn ở mỗi sàn, lãi trung bình, chênh lệch trung bình. Bấm tiêu đề cột Chênh lệch để sắp xếp; có thể ẩn dòng "ngang"; **📤 Xuất Excel**.
+- Dòng thiếu giá bán hoặc gian chưa có phí ở 1 trong 2 sàn: không so (để trống).
+- Chỉ admin thấy tab này vì cần dữ liệu cả 2 sàn.
+
 ### 🏷️ Set giá
 1. Chọn nhóm giá vốn đã lưu (hoặc thả file giá vốn).
 2. Chọn gian, mức lãi mong muốn (% trên giá hoặc đ/đơn), kịch bản (Có QC / Không QC / Cả 2), cách làm tròn.

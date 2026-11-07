@@ -309,7 +309,7 @@ function veTrong() {
 function veTongKet(gians, dsPhi) {
   const t = nt().tongKet(st.ds, gians, dsPhi, thangNay());
   const duoi = mtNay().bat ? demDuoiGiaCanDat(st.ds, gians, (d, g) => giaCanDatDong(d, g, dsPhi)) : null;
-  const chanGCD = (g) => (duoi ? h('div', { class: 'o-tong-chan' }, duoi[g] ? h('span', { class: 'chu-lo' }, `🎯 ${duoi[g]} dòng dưới giá cần đạt`) : h('span', null, '🎯 Mọi dòng đạt giá cần đạt')) : null);
+  const chanGCD = (g) => (duoi ? h('div', { class: 'o-tong-chan' }, duoi[g] ? h('span', { class: 'chu-lo' }, `🎯 ${duoi[g]} dòng dưới giá cần đạt`) : h('span', null, '🎯 Đều đạt giá cần đạt')) : null);
   const tatGian = tatCaGian();
   return h('div', { class: 'luoi-tong-ket' },
     h('div', { class: 'o-tong' },
