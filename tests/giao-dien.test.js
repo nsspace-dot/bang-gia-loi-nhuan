@@ -948,3 +948,77 @@ test('Phông chữ cả 8 theme: chữ tiếng Việt chỉ dùng 1 họ phông 
   assert.deepEqual(loi, []);
   await p.close();
 });
+
+test('Giá cần đạt: mỗi sàn có ô nhập riêng; cột giá cần đạt đúng theo bảng phí sàn đó; nhớ riêng từng sàn; xuất Excel', { skip: boQua }, async () => {
+  const { giaCanDatTikTok, giaCanDatShopeeTaiGian, MUC_TIEU_MAC_DINH } = await import('../js/core/gia-can-dat.js');
+  const { thangHienTai } = await import('../js/core/phi.js');
+  const { p, loi } = await moTrang('admin');
+  await p.evaluate(() => {
+    localStorage.setItem('bggl.loinhuan.v1', JSON.stringify({ ds: [
+      { ten: 'Tranh rẻ', phan_loai: '30x40', nganh: 'Tranh', gia_von: 20000, gia_ban: 30000 },
+      { ten: 'Tranh đắt', phan_loai: '60x90', nganh: 'Tranh', gia_von: 20000, gia_ban: 200000 },
+      { ten: 'Chưa giá', phan_loai: '', nganh: 'Tranh', gia_von: 20000, gia_ban: null }] }));
+    localStorage.removeItem('bggl.loinhuan.giacandat.v1');
+  });
+  await p.reload();
+  await p.waitForSelector('.bang-ln tbody tr');
+  await p.click('[data-nen-tang="tiktok"]');
+  assert.equal(await p.locator('.th-gia-can-dat').count(), 0, 'mặc định tắt');
+  // TikTok: bật, 15% giá bán, cả 2 kịch bản, lên 1.000 (mặc định)
+  await p.check('[aria-label="Hiện giá cần đạt (TikTok)"]');
+  const giansTT = await p.$$eval('.bang-ln .th-gian', (ds) => ds.map((d) => d.textContent));
+  assert.equal(await p.locator('.th-gia-can-dat').count(), giansTT.length, 'mỗi gian 1 cột giá cần đạt');
+  const du = await docGas();
+  const mt = { ...MUC_TIEU_MAC_DINH, bat: true };
+  const o = await p.$$eval('.bang-ln tbody tr', (ts) => ts.map((t) => [...t.querySelectorAll('.o-gcd')].map((c) => c.textContent)));
+  giansTT.forEach((g, j) => {
+    const r = giaCanDatTikTok({ nganh: 'Tranh', gia_von: 20000, gia_ban: 30000 }, g, du.BANG_PHI, thangHienTai(), mt);
+    if (r.trangThai !== 'ok') return;
+    assert.match(o[0][j], new RegExp(`^${r.gia.toLocaleString('vi-VN').replace(/\./g, '\\.')}thiếu`), `${g}: ${o[0][j]}`);
+    assert.match(o[1][j], /✓ đạt$/);
+    assert.doesNotMatch(o[2][j], /thiếu|đạt/, 'chưa có giá bán: chỉ hiện giá cần đạt');
+  });
+  assert.match(await p.textContent('.luoi-tong-ket'), /🎯 1 dòng dưới giá cần đạt/);
+  // Shopee: ô nhập riêng, còn tắt; bật với 10.000 đ / đơn
+  await p.click('[data-nen-tang="shopee"]');
+  assert.equal(await p.isChecked('[aria-label="Hiện giá cần đạt (Shopee)"]'), false, 'Shopee có thiết lập riêng');
+  assert.equal(await p.locator('[aria-label="Kịch bản QC (Shopee)"]').count(), 0, 'Shopee không có kịch bản QC');
+  await p.check('[aria-label="Hiện giá cần đạt (Shopee)"]');
+  await p.selectOption('[aria-label="Đơn vị lãi (Shopee)"]', 'dong');
+  assert.equal(await p.inputValue('[aria-label="Lãi mong muốn (Shopee)"]'), '10.000');
+  await p.fill('[aria-label="Lãi mong muốn (Shopee)"]', '12.000');
+  await p.press('[aria-label="Lãi mong muốn (Shopee)"]', 'Enter');
+  await p.waitForFunction(() => document.querySelector('.th-gia-can-dat')?.title.includes('12.000'));
+  const giansSP = await p.$$eval('.bang-ln .th-gian', (ds) => ds.map((d) => d.textContent));
+  const os = await p.$$eval('.bang-ln tbody tr:nth-child(2) .o-gcd', (cs) => cs.map((c) => c.textContent));
+  const mtSP = { ...MUC_TIEU_MAC_DINH, bat: true, donVi: 'dong', giaTri: 12000 };
+  giansSP.forEach((g, j) => {
+    const r = giaCanDatShopeeTaiGian({ nganh: 'Tranh', gia_von: 20000, gia_ban: 200000 }, g, du.BANG_PHI_SHOPEE, thangHienTai(), mtSP);
+    if (r.trangThai === 'thieu-phi') assert.equal(os[j], 'chưa có phí', g);
+    else assert.ok(os[j].startsWith(r.gia.toLocaleString('vi-VN')), `${g}: ${os[j]} ≠ ${r.gia}`);
+  });
+  // quay lại TikTok: thiết lập TikTok còn nguyên (15%)
+  await p.click('[data-nen-tang="tiktok"]');
+  assert.equal(await p.inputValue('[aria-label="Lãi mong muốn (TikTok)"]'), '15');
+  assert.equal(await p.inputValue('[aria-label="Đơn vị lãi (TikTok)"]'), 'pt');
+  // tải lại trang → nhớ riêng từng sàn
+  await p.reload();
+  await p.waitForSelector('.bang-ln tbody tr');
+  const luu = await p.evaluate(() => JSON.parse(localStorage.getItem('bggl.loinhuan.giacandat.v1')));
+  assert.deepEqual([luu.tiktok.bat, luu.tiktok.giaTri, luu.shopee.bat, luu.shopee.donVi, luu.shopee.giaTri], [true, 15, true, 'dong', 12000]);
+  assert.ok(await p.isChecked('[aria-label="Hiện giá cần đạt (TikTok)"]'));
+  // xuất Excel có cột giá cần đạt, 5 cột đầu giữ nguyên
+  const [tai] = await Promise.all([p.waitForEvent('download'), p.click('text=📤 Xuất Excel')]);
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(GOC, 'vendor/xlsx.full.min.js'), 'utf8'), ctx);
+  const wb = ctx.XLSX.read(fs.readFileSync(await tai.path()), { type: 'buffer' });
+  const dau = JSON.parse(JSON.stringify(ctx.XLSX.utils.sheet_to_json(wb.Sheets['Lợi nhuận'], { header: 1 })[0]));
+  assert.deepEqual(dau.slice(0, 5), ['Tên sản phẩm', 'Phân loại', 'Ngành hàng', 'Giá vốn', 'Giá bán']);
+  assert.deepEqual(dau.slice(-giansTT.length), giansTT.map((g) => `${g} - Giá cần đạt`));
+  // tắt → mất cột
+  await p.uncheck('[aria-label="Hiện giá cần đạt (TikTok)"]');
+  assert.equal(await p.locator('.th-gia-can-dat').count(), 0);
+  assert.deepEqual(loi, []);
+  await p.close();
+});

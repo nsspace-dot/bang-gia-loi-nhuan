@@ -640,3 +640,11 @@ main { overflow-anchor: none; }
   .bang-phi, .bang-phi-shopee { min-width: 720px; }
   .bang-phi col.cot-ten-phi, .bang-phi-shopee col.cot-ten-phi { width: 160px; }
 }
+/* Tính lợi nhuận: giá cần đạt */
+.hang-gia-can-dat { border-top: 1px var(--kieu-ke) var(--vien); padding-top: 10px; }
+.nhan-gia-can-dat { font-weight: 700; }
+.hang-gia-can-dat .o-nhap-so { width: 90px; }
+.th-gia-can-dat { font-size: 12px; white-space: nowrap; }
+.o-gcd { min-width: 84px; line-height: 1.25; }
+.o-gcd .gia-gcd { font-weight: 700; }
+.o-gcd-thieu { background: var(--lo-nen-nhat); }

@@ -178,6 +178,7 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
   - **Shopee**: các gian Shopee, mỗi gian 1 cột lãi, theo bảng phí Shopee: Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng 8 khoản %. Gian × ngành chưa lưu bộ phí Shopee thì hiện **chưa có phí** (không tính lãi), giống TikTok — vào Bảng phí → Shopee để lưu.
 - Thả file Excel sản phẩm (cột: Tên sản phẩm | Phân loại | Ngành hàng | Giá vốn | Giá bán) hoặc **➕ Thêm dòng**. Bấm **📄 File mẫu** để lấy mẫu.
 - Lãi tính theo **bộ phí đang áp dụng hiện tại**, cho từng gian (bấm tên gian để ẩn / hiện).
+- **🎯 Giá cần đạt** (mỗi sàn thiết lập riêng, nhớ trên máy): tích ô → nhập **lãi mong muốn** (% giá bán hoặc đ / đơn), chọn cách làm tròn (lên 1.000 / đuôi 9.000 / không); TikTok chọn thêm kịch bản QC (Có QC / Không QC / **Cả 2** = lấy kịch bản phí cao hơn, an toàn). Mỗi gian có thêm cột **giá bán tối thiểu** để đạt mức lãi đó: giá đang thấp hơn thì báo **thiếu bao nhiêu**, đủ thì hiện ✓. Ô tổng kết đếm số dòng dưới giá cần đạt; Xuất Excel có thêm cột này. Dòng chưa có giá bán vẫn tính được giá cần đạt (chỉ cần giá vốn).
 - **Chỉ dòng lỗ**: lọc nhanh. Bấm tiêu đề cột lãi (**Có QC / Không QC**, hoặc **Lãi** với Shopee) của một gian để sắp xếp theo lãi.
 - **💾 Lưu lên Sheets**: đặt tên bảng tính để mở lại trên máy khác (**📂 Mở bảng tính**). Bản nháp vẫn tự giữ trên máy đang dùng.
 - **📤 Xuất Excel**: 5 cột đầu đúng mẫu nhập (nhập lại được) + lãi từng gian.
