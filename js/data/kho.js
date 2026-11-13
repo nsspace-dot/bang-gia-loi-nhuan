@@ -277,6 +277,51 @@ export async function xoaBangTinh(id) {
 
 // ---------- Campaign ----------
 
+// ---------- Bảng tính CỦA MÌNH (mọi tài khoản, tách theo sàn 'tiktok' | 'shopee') ----------
+// Apps Script chỉ trả / cho sửa bảng của chính tài khoản đang đăng nhập.
+
+const chuanDong = (ds) => ds
+  .sort((a, b) => (a.stt ?? 0) - (b.stt ?? 0))
+  .map((d) => ({ ten: d.ten ?? '', phan_loai: d.phan_loai ?? '', nganh: d.nganh ?? '', gia_von: d.gia_von ?? null, gia_ban: d.gia_ban ?? null }));
+
+export async function dsBangTinhCuaToi(san) {
+  return (await goiCoToken({ action: 'dsBangTinhCuaToi', san })).duLieu;
+}
+
+export async function docBangTinhCuaToi(san, id) {
+  return chuanDong((await goiCoToken({ action: 'docBangTinhCuaToi', san, id })).duLieu);
+}
+
+/** Chỉ trả về khi Apps Script xác nhận đã lưu. */
+export async function luuBangTinhCuaToi(san, bangTinh, dong) {
+  const r = await goiCoToken({
+    action: 'luuBangTinhCuaToi', san,
+    bangTinh: { ...bangTinh, so_dong: dong.length },
+    dong: dong.map((d, i) => ({ stt: i + 1, ten: d.ten, phan_loai: d.phan_loai, nganh: d.nganh, gia_von: d.gia_von, gia_ban: d.gia_ban })),
+  });
+  return r.banGhi;
+}
+
+export async function doiTenBangTinhCuaToi(san, id, ten) {
+  return (await goiCoToken({ action: 'doiTenBangTinhCuaToi', san, id, ten })).banGhi;
+}
+
+export async function xoaBangTinhCuaToi(san, id) {
+  return (await goiCoToken({ action: 'xoaBangTinhCuaToi', san, id })).daXoa;
+}
+
+/** Bảng cũ (trước khi có bảng riêng) chưa có chủ — mọi tài khoản đều thấy để "Nhận". */
+export async function dsBangTinhCu() {
+  return (await goiCoToken({ action: 'dsBangTinhCu' })).duLieu;
+}
+
+export async function nhanBangTinhCu(id, san) {
+  const r = await goiCoToken({ action: 'nhanBangTinhCu', id, san });
+  trangThai.duLieu.BANG_TINH = trangThai.duLieu.BANG_TINH.filter((b) => b.id !== id);
+  luuCache();
+  return r.banGhi;
+}
+
 /** Lưu campaign + kết quả (thay toàn bộ kết quả cũ của campaign này). */
 export async function luuCampaign(campaign, ketQua) {
   const r = await goiGhi({ action: 'luuCampaign', campaign, ketQua });

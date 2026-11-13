@@ -4,7 +4,7 @@
 import { docSo } from './so.js';
 import { boDau } from './van-ban.js';
 import { tinhLai } from './cong-thuc.js';
-import { chonBoPhi } from './phi.js';
+import { chonBoPhiCanhBao } from './phi.js';
 
 export const TIEU_DE_MAU = ['Tên sản phẩm', 'Phân loại', 'Ngành hàng', 'Giá vốn', 'Giá bán'];
 
@@ -77,9 +77,9 @@ export function docBangSanPham(mang, { dsNganh = [], nganhMacDinh = '' } = {}) {
  */
 export function laiTaiGian(dong, gian, dsPhi, thang) {
   if (!Number.isFinite(dong.gia_ban) || dong.gia_ban <= 0) return { trangThai: 'thieu-gia' };
-  const phi = chonBoPhi(dsPhi, gian, dong.nganh, thang);
-  if (!phi) return { trangThai: 'thieu-phi' };
-  return { trangThai: 'ok', phi, ...tinhLai(dong.gia_von ?? 0, dong.gia_ban, phi) };
+  const { phi, canhBao } = chonBoPhiCanhBao(dsPhi, gian, dong.nganh, thang);
+  if (!phi) return { trangThai: 'thieu-phi', canhBaoPhi: canhBao };
+  return { trangThai: 'ok', phi, canhBaoPhi: canhBao, ...tinhLai(dong.gia_von ?? 0, dong.gia_ban, phi) };
 }
 
 /** Dòng lỗ = có ít nhất 1 gian (trong các gian đang xem) có lãi QC hoặc không QC < 0. */
@@ -128,15 +128,16 @@ export function tongKet(ds, gians, dsPhi, thang) {
     theoGian: {},
   };
   for (const g of gians) {
-    let n = 0, qc = 0, kqc = 0, lo = 0, thieuPhi = 0;
+    let n = 0, qc = 0, kqc = 0, lo = 0, thieuPhi = 0, phiTam = 0;
     for (const d of ds) {
       const r = laiTaiGian(d, g, dsPhi, thang);
       if (r.trangThai === 'thieu-phi') thieuPhi++;
+      if (r.trangThai === 'ok' && r.canhBaoPhi) phiTam++;
       if (r.trangThai !== 'ok') continue;
       n++; qc += r.laiQC; kqc += r.laiKhongQC;
       if (r.laiQC < 0 || r.laiKhongQC < 0) lo++;
     }
-    kq.theoGian[g] = { soDongTinh: n, tbQC: n ? qc / n : null, tbKhongQC: n ? kqc / n : null, soDongLo: lo, thieuPhi };
+    kq.theoGian[g] = { soDongTinh: n, tbQC: n ? qc / n : null, tbKhongQC: n ? kqc / n : null, soDongLo: lo, thieuPhi, phiTam };
   }
   return kq;
 }

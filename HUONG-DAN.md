@@ -37,7 +37,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 | `shopee` | Bảng phí Shopee, Tính lợi nhuận chế độ Shopee | **Bảng phí Shopee**: sửa ô, Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian Shopee. Không xem / sửa được gì của TikTok |
 | `tiktok` | Bảng phí TikTok, Tính lợi nhuận chế độ TikTok | **Bảng phí TikTok**: sửa ô, Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian và ngành TikTok. Không xem / sửa được gì của Shopee |
 
-Bảng tính đã lưu ở Tính lợi nhuận (có giá vốn) và tab Tài khoản: chỉ admin sửa / vào được; shopee / tiktok chỉ mở xem bảng tính. Mọi lần sửa đều ghi tên người sửa vào lịch sử.
+**Bảng tính ở Tính lợi nhuận**: mỗi tài khoản (cả shopee / tiktok) có bảng **riêng của mình**, tự lưu, chỉ mình thấy — kể cả admin cũng không xem được bảng của người khác. Tab Tài khoản: chỉ admin. Mọi lần sửa đều ghi tên người sửa vào lịch sử.
 
 > ⚠️ Vẫn nên **giữ kín URL Apps Script**: không có tài khoản thì không đọc được dữ liệu, nhưng URL lộ thì người lạ có thể thử đoán mật khẩu (mỗi tài khoản bị khóa 10 phút sau 5 lần sai).
 
@@ -173,18 +173,25 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - Sửa nhanh 1 dòng: bấm ✏️ → gõ giá → Enter.
 
 ### 🧮 Tính lợi nhuận
-- Đầu trang chọn nền tảng **Shopee | TikTok** (app nhớ lựa chọn lần trước). Danh sách sản phẩm dùng chung, chỉ đổi cách tính:
+- Đầu trang chọn nền tảng **Shopee | TikTok** (app nhớ lựa chọn lần trước). **Mỗi sàn có bảng tính riêng** (của tài khoản đang đăng nhập):
   - **TikTok**: các gian TikTok, mỗi gian 2 cột lãi Có QC / Không QC, theo bảng phí TikTok.
   - **Shopee**: các gian Shopee, mỗi gian 1 cột lãi, theo bảng phí Shopee: Lãi = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × tổng 8 khoản %. Gian × ngành chưa lưu bộ phí Shopee thì hiện **chưa có phí** (không tính lãi), giống TikTok — vào Bảng phí → Shopee để lưu.
 - Thả file Excel sản phẩm (cột: Tên sản phẩm | Phân loại | Ngành hàng | Giá vốn | Giá bán) hoặc **➕ Thêm dòng**. Bấm **📄 File mẫu** để lấy mẫu.
 - Lãi tính theo **bộ phí đang áp dụng hiện tại**, cho từng gian (bấm tên gian để ẩn / hiện).
 - **🎯 Giá cần đạt** (mỗi sàn thiết lập riêng, nhớ trên máy): tích ô → nhập **lãi mong muốn** (% giá bán hoặc đ / đơn), chọn cách làm tròn (lên 1.000 / đuôi 9.000 / không); TikTok chọn thêm kịch bản QC (Có QC / Không QC / **Cả 2** = lấy kịch bản phí cao hơn, an toàn). Mỗi gian có thêm cột **giá bán tối thiểu** để đạt mức lãi đó: giá đang thấp hơn thì báo **thiếu bao nhiêu**, đủ thì hiện ✓. Ô tổng kết đếm số dòng dưới giá cần đạt; Xuất Excel có thêm cột này. Dòng chưa có giá bán vẫn tính được giá cần đạt (chỉ cần giá vốn).
 - **Chỉ dòng lỗ**: lọc nhanh. Bấm tiêu đề cột lãi (**Có QC / Không QC**, hoặc **Lãi** với Shopee) của một gian để sắp xếp theo lãi.
-- **💾 Lưu lên Sheets**: đặt tên bảng tính để mở lại trên máy khác (**📂 Mở bảng tính**). Bản nháp vẫn tự giữ trên máy đang dùng.
+- **Bảng tính của bạn** (mọi tài khoản, chỉ mình thấy):
+  - Đăng nhập / đổi sàn → **tự mở bảng bạn dùng gần nhất** của sàn đó (máy mới thì mở bảng sửa gần nhất). Chưa có bảng nào thì tự tạo **"Bảng của <tên> – <Sàn>"** trống.
+  - Đầu tab: **👤 tên · Sàn · 📄 Tên bảng** + ô **chọn nhanh** các bảng của bạn (có **➕ Bảng mới…**, **📂 Quản lý bảng tính…**).
+  - **Tự lưu** lên Sheets 3 giây sau lần sửa cuối: *Đang lưu…* → *✓ Đã lưu lúc hh:mm*. Thấy **⚠ Chưa lưu được – bấm để thử lại** thì bấm vào đó (rê chuột xem lý do). Đổi bảng / đổi sàn khi đang sửa: app lưu ngay trước khi đổi.
+  - **💾 Lưu lên Sheets**: lưu ngay không chờ (mờ **✓ Đã lưu** khi không có thay đổi). **Lưu thành bản mới**: tách 1 bản sao.
+  - **📂 Mở bảng tính**: bảng của bạn ở sàn đang chọn (tên, số dòng, ngày tạo, sửa cuối) — Mở / ✏️ đổi tên / 🗑 xóa (có hỏi lại).
+  - **📦 Bảng cũ chưa có chủ** (lưu trước khi có bảng riêng): ai cũng thấy → **Nhận vào TikTok / Shopee** (sàn mình được dùng) → thành bảng của bạn, biến khỏi danh sách người khác. Dữ liệu cũ không bị xóa.
+- **⚠ phí tạm**: gian đã có bộ phí tháng mới hơn cho ngành khác nhưng ngành của dòng này chỉ có phí tháng cũ (vd Trà) → ô lãi có **⚠ phí tạm MM/YYYY**, dưới bảng ghi *"Gian X chưa có phí ngành Y tháng Z – đang dùng tạm phí tháng …"*, ô tổng kết đếm số dòng dùng phí tạm. Vào Bảng phí lưu phí ngành đó cho tháng mới để hết cảnh báo.
 - **📤 Xuất Excel**: 5 cột đầu đúng mẫu nhập (nhập lại được) + lãi từng gian.
 
 ### ⚖️ So sánh 2 sàn (chỉ admin)
-- Dùng **chung danh sách sản phẩm** với tab Tính lợi nhuận (sửa ở đó, quay lại đây thấy ngay).
+- Dùng **danh sách sản phẩm của bảng đang mở** ở tab Tính lợi nhuận (sàn đang chọn ở tab đó; sửa ở đó, quay lại đây thấy ngay).
 - Chọn **1 gian TikTok** (và kịch bản Có QC / Không QC) và **1 gian Shopee** → mỗi sản phẩm hiện lãi ở 2 sàn với **cùng giá vốn, cùng giá bán**, chênh lệch (Shopee − TikTok: dương = Shopee lời hơn) và **Nên bán** ở sàn nào (chênh dưới 1.000 đ = Ngang).
 - Ô tổng kết: số sản phẩm lời hơn ở mỗi sàn, lãi trung bình, chênh lệch trung bình. Bấm tiêu đề cột Chênh lệch để sắp xếp; có thể ẩn dòng "ngang"; **📤 Xuất Excel**.
 - Dòng thiếu giá bán hoặc gian chưa có phí ở 1 trong 2 sàn: không so (để trống).
@@ -232,6 +239,8 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 7. Kiểm tra: mở app → ⚙️ Cài đặt → **Kiểm tra kết nối** → xem số phiên bản.
 
 > ❌ Nếu lỡ bấm "Tùy chọn triển khai mới" thì sẽ ra **URL mới**; các máy phải nhập lại URL. Bản cũ vẫn chạy code cũ.
+
+> Bản **2.3.0** (bảng tính riêng từng người theo sàn): **không cần chạy hàm nào**. Sheet mới `BANG_TINH_TIKTOK`, `BANG_TINH_SHOPEE`, `BANG_TINH_DONG_TIKTOK`, `BANG_TINH_DONG_SHOPEE` và 3 cột mới cuối sheet `BANG_TINH` (`da_nhan_boi`, `nhan_vao_san`, `nhan_luc`) tự tạo khi dùng lần đầu. Muốn tạo sẵn thì chạy `taoCacSheet`. Không cột cũ nào bị đổi / xóa.
 
 ### Nâng cấp lên Code.gs 2.x (có đăng nhập) từ bản cũ dùng mật khẩu chung
 1. Dán Code.gs mới và triển khai **phiên bản mới** như các bước 1–6 ở trên.

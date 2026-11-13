@@ -4,7 +4,7 @@
 
 import { boDau } from './van-ban.js';
 import { tinhLaiShopee } from './cong-thuc.js';
-import { chonBoPhi } from './phi.js';
+import { chonBoPhiCanhBao } from './phi.js';
 import { TIEU_DE_MAU } from './bang-tinh.js';
 
 /**
@@ -14,9 +14,9 @@ import { TIEU_DE_MAU } from './bang-tinh.js';
  */
 export function laiTaiGianShopee(dong, gian, dsPhi, thang) {
   if (!Number.isFinite(dong.gia_ban) || dong.gia_ban <= 0) return { trangThai: 'thieu-gia' };
-  const phi = chonBoPhi(dsPhi, gian, dong.nganh, thang);
-  if (!phi) return { trangThai: 'thieu-phi' };
-  return { trangThai: 'ok', phi, ...tinhLaiShopee(dong.gia_von ?? 0, dong.gia_ban, phi) };
+  const { phi, canhBao } = chonBoPhiCanhBao(dsPhi, gian, dong.nganh, thang);
+  if (!phi) return { trangThai: 'thieu-phi', canhBaoPhi: canhBao };
+  return { trangThai: 'ok', phi, canhBaoPhi: canhBao, ...tinhLaiShopee(dong.gia_von ?? 0, dong.gia_ban, phi) };
 }
 
 /** Dòng lỗ = có ít nhất 1 gian (trong các gian đang xem) có lãi < 0. */
@@ -64,15 +64,16 @@ export function tongKetShopee(ds, gians, dsPhi, thang) {
     theoGian: {},
   };
   for (const g of gians) {
-    let n = 0, tong = 0, lo = 0, thieuPhi = 0;
+    let n = 0, tong = 0, lo = 0, thieuPhi = 0, phiTam = 0;
     for (const d of ds) {
       const r = laiTaiGianShopee(d, g, dsPhi, thang);
       if (r.trangThai === 'thieu-phi') thieuPhi++;
+      if (r.trangThai === 'ok' && r.canhBaoPhi) phiTam++;
       if (r.trangThai !== 'ok') continue;
       n++; tong += r.lai;
       if (r.lai < 0) lo++;
     }
-    kq.theoGian[g] = { soDongTinh: n, tb: n ? tong / n : null, soDongLo: lo, thieuPhi };
+    kq.theoGian[g] = { soDongTinh: n, tb: n ? tong / n : null, soDongLo: lo, thieuPhi, phiTam };
   }
   return kq;
 }

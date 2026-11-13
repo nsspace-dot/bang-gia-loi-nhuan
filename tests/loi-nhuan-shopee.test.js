@@ -27,9 +27,10 @@ test('lãi = giá bán − vốn − phí hạ tầng − giá × tổng %, theo
 });
 
 test('chưa lưu bộ phí (gian / ngành / tháng) → "chưa có phí", KHÔNG tính bằng phí mặc định', () => {
-  assert.deepEqual(laiTaiGianShopee(DS[0], 'G2', PHI, '2026-10'), { trangThai: 'thieu-phi' }); // gian chưa có
-  assert.deepEqual(laiTaiGianShopee(DS[0], 'G1', PHI, '2026-08'), { trangThai: 'thieu-phi' }); // trước tháng có phí
-  assert.deepEqual(laiTaiGianShopee(DS[3], 'G1', PHI, '2026-10'), { trangThai: 'thieu-phi' }); // ngành Lịch chưa có
+  assert.equal(laiTaiGianShopee(DS[0], 'G2', PHI, '2026-10').trangThai, 'thieu-phi'); // gian chưa có
+  assert.equal(laiTaiGianShopee(DS[0], 'G2', PHI, '2026-10').canhBaoPhi, 'Gian G2 chưa có phí ngành Tranh tháng 10/2026 – chưa tính được lãi');
+  assert.equal(laiTaiGianShopee(DS[0], 'G1', PHI, '2026-08').trangThai, 'thieu-phi'); // trước tháng có phí
+  assert.equal(laiTaiGianShopee(DS[3], 'G1', PHI, '2026-10').trangThai, 'thieu-phi'); // ngành Lịch chưa có
   assert.equal(laDongLoShopee(DS[3], ['G1', 'G2'], PHI, '2026-10'), false);
 });
 
@@ -64,7 +65,7 @@ test('tổng kết theo gian: lãi TB (chỉ dòng có phí), số dòng lỗ, s
   assert.equal(g1.thieuPhi, 1); // dòng Lịch
   const lai = [0, 1].map((i) => laiTaiGianShopee(DS[i], 'G1', PHI, '2026-10').lai);
   gan(g1.tb, lai.reduce((a, b) => a + b) / 2);
-  assert.deepEqual(t.theoGian.G2, { soDongTinh: 0, tb: null, soDongLo: 0, thieuPhi: 3 }); // dòng chưa giá không tính
+  assert.deepEqual(t.theoGian.G2, { soDongTinh: 0, tb: null, soDongLo: 0, thieuPhi: 3, phiTam: 0 }); // dòng chưa giá không tính
 });
 
 test('xuất Excel: 5 cột như file mẫu + Lãi, % lãi từng gian', () => {

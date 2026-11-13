@@ -9,11 +9,14 @@
  *   SỬA bảng phí + danh mục gian của đúng nền tảng đó (QUYEN_GHI). Không đụng được nền tảng kia.
  *   Quyền được kiểm tra ở đây cho MỌI lệnh đọc và ghi, không dựa vào giao diện.
  * - Tạo admin đầu tiên: đặt Script properties SETUP_ADMIN_TEN + SETUP_ADMIN_MAT_KHAU rồi chạy tay hàm taoAdminDauTien().
+ * - Bảng tính CỦA TỪNG NGƯỜI (2.3.0): BANG_TINH_TIKTOK / BANG_TINH_SHOPEE (+ dòng ở BANG_TINH_DONG_*). Mọi tài khoản
+ *   đăng nhập được tự lưu / đổi tên / xóa bảng của chính mình (sàn mình được dùng), không thấy bảng của người khác.
+ *   Bảng cũ ở BANG_TINH (chưa có chủ) giữ nguyên; "Nhận" = sao chép sang sheet của sàn + đánh dấu da_nhan_boi.
  * - Mọi thay đổi ghi vào sheet LICH_SU (kèm người sửa); riêng bảng phí ghi thêm từng ô vào LICH_SU_BANG_PHI
  *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '2.2.0';
+var PHIEN_BAN = '2.3.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -49,10 +52,30 @@ var CAU_TRUC = {
     con: 'campaign_id',
   },
   BANG_TINH: {
-    cot: ['id', 'ten', 'gian_hien_thi', 'thang_phi', 'so_dong', 'cap_nhat_luc'],
+    // 3 cột cuối thêm ở 2.3.0: bảng cũ đã được ai nhận, vào sàn nào, lúc nào
+    cot: ['id', 'ten', 'gian_hien_thi', 'thang_phi', 'so_dong', 'cap_nhat_luc', 'da_nhan_boi', 'nhan_vao_san', 'nhan_luc'],
     khoa: ['id'], so: ['so_dong'],
   },
   BANG_TINH_DONG: {
+    cot: ['bang_tinh_id', 'stt', 'ten', 'phan_loai', 'nganh', 'gia_von', 'gia_ban'],
+    khoa: ['bang_tinh_id', 'stt'], so: ['stt', 'gia_von', 'gia_ban'],
+    con: 'bang_tinh_id',
+  },
+  // Bảng tính của từng người, tách theo sàn
+  BANG_TINH_TIKTOK: {
+    cot: ['id', 'ten', 'nguoi_tao', 'san', 'gian_hien_thi', 'thang_phi', 'so_dong', 'nguon_cu', 'tao_luc', 'cap_nhat_luc'],
+    khoa: ['id'], so: ['so_dong'],
+  },
+  BANG_TINH_DONG_TIKTOK: {
+    cot: ['bang_tinh_id', 'stt', 'ten', 'phan_loai', 'nganh', 'gia_von', 'gia_ban'],
+    khoa: ['bang_tinh_id', 'stt'], so: ['stt', 'gia_von', 'gia_ban'],
+    con: 'bang_tinh_id',
+  },
+  BANG_TINH_SHOPEE: {
+    cot: ['id', 'ten', 'nguoi_tao', 'san', 'gian_hien_thi', 'thang_phi', 'so_dong', 'nguon_cu', 'tao_luc', 'cap_nhat_luc'],
+    khoa: ['id'], so: ['so_dong'],
+  },
+  BANG_TINH_DONG_SHOPEE: {
     cot: ['bang_tinh_id', 'stt', 'ten', 'phan_loai', 'nganh', 'gia_von', 'gia_ban'],
     khoa: ['bang_tinh_id', 'stt'], so: ['stt', 'gia_von', 'gia_ban'],
     con: 'bang_tinh_id',
@@ -101,6 +124,12 @@ var QUYEN_GHI = {
   tiktok: { sheet: ['BANG_PHI'], danhMuc: ['GIAN', 'NGANH'] },
 };
 
+// Bảng tính của từng người: sheet theo sàn + vai trò (ngoài admin) được dùng sàn đó
+var SAN_BANG_TINH = {
+  TIKTOK: { ten: 'TikTok', cha: 'BANG_TINH_TIKTOK', con: 'BANG_TINH_DONG_TIKTOK', vaiTro: 'tiktok' },
+  SHOPEE: { ten: 'Shopee', cha: 'BANG_TINH_SHOPEE', con: 'BANG_TINH_DONG_SHOPEE', vaiTro: 'shopee' },
+};
+
 var NGUOI_DUNG_ = ''; // người đang gọi (ghi vào lịch sử)
 
 var TEN_O_PHI = {
@@ -143,7 +172,15 @@ function doPost(e) {
       case 'phien': return { ten: phien.ten, vaiTro: phien.vaiTro };
       case 'dangXuat': CacheService.getScriptCache().remove('phien_' + body.token); return {};
       case 'docTatCa': return { duLieu: docTatCa_(phien.vaiTro) };
-      case 'docBangTinh': canDoc_(phien, 'BANG_TINH'); return { duLieu: docCon_('BANG_TINH_DONG', body.id) };
+      case 'docBangTinh': canDoc_(phien, 'BANG_TINH'); chuaCoChu_(body.id); return { duLieu: docCon_('BANG_TINH_DONG', body.id) };
+      // bảng tính CỦA MÌNH (mọi vai trò, chỉ sàn mình được dùng) + bảng cũ chưa có chủ
+      case 'dsBangTinhCuaToi': return { duLieu: dsBangTinhCuaToi_(phien, body.san) };
+      case 'docBangTinhCuaToi': return { duLieu: docBangTinhCuaToi_(phien, body.san, body.id) };
+      case 'luuBangTinhCuaToi': return luuBangTinhCuaToi_(phien, body.san, body.bangTinh, body.dong || []);
+      case 'doiTenBangTinhCuaToi': return { banGhi: doiTenBangTinhCuaToi_(phien, body.san, body.id, body.ten) };
+      case 'xoaBangTinhCuaToi': return { daXoa: xoaBangTinhCuaToi_(phien, body.san, body.id) };
+      case 'dsBangTinhCu': canDoc_(phien, 'BANG_TINH'); return { duLieu: dsBangTinhCu_() };
+      case 'nhanBangTinhCu': return { banGhi: nhanBangTinhCu_(phien, body.id, body.san) };
       case 'docCampaignKQ': canDoc_(phien, 'CAMPAIGN'); return { duLieu: docCon_('CAMPAIGN_KQ', body.id) };
       case 'docLichSuPhi': return { duLieu: docLichSuPhi_(phien, body) };
     }
@@ -528,6 +565,7 @@ function docTatCa_(vaiTro) {
     if (q.sheet.indexOf(t) < 0) { kq[t] = []; return; }
     var ds = docSheet_(t).ds.map(bo_);
     if (t === 'DANH_MUC' && q.danhMuc) ds = ds.filter(function (o) { return q.danhMuc.indexOf(o.loai) >= 0; });
+    if (t === 'BANG_TINH') ds = ds.filter(function (o) { return !o.da_nhan_boi; }); // bảng cũ đã có chủ: không trả cho ai
     kq[t] = ds;
   });
   return kq;
@@ -641,8 +679,13 @@ function xoa_(ten, dsKhoa) {
 /** Lưu 1 bản ghi cha (campaign / bảng tính) + thay toàn bộ dòng con của nó. LICH_SU ghi 1 dòng tóm tắt. */
 function luuCha_(tenCha, cha, tenCon, dsCon, cotId) {
   if (!cha || !cha[cotId]) throw loi_('Thiếu ' + cotId + '.');
+  return voiKhoa_(function () { return luuChaKhongKhoa_(tenCha, cha, tenCon, dsCon, cotId); });
+}
+
+/** Phần thân của luuCha_ — gọi khi ĐÃ giữ khóa. */
+function luuChaKhongKhoa_(tenCha, cha, tenCon, dsCon, cotId) {
   var ctCon = CAU_TRUC[tenCon];
-  return voiKhoa_(function () {
+  return (function () {
     var bayGio = new Date().toISOString();
     var ctCha = CAU_TRUC[tenCha];
     var dCha = docSheet_(tenCha);
@@ -671,7 +714,7 @@ function luuCha_(tenCha, cha, tenCon, dsCon, cotId) {
       cu ? JSON.stringify(bo_(cu)) : '', JSON.stringify({ banGhi: bo_(ban), soDongCon: dsCon.length, soDongConCu: soCu })]]);
     SpreadsheetApp.flush();
     return { banGhi: bo_(ban), soDongCon: dsCon.length };
-  });
+  })();
 }
 
 function xoaCha_(tenCha, tenCon, id) {
@@ -711,6 +754,134 @@ function ghiLichSu_(dong) {
   var r = sh.getRange(sh.getLastRow() + 1, 1, dong.length, dong[0].length);
   r.setNumberFormat('@');
   r.setValues(dong);
+}
+
+// ============ Bảng tính của từng người (theo sàn) ============
+
+/** Sàn hợp lệ ('TIKTOK' | 'SHOPEE', không phân biệt hoa thường) + tài khoản được dùng sàn đó. */
+function sanCuaToi_(phien, san) {
+  var k = String(san || '').toUpperCase();
+  var s = SAN_BANG_TINH[k];
+  if (!s) throw loi_('Sàn không hợp lệ: ' + san);
+  if (phien.vaiTro !== 'admin' && phien.vaiTro !== s.vaiTro) {
+    throw loi_('Tài khoản "' + phien.ten + '" (' + phien.vaiTro + ') không dùng sàn ' + s.ten + '.', 'KHONG_CO_QUYEN');
+  }
+  return k;
+}
+
+/** Bảng id của người đang gọi ở sàn k (null nếu chưa có). Bảng của người khác → báo lỗi. */
+function bangCuaToi_(phien, k, id) {
+  var cu = null, khac = false;
+  docSheet_(SAN_BANG_TINH[k].cha).ds.forEach(function (o) {
+    if (String(o.id) !== String(id)) return;
+    if (chuanTen_(o.nguoi_tao) === phien.ten) cu = o; else khac = true;
+  });
+  if (khac && !cu) throw loi_('Không phải bảng tính của bạn.', 'KHONG_CO_QUYEN');
+  return cu;
+}
+
+function dsBangTinhCuaToi_(phien, san) {
+  var k = sanCuaToi_(phien, san);
+  return docSheet_(SAN_BANG_TINH[k].cha).ds
+    .filter(function (o) { return chuanTen_(o.nguoi_tao) === phien.ten; }).map(bo_);
+}
+
+function docBangTinhCuaToi_(phien, san, id) {
+  var k = sanCuaToi_(phien, san);
+  if (!id) throw loi_('Thiếu id.');
+  if (!bangCuaToi_(phien, k, id)) throw loi_('Không thấy bảng tính này (có thể đã bị xóa).');
+  return docCon_(SAN_BANG_TINH[k].con, id);
+}
+
+function luuBangTinhCuaToi_(phien, san, bangTinh, dong) {
+  var k = sanCuaToi_(phien, san);
+  if (!bangTinh || !bangTinh.id) throw loi_('Thiếu id bảng tính.');
+  var ten = String(bangTinh.ten || '').trim();
+  if (!ten) throw loi_('Bảng tính chưa có tên.');
+  return voiKhoa_(function () {
+    var cu = bangCuaToi_(phien, k, bangTinh.id);
+    var cha = {
+      id: String(bangTinh.id), ten: ten, nguoi_tao: phien.ten, san: k,
+      gian_hien_thi: bangTinh.gian_hien_thi || '', thang_phi: bangTinh.thang_phi || '', so_dong: dong.length,
+      nguon_cu: cu ? cu.nguon_cu : '', tao_luc: cu && cu.tao_luc ? cu.tao_luc : new Date().toISOString(),
+    };
+    return luuChaKhongKhoa_(SAN_BANG_TINH[k].cha, cha, SAN_BANG_TINH[k].con, dong, 'id');
+  });
+}
+
+function doiTenBangTinhCuaToi_(phien, san, id, tenMoi) {
+  var k = sanCuaToi_(phien, san);
+  var t = String(tenMoi || '').trim();
+  if (!t) throw loi_('Tên bảng tính trống.');
+  return voiKhoa_(function () {
+    var cu = bangCuaToi_(phien, k, id);
+    if (!cu) throw loi_('Không thấy bảng tính này.');
+    var bayGio = new Date().toISOString();
+    var ban = bo_(cu);
+    ban.ten = t;
+    ban.cap_nhat_luc = bayGio;
+    var d = docSheet_(SAN_BANG_TINH[k].cha);
+    var r = d.sh.getRange(cu._dong, 1, 1, d.dau.length);
+    r.setNumberFormat('@');
+    r.setValues([d.dau.map(function (c) { return c ? giaTriGhi_(null, c, ban[c]) : ''; })]);
+    ghiLichSu_([[bayGio, 'SUA', SAN_BANG_TINH[k].cha, String(id), JSON.stringify(bo_(cu)), JSON.stringify(ban)]]);
+    SpreadsheetApp.flush();
+    return ban;
+  });
+}
+
+function xoaBangTinhCuaToi_(phien, san, id) {
+  var k = sanCuaToi_(phien, san);
+  if (!bangCuaToi_(phien, k, id)) throw loi_('Không thấy bảng tính này.');
+  return xoaCha_(SAN_BANG_TINH[k].cha, SAN_BANG_TINH[k].con, id);
+}
+
+/** Bảng cũ (BANG_TINH, trước 2.3.0) bị chặn đọc khi đã có người nhận. */
+function chuaCoChu_(id) {
+  docSheet_('BANG_TINH').ds.forEach(function (o) {
+    if (String(o.id) === String(id) && o.da_nhan_boi) throw loi_('Bảng này đã có người nhận.', 'KHONG_CO_QUYEN');
+  });
+}
+
+function dsBangTinhCu_() {
+  return docSheet_('BANG_TINH').ds.filter(function (o) { return !o.da_nhan_boi; }).map(bo_);
+}
+
+/**
+ * Nhận 1 bảng cũ chưa có chủ vào sàn (của mình): SAO CHÉP bảng + dòng sang sheet của sàn, đánh dấu bảng cũ
+ * da_nhan_boi (người khác không thấy nữa). Không xóa gì ở BANG_TINH / BANG_TINH_DONG.
+ */
+function nhanBangTinhCu_(phien, id, san) {
+  var k = sanCuaToi_(phien, san);
+  canDoc_(phien, 'BANG_TINH');
+  if (!id) throw loi_('Thiếu id.');
+  return voiKhoa_(function () {
+    var dCu = docSheet_('BANG_TINH');
+    var cu = null;
+    dCu.ds.forEach(function (o) { if (String(o.id) === String(id)) cu = o; });
+    if (!cu || cu.da_nhan_boi) throw loi_('Bảng này đã có người nhận hoặc không còn.');
+    var s = SAN_BANG_TINH[k];
+    var idMoi = String(id);
+    if (docSheet_(s.cha).ds.some(function (o) { return String(o.id) === idMoi; })) idMoi = idMoi + '_' + k.toLowerCase();
+    var dong = docCon_('BANG_TINH_DONG', id).map(function (o) {
+      return { stt: o.stt, ten: o.ten, phan_loai: o.phan_loai, nganh: o.nganh, gia_von: o.gia_von, gia_ban: o.gia_ban };
+    });
+    var bayGio = new Date().toISOString();
+    var kq = luuChaKhongKhoa_(s.cha, {
+      id: idMoi, ten: cu.ten || String(id), nguoi_tao: phien.ten, san: k, gian_hien_thi: cu.gian_hien_thi || '',
+      thang_phi: cu.thang_phi || '', so_dong: dong.length, nguon_cu: String(id), tao_luc: cu.cap_nhat_luc || bayGio,
+    }, s.con, dong, 'id');
+    var ban = bo_(cu);
+    ban.da_nhan_boi = phien.ten;
+    ban.nhan_vao_san = k;
+    ban.nhan_luc = bayGio;
+    var r = dCu.sh.getRange(cu._dong, 1, 1, dCu.dau.length);
+    r.setNumberFormat('@');
+    r.setValues([dCu.dau.map(function (c) { return c ? giaTriGhi_(null, c, ban[c]) : ''; })]);
+    ghiLichSu_([[bayGio, 'NHAN', 'BANG_TINH', String(id), JSON.stringify(bo_(cu)), JSON.stringify({ vao: s.cha, id: idMoi, nguoi: phien.ten })]]);
+    SpreadsheetApp.flush();
+    return kq.banGhi;
+  });
 }
 
 /** Chạy tay 1 lần trong trình soạn thảo Apps Script để tạo sẵn các sheet. */

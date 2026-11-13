@@ -671,3 +671,18 @@ main { overflow-anchor: none; }
   .dong-bo { width: 150px; }
   .nguoi-dung small { display: none; } /* vai trò vẫn xem được khi rê chuột vào tên */
 }
+
+/* ---------- Bảng tính của từng người (tách theo sàn) ---------- */
+/* Đầu tab Tính lợi nhuận: 👤 Tên · Sàn · 📄 Bảng + chọn nhanh bảng + trạng thái lưu */
+.dong-phien { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.dong-phien .chon-bang { width: auto; max-width: 240px; padding: 3px 8px; font-size: 13px; }
+button.nhan-trang-thai-luu { border: 0; font: inherit; font-size: 11px; font-weight: 700; min-width: 150px; cursor: default; }
+button.nhan-trang-thai-luu:not(:disabled) { cursor: pointer; text-decoration: underline; }
+button.nhan-trang-thai-luu:disabled { opacity: 1; }
+.nut-luu-sheets:disabled { opacity: .55; }
+.muc-bang-cu { margin-top: 16px; border-top: 2px dashed var(--vien); padding-top: 10px; }
+/* Gian chưa có phí ngành ở tháng mới nhất → đang dùng tạm phí tháng cũ */
+.dau-canh-bao-phi { color: var(--vang); font-weight: 700; }
+.o-lai.co-canh-bao-phi { background: var(--vang-nen); }
+.chu-canh-bao { color: var(--vang); font-weight: 700; }
+.ghi-chu-phi { margin: 10px 12px 4px; }

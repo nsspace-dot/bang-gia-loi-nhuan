@@ -8,7 +8,8 @@ import { thangHienTai, hienThiThang } from '../core/phi.js';
 import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { dinhDangTien, dinhDangPhanTram } from '../core/so.js';
 
-const KHOA_NHAP_LOI_NHUAN = 'bggl.loinhuan.v1'; // bản nháp của tab Tính lợi nhuận (dùng chung danh sách sản phẩm)
+const KHOA_NHAP_LOI_NHUAN = 'bggl.loinhuan.v1'; // bản nháp CŨ của tab Tính lợi nhuận (trước khi tách theo người + sàn)
+const KHOA_NEN_TANG_LOI_NHUAN = 'bggl.loinhuan.nentang.v1';
 const KHOA_CAI_DAT = 'bggl.sosanh.v1';
 
 const st = { gianTT: null, kichBanTT: 'qc', gianSP: null, chieu: null, chiKhac: false };
@@ -32,7 +33,13 @@ function veLai() { veGiu(goc, ve); }
 
 /** Danh sách sản phẩm đang mở ở tab Tính lợi nhuận (bản nháp trên máy). */
 function dsSanPham() {
-  try { return (JSON.parse(localStorage.getItem(KHOA_NHAP_LOI_NHUAN) || 'null')?.ds || []).filter((d) => d && d.ten); } catch { return []; }
+  // Bảng đang mở ở Tính lợi nhuận = bản nháp của tài khoản + sàn đang chọn ở tab đó
+  try {
+    const nenTang = localStorage.getItem(KHOA_NEN_TANG_LOI_NHUAN) === 'shopee' ? 'shopee' : 'tiktok';
+    const khoa = `bggl.loinhuan.v2:${kho.layPhien()?.ten || '_'}:${nenTang}`;
+    const tho = localStorage.getItem(khoa) ?? localStorage.getItem(KHOA_NHAP_LOI_NHUAN);
+    return (JSON.parse(tho || 'null')?.ds || []).filter((d) => d && d.ten);
+  } catch { return []; }
 }
 
 function cauHinh() {

@@ -290,3 +290,16 @@ test('file xuất đọc lại được bằng chính chức năng nhập (5 c�
   const { dong } = docBangSanPham(xuat, { dsNganh: NGANH, nganhMacDinh: 'Tranh' });
   assert.deepEqual(dong, DS);
 });
+
+test('thiếu phí ngành ở tháng mới nhất của gian → dùng TẠM phí tháng cũ + cảnh báo rõ (không lặng lẽ)', async () => {
+  const { chonBoPhiCanhBao } = await import('../js/core/phi.js');
+  const p = (nganh, thang) => ({ gian: 'CN9', nganh, thang, phi_san: 20, phi_vc: 1000, phi_xl: 1000, phi_qc: 5, aff_qc: 3, aff_noqc: 7 });
+  const ds = [p('Tranh', '2026-08'), p('Trà', '2026-08'), p('Tranh', '2026-10')];
+  assert.equal(chonBoPhiCanhBao(ds, 'CN9', 'Tranh', '2026-11').canhBao, null);
+  const tra = chonBoPhiCanhBao(ds, 'CN9', 'Trà', '2026-11');
+  assert.equal(tra.phi.thang, '2026-08');
+  assert.equal(tra.canhBao, 'Gian CN9 chưa có phí ngành Trà tháng 10/2026 – đang dùng tạm phí tháng 08/2026');
+  const lich = chonBoPhiCanhBao(ds, 'CN9', 'Lịch', '2026-11');
+  assert.equal(lich.phi, null);
+  assert.match(lich.canhBao, /Gian CN9 chưa có phí ngành Lịch tháng 11\/2026 – chưa tính được lãi/);
+});

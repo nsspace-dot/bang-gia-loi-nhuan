@@ -228,3 +228,83 @@ test('ghi bảng phí TikTok không ghi vào lịch sử Shopee', () => {
   assert.equal(g.duLieuSheet('LICH_SU_BANG_PHI').length, 7);
   assert.equal(g.sheets.has('LICH_SU_BANG_PHI_SHOPEE'), false);
 });
+
+// ---------- 2.3.0: bảng tính của từng người, tách theo sàn ----------
+
+function moiTruongNhieuNguoi() {
+  const g = taoMoiTruong();
+  const ad = g.dangNhap('admin', MK);
+  for (const [ten, vaiTro] of [['lan', 'tiktok'], ['minh', 'tiktok'], ['hoa', 'shopee']]) {
+    assert.equal(g.post({ action: 'themTaiKhoan', token: ad, ten, matKhau: `${ten}-12345`, vaiTro }).ok, true);
+  }
+  const tk = (ten) => (ten === 'admin' ? ad : g.dangNhap(ten, `${ten}-12345`));
+  return { g, ad, tk };
+}
+const dongGia = [{ stt: 1, ten: 'SP giả A', phan_loai: '30x40', nganh: 'Tranh', gia_von: 1000, gia_ban: 5000 }];
+
+test('bảng tính của mình: mọi vai trò tự lưu / đọc / đổi tên / xóa; KHÔNG thấy, sửa, xóa bảng người khác', () => {
+  const { g, tk } = moiTruongNhieuNguoi();
+  const lan = tk('lan'), minh = tk('minh'), hoa = tk('hoa');
+  const luu = (token, san, id, ten, dong = dongGia) => g.post({ action: 'luuBangTinhCuaToi', token, san, bangTinh: { id, ten }, dong });
+  const r = luu(lan, 'tiktok', 'bt_lan', 'Bảng của lan');
+  assert.equal(r.ok, true, r.loi);
+  assert.equal(r.banGhi.nguoi_tao, 'lan');
+  assert.equal(r.banGhi.san, 'TIKTOK');
+  assert.ok(r.banGhi.tao_luc && r.banGhi.cap_nhat_luc);
+  // lưu lại: giữ tao_luc
+  const r2 = luu(lan, 'TIKTOK', 'bt_lan', 'Bảng của lan', [...dongGia, { stt: 2, ten: 'SP giả B', nganh: 'Tranh', gia_von: 2, gia_ban: 9 }]);
+  assert.equal(r2.banGhi.tao_luc, r.banGhi.tao_luc);
+  assert.equal(g.post({ action: 'docBangTinhCuaToi', token: lan, san: 'tiktok', id: 'bt_lan' }).duLieu.length, 2);
+  // bảng trống cũng lưu được (bảng mới tạo tự động)
+  assert.equal(luu(minh, 'tiktok', 'bt_minh', 'Bảng của minh', []).ok, true);
+  // minh: chỉ thấy bảng của mình; không đọc / ghi đè / đổi tên / xóa bảng của lan
+  assert.deepEqual(g.post({ action: 'dsBangTinhCuaToi', token: minh, san: 'tiktok' }).duLieu.map((b) => b.id), ['bt_minh']);
+  for (const body of [
+    { action: 'docBangTinhCuaToi', san: 'tiktok', id: 'bt_lan' },
+    { action: 'luuBangTinhCuaToi', san: 'tiktok', bangTinh: { id: 'bt_lan', ten: 'chiếm' }, dong: [] },
+    { action: 'doiTenBangTinhCuaToi', san: 'tiktok', id: 'bt_lan', ten: 'x' },
+    { action: 'xoaBangTinhCuaToi', san: 'tiktok', id: 'bt_lan' },
+  ]) {
+    const k = g.post({ ...body, token: minh });
+    assert.equal(k.ok, false, body.action);
+  }
+  assert.equal(g.post({ action: 'docBangTinhCuaToi', token: lan, san: 'tiktok', id: 'bt_lan' }).duLieu.length, 2, 'bảng của lan còn nguyên');
+  // tách theo sàn + vai trò: tiktok không dùng sàn Shopee, shopee không dùng TikTok
+  assert.equal(luu(lan, 'shopee', 'bt_x', 'x').ma, 'KHONG_CO_QUYEN');
+  assert.equal(g.post({ action: 'dsBangTinhCuaToi', token: hoa, san: 'tiktok' }).ma, 'KHONG_CO_QUYEN');
+  assert.equal(luu(hoa, 'shopee', 'bt_hoa', 'Bảng của hoa').ok, true);
+  assert.deepEqual(g.post({ action: 'dsBangTinhCuaToi', token: lan, san: 'tiktok' }).duLieu.map((b) => b.id), ['bt_lan']);
+  // admin cũng chỉ thấy bảng CỦA MÌNH
+  assert.deepEqual(g.post({ action: 'dsBangTinhCuaToi', token: tk('admin'), san: 'tiktok' }).duLieu, []);
+  // đổi tên, xóa bảng của mình
+  assert.equal(g.post({ action: 'doiTenBangTinhCuaToi', token: lan, san: 'tiktok', id: 'bt_lan', ten: 'Tên mới' }).banGhi.ten, 'Tên mới');
+  assert.equal(g.post({ action: 'xoaBangTinhCuaToi', token: lan, san: 'tiktok', id: 'bt_lan' }).daXoa, 1);
+  assert.deepEqual(g.post({ action: 'dsBangTinhCuaToi', token: lan, san: 'tiktok' }).duLieu, []);
+  assert.equal(g.duLieuSheet('BANG_TINH_DONG_TIKTOK').filter((d) => d[0] === 'bt_lan').length, 0);
+});
+
+test('bảng cũ chưa có chủ: ai cũng thấy; "Nhận" → thành bảng của người nhận (đúng sàn), biến khỏi danh sách cũ, KHÔNG xóa dữ liệu cũ', () => {
+  const { g, ad, tk } = moiTruongNhieuNguoi();
+  assert.equal(g.post({ action: 'luuBangTinh', token: ad, bangTinh: { id: 'bt_cu', ten: 'Bảng cũ', so_dong: 1 }, dong: dongGia }).ok, true);
+  const lan = tk('lan'), hoa = tk('hoa');
+  assert.deepEqual(g.post({ action: 'dsBangTinhCu', token: hoa }).duLieu.map((b) => b.id), ['bt_cu']);
+  assert.equal(g.post({ action: 'nhanBangTinhCu', token: lan, id: 'bt_cu', san: 'shopee' }).ma, 'KHONG_CO_QUYEN', 'tiktok không nhận vào Shopee');
+  const r = g.post({ action: 'nhanBangTinhCu', token: lan, id: 'bt_cu', san: 'tiktok' });
+  assert.equal(r.ok, true, r.loi);
+  assert.equal(r.banGhi.nguoi_tao, 'lan');
+  assert.equal(r.banGhi.nguon_cu, 'bt_cu');
+  assert.deepEqual(g.post({ action: 'docBangTinhCuaToi', token: lan, san: 'tiktok', id: r.banGhi.id }).duLieu.map((d) => d.ten), ['SP giả A']);
+  // người khác không còn thấy / đọc / nhận được
+  assert.deepEqual(g.post({ action: 'dsBangTinhCu', token: hoa }).duLieu, []);
+  assert.deepEqual(g.post({ action: 'docTatCa', token: hoa }).duLieu.BANG_TINH, []);
+  assert.equal(g.post({ action: 'docBangTinh', token: hoa, id: 'bt_cu' }).ok, false);
+  assert.equal(g.post({ action: 'nhanBangTinhCu', token: hoa, id: 'bt_cu', san: 'shopee' }).ok, false);
+  // dữ liệu cũ vẫn còn trong BANG_TINH / BANG_TINH_DONG, có đánh dấu
+  const cu = g.duLieuSheet('BANG_TINH');
+  const dau = cu[0];
+  const dong = cu.find((d) => d[0] === 'bt_cu');
+  assert.equal(dong[dau.indexOf('da_nhan_boi')], 'lan');
+  assert.equal(dong[dau.indexOf('nhan_vao_san')], 'TIKTOK');
+  assert.equal(g.duLieuSheet('BANG_TINH_DONG').filter((d) => d[0] === 'bt_cu').length, 1);
+  assert.ok(g.duLieuSheet('LICH_SU').some((d) => d[1] === 'NHAN' && d[3] === 'bt_cu'));
+});
