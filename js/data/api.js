@@ -2,7 +2,13 @@
 
 const THOI_GIAN_CHO = 120000;
 
-export class LoiApi extends Error {}
+/** ma: 'CAN_DANG_NHAP' (chưa đăng nhập / phiên hết hạn) | 'KHONG_CO_QUYEN' | undefined */
+export class LoiApi extends Error {
+  constructor(thongBao, ma) {
+    super(thongBao);
+    this.ma = ma;
+  }
+}
 
 async function goi(url, tuyChon) {
   if (!url) throw new LoiApi('Chưa nhập URL Apps Script (mở ⚙️ Cài đặt).');
@@ -26,7 +32,7 @@ async function goi(url, tuyChon) {
     if (/<html/i.test(chu)) throw new LoiApi('Apps Script trả về trang web thay vì dữ liệu — thường do Web App chưa đặt quyền "Bất kỳ ai" hoặc URL sai.');
     throw new LoiApi('Apps Script trả về dữ liệu không đọc được.');
   }
-  if (!du || du.ok !== true) throw new LoiApi(du && du.loi ? du.loi : 'Apps Script báo lỗi không rõ.');
+  if (!du || du.ok !== true) throw new LoiApi(du && du.loi ? du.loi : 'Apps Script báo lỗi không rõ.', du && du.ma);
   return du;
 }
 

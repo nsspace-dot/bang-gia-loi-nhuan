@@ -2,6 +2,7 @@
 // Dùng cho test và cho máy chủ thử (scripts/may-chu-thu.mjs).
 import fs from 'node:fs';
 import vm from 'node:vm';
+import crypto from 'node:crypto';
 
 class SheetGiaLap {
   constructor(ten) { this.ten = ten; this.o = []; this.maxRows = 1000; }
@@ -44,10 +45,14 @@ class VungGiaLap {
   setFontWeight() { return this; }
 }
 
-export function taoMoiTruong({ matKhau = 'mat-khau-thu' } = {}) {
+/**
+ * admin: { ten, matKhau } → tạo sẵn admin đầu tiên bằng hàm taoAdminDauTien() thật trong Code.gs; null = chưa có admin.
+ * Trả về thêm dangNhap(ten, matKhau) → token, và chay(tenHam) để gọi hàm Code.gs như chạy tay trong trình soạn thảo.
+ */
+export function taoMoiTruong({ admin = { ten: 'admin', matKhau: 'mat-khau-thu' } } = {}) {
   const sheets = new Map();
   const cache = new Map();
-  const thuocTinh = new Map(matKhau ? [['MAT_KHAU', matKhau]] : []);
+  const thuocTinh = new Map();
   let dangKhoa = false;
   const ctx = {
     console,
@@ -58,8 +63,14 @@ export function taoMoiTruong({ matKhau = 'mat-khau-thu' } = {}) {
       }),
       flush() {},
     },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => thuocTinh.get(k) ?? null }) },
-    CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v) }) },
+    PropertiesService: { getScriptProperties: () => ({
+      getProperty: (k) => thuocTinh.get(k) ?? null, setProperty: (k, v) => thuocTinh.set(k, String(v)), deleteProperty: (k) => thuocTinh.delete(k),
+    }) },
+    CacheService: { getScriptCache: () => ({
+      get: (k) => cache.get(k) ?? null,
+      put: (k, v) => { if (k.length > 250) throw new Error('Khóa cache quá dài'); cache.set(k, v); },
+      remove: (k) => cache.delete(k),
+    }) },
     LockService: {
       getScriptLock: () => ({
         tryLock: () => { if (dangKhoa) return false; dangKhoa = true; return true; },
@@ -70,17 +81,37 @@ export function taoMoiTruong({ matKhau = 'mat-khau-thu' } = {}) {
       MimeType: { JSON: 'json' },
       createTextOutput: (s) => ({ noiDung: s, setMimeType() { return this; }, getContent() { return s; } }),
     },
-    Utilities: { formatDate: (d) => d.toISOString() },
+    Utilities: {
+      formatDate: (d) => d.toISOString(),
+      getUuid: () => crypto.randomUUID(),
+      DigestAlgorithm: { SHA_256: 'SHA_256' },
+      Charset: { UTF_8: 'UTF_8' },
+      // Apps Script trả mảng byte CÓ DẤU (-128..127)
+      computeDigest: (_alg, chuoi) => [...crypto.createHash('sha256').update(String(chuoi), 'utf8').digest()].map((b) => (b > 127 ? b - 256 : b)),
+    },
     Session: { getScriptTimeZone: () => 'Asia/Ho_Chi_Minh' },
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8'), ctx);
 
+  const post = (body) => JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent());
+  if (admin) {
+    thuocTinh.set('SETUP_ADMIN_TEN', admin.ten);
+    thuocTinh.set('SETUP_ADMIN_MAT_KHAU', admin.matKhau);
+    ctx.taoAdminDauTien();
+  }
   return {
     sheets,
     thuocTinh,
+    cache,
     get: (thamSo) => JSON.parse(ctx.doGet({ parameter: thamSo }).getContent()),
-    post: (body) => JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent()),
+    post,
+    dangNhap: (ten, matKhau) => {
+      const r = post({ action: 'dangNhap', ten, matKhau });
+      if (!r.ok) throw new Error(r.loi);
+      return r.token;
+    },
+    chay: (tenHam) => ctx[tenHam](),
     duLieuSheet: (t) => (sheets.get(t)?.o || []).map((d) => [...d]),
   };
 }

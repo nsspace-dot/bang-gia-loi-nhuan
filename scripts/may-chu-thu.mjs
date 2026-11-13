@@ -1,6 +1,7 @@
 // Máy chủ thử trên máy: phục vụ app + giả lập Apps Script tại /gas (chạy Code.gs thật trên Sheets giả).
 //   node scripts/may-chu-thu.mjs [cổng] [--du-lieu-gia]
-// --du-lieu-gia: nạp sẵn bảng phí & giá vốn GIẢ để xem giao diện. Mật khẩu giả lập: mat-khau-thu
+// Tài khoản GIẢ chỉ dùng cho máy chủ thử: admin / mat-khau-thu.
+// --du-lieu-gia: nạp sẵn bảng phí & giá vốn GIẢ để xem giao diện, thêm tài khoản nv-shopee / shopee-123 và nv-tiktok / tiktok-123.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,10 +10,12 @@ import { taoMoiTruong } from '../tests/gia-lap-gas.js';
 
 const goc = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cong = Number(process.argv.find((a) => /^\d+$/.test(a)) || 8080);
-const gas = taoMoiTruong({ matKhau: 'mat-khau-thu' });
+const gas = taoMoiTruong({ admin: { ten: 'admin', matKhau: 'mat-khau-thu' } });
 
 if (process.argv.includes('--du-lieu-gia')) {
-  const MK = 'mat-khau-thu';
+  const MK = gas.dangNhap('admin', 'mat-khau-thu'); // token admin
+  gas.post({ action: 'themTaiKhoan', token: MK, ten: 'nv-shopee', matKhau: 'shopee-123', vaiTro: 'shopee' });
+  gas.post({ action: 'themTaiKhoan', token: MK, ten: 'nv-tiktok', matKhau: 'tiktok-123', vaiTro: 'tiktok' });
   const gians = ['Nhà Sách', 'Sách Hay', 'Tranh Lịch', 'Tường Vip'];
   const nganhs = ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà'];
   const phi = [];
@@ -22,7 +25,12 @@ if (process.argv.includes('--du-lieu-gia')) {
   // Ngành Trà cố ý để Chi phí QC = 0 → hiện cảnh báo thiếu phí QC
   phi.push({ gian: 'Tường Vip', nganh: 'Tranh', thang: '2026-10', phi_san: 23.5, phi_vc: 2300, phi_xl: 3000, phi_qc: 9, aff_qc: 4, aff_noqc: 10 });
   phi.push({ gian: 'Tường Vip', nganh: 'Decal', thang: '2026-10', phi_san: 22.5, phi_vc: 2300, phi_xl: 3000, phi_qc: 9, aff_qc: 4, aff_noqc: 12 });
-  gas.post({ action: 'upsert', matKhau: MK, sheet: 'BANG_PHI', banGhi: phi });
+  gas.post({ action: 'upsert', token: MK, sheet: 'BANG_PHI', banGhi: phi });
+  // Shopee: chỉ Tranh Vip × Tranh có bộ phí đã lưu (AFF 12% → tổng 60%); các gian khác dùng phí mặc định
+  gas.post({ action: 'upsert', token: MK, sheet: 'BANG_PHI_SHOPEE', banGhi: [{
+    gian: 'Tranh Vip', nganh: 'Tranh', thang: '2026-08', phi_co_dinh: 19.1, voucher_xtra: 5.5, phi_ha_tang: 3000, phi_xu_ly: 6,
+    phi_dich_vu: 7.5, quang_cao: 8.2, voucher_shop: 1.2, aff: 12, phi_hoan_vcktc: 0.5,
+  }] });
   const von = [];
   [['Bộ 1 tấm', 'Tranh', ['13x18', '20x30', '30x40', '40x60', '50x70', '60x90'], 6000],
     ['Bộ 3 tấm đồng size', 'Tranh', ['20x30x3', '30x40x3', '40x60x3'], 30000],
@@ -32,10 +40,9 @@ if (process.argv.includes('--du-lieu-gia')) {
     sizes.forEach((s, i) => von.push({ nhom, phan_loai: s, nganh, gia_von: co + i * Math.round(co * 0.6) + 11 }));
   });
   von.find((v) => v.phan_loai === '60x90').gia_von = 19011; // cố ý tạo 1 cảnh báo bậc vốn
-  gas.post({ action: 'upsert', matKhau: MK, sheet: 'GIA_VON', banGhi: von });
-  // Người dùng giả + 1 bảng tính "cũ" chưa có chủ (để thử nút "Nhận bảng này")
-  for (const ten of ['Lan', 'Minh', 'Hà']) gas.post({ action: 'themNguoi', ten });
-  gas.post({ action: 'luuBangTinh', matKhau: MK, bangTinh: { id: 'bt_cu_1', ten: 'Bảng cũ (thử)', so_dong: 2 },
+  gas.post({ action: 'upsert', token: MK, sheet: 'GIA_VON', banGhi: von });
+  // 1 bảng tính "cũ" chưa có chủ (để thử "Nhận bảng này")
+  gas.post({ action: 'luuBangTinh', token: MK, bangTinh: { id: 'bt_cu_1', ten: 'Bảng cũ (thử)', so_dong: 2 },
     dong: [{ stt: 1, ten: 'Tranh thử A', phan_loai: '30x40', nganh: 'Tranh', gia_von: 20000, gia_ban: 89000 },
       { stt: 2, ten: 'Trà thử B', phan_loai: '', nganh: 'Trà', gia_von: 30000, gia_ban: 99000 }] });
 }
@@ -62,4 +69,4 @@ http.createServer((req, res) => {
   }
   res.writeHead(200, { 'Content-Type': KIEU[path.extname(tep)] || 'application/octet-stream' });
   fs.createReadStream(tep).pipe(res);
-}).listen(cong, () => console.log(`Mở http://localhost:${cong}  (Apps Script giả lập: http://localhost:${cong}/gas, mật khẩu: mat-khau-thu)`));
+}).listen(cong, () => console.log(`Mở http://localhost:${cong}  (Apps Script giả lập: http://localhost:${cong}/gas, đăng nhập: admin / mat-khau-thu)`));

@@ -88,13 +88,13 @@ Phí: KHÔNG có ô chọn tháng — luôn dùng bộ phí đang áp dụng t�
 - **Bố cục cố định**: thanh trạng thái đồng bộ rộng cố định; nhãn "chưa lưu/đã lưu" chừa sẵn chỗ; toast & thông báo dữ liệu mới ở vị trí cố định; bảng phí `table-layout: fixed`; ô số dùng chữ số đều nhau.
 - Test trình duyệt: sửa liên tục 10 ô, lăn chuột, ↑↓, Esc, Enter, đồng bộ nền khi đang sửa, Lưu → vị trí cuộn không đổi, bảng không bị vẽ lại; Tính lợi nhuận sửa giá khi đang sắp xếp → dòng không nhảy.
 
-## Người dùng + bảng tính riêng theo người / sàn (Code.gs 1.2.0)
-- Chọn tên (không mật khẩu), lưu ở máy `bggl.nguoi.v1`; sheet `NGUOI_DUNG` (ten, dang_dung, thu_tu…). Thêm tên: không mật khẩu; đổi tên / ẩn: cần mật khẩu.
-- Bảng tính: `BANG_TINH_TIKTOK|SHOPEE` (+ `nguoi_tao`, `san`, `tao_luc`, `cap_nhat_luc`) và `BANG_TINH_DONG_TIKTOK|SHOPEE`. Apps Script chỉ trả bảng của người hỏi; lưu / đổi tên / xóa bảng của mình không cần mật khẩu.
-- `BANG_TINH` cũ giữ nguyên, thêm cột `da_nhan_boi`, `nhan_vao_san`, `nhan_luc`; "Nhận" = sao chép sang sheet sàn, không xóa.
-- Nháp: `bggl.loinhuan.v2:<người>:<sàn>` (nháp cũ `bggl.loinhuan.v1` chuyển 1 lần).
-- Tự mở bảng gần nhất (nháp nhớ bảng; máy mới lấy `cap_nhat_luc` mới nhất; chưa có → tạo "Bảng của <Tên> – <Sàn>"); dropdown chọn nhanh; tự lưu 3 giây sau lần sửa cuối (`luuNgay` chụp dữ liệu trước khi gửi).
-- Thiếu phí ngành ở tháng mới nhất của gian → ⚠ "phí tạm" + ghi chú (`chonBoPhiCanhBao`).
+## Bảng tính riêng từng tài khoản, tách theo sàn (Code.gs 2.3.0)
+- Chủ bảng = tài khoản đăng nhập (`phien.ten`). Mọi vai trò tự lưu / đổi tên / xóa bảng CỦA MÌNH, ở sàn mình được dùng (admin: cả 2). Apps Script chỉ trả bảng của người hỏi.
+- Sheet: `BANG_TINH_TIKTOK|SHOPEE` (`nguoi_tao`, `san`, `nguon_cu`, `tao_luc`, `cap_nhat_luc`…) + `BANG_TINH_DONG_TIKTOK|SHOPEE`.
+- `BANG_TINH` cũ giữ nguyên, thêm cột `da_nhan_boi`, `nhan_vao_san`, `nhan_luc`; "Nhận" = sao chép sang sheet sàn + đánh dấu, không xóa. Bảng đã nhận không còn trả trong `docTatCa` / `docBangTinh`.
+- Nháp: `bggl.loinhuan.v2:<tài khoản>:<sàn>` (nháp chung cũ `bggl.loinhuan.v1` chuyển 1 lần). So sánh 2 sàn đọc nháp của sàn đang chọn ở Tính lợi nhuận.
+- Tự mở bảng gần nhất (nháp nhớ bảng; máy mới lấy `cap_nhat_luc` mới nhất; chưa có → tạo "Bảng của <tên> – <Sàn>"); dropdown chọn nhanh; tự lưu 3 giây sau lần sửa cuối (`luuNgay` chụp dữ liệu trước khi gửi).
+- Thiếu phí ngành ở tháng mới nhất của gian → ⚠ "phí tạm" + ghi chú (`chonBoPhiCanhBao`, TikTok + Shopee).
 
 ## Kiến trúc
 
@@ -153,17 +153,22 @@ node scripts/chay-thu-mau.mjs [--chi-tiet]    # cần thư mục mau/
 |---|---|---|
 | `DANH_MUC` | loai + ten | loai (GIAN/NGANH), ten, thu_tu, dang_dung, cap_nhat_luc |
 | `BANG_PHI` | gian + nganh + thang | gian, nganh, thang (yyyy-mm), phi_san, phi_vc, phi_xl, phi_qc, aff_qc, aff_noqc, cap_nhat_luc |
+| `BANG_PHI_SHOPEE` | gian + nganh + thang | gian, nganh, thang (yyyy-mm), phi_co_dinh, voucher_xtra, phi_ha_tang, phi_xu_ly, phi_dich_vu, quang_cao, voucher_shop, aff, phi_hoan_vcktc, cap_nhat_luc |
 | `GIA_VON` | nhom + phan_loai | nhom, phan_loai, nganh, gia_von, gia_ban, file_nguon, cap_nhat_luc |
 | `NOI_SKU` | sku_id | sku_id, product_id, nhom, phan_loai, so_luong, phan_loai_goc, seller_sku, ghi_chu, cap_nhat_luc |
 | `CAMPAIGN` | id | id, ten, gian, bat_dau, ket_thuc, thang_phi, chien_luoc, tham_so (JSON), lai_toi_thieu, file_goc, tong_hop (JSON), trang_thai, xuat_luc, tao_luc, cap_nhat_luc |
 | `CAMPAIGN_KQ` | campaign_id + sku_id | ket_qua (VAO/LOAI/GAN/NGOAI), ly_do, loai, nhom, phan_loai, so_luong_tranh, gia_von, gia_ban_le, gia_campaign, so_luong, lai_qc, lai_noqc, ghi_chu |
 | `BANG_TINH` | id | id, ten, gian_hien_thi, thang_phi, so_dong, cap_nhat_luc |
 | `BANG_TINH_DONG` | bang_tinh_id + stt | ten, phan_loai, nganh, gia_von, gia_ban |
-| `LICH_SU` | — | thoi_gian, hanh_dong (THEM/SUA/XOA), sheet, khoa, du_lieu_cu, du_lieu_moi |
+| `LICH_SU` | — | thoi_gian, hanh_dong (THEM/SUA/XOA/DOI_VAI_TRO/DOI_MAT_KHAU), sheet, khoa, du_lieu_cu, du_lieu_moi, nguoi_dung |
+| `TAI_KHOAN` | ten_dang_nhap | ten_dang_nhap, vai_tro (admin/shopee/tiktok), salt, hash (`sha256$<vòng>$<hex>`), tao_luc, cap_nhat_luc — không bao giờ trả về trình duyệt salt/hash |
 
 Quy tắc Apps Script (`apps-script/Code.gs`):
-- `GET ?action=ping | docTatCa | docCampaignKQ&id= | docBangTinh&id=` — chỉ cần URL.
-- `POST {action, matKhau, …}` — mật khẩu so với Script Properties `MAT_KHAU`. Sai 10 lần → khóa 10 phút.
+- `GET ?action=ping` — không cần đăng nhập. Mọi lệnh khác là `POST {action, token, …}`.
+- `POST {action:'dangNhap', ten, matKhau}` → token ngẫu nhiên (CacheService, hết hạn 6 giờ). Sai 5 lần / tên đăng nhập → khóa 10 phút.
+- Mỗi lệnh: token → tên → đọc lại vai trò trong `TAI_KHOAN` (xóa / đổi vai trò có hiệu lực ngay).
+  `docTatCa` chỉ trả sheet của vai trò (shopee: DANH_MUC loại GIAN_SHOPEE, BANG_PHI_SHOPEE, BANG_TINH; tiktok: DANH_MUC GIAN/NGANH, BANG_PHI, GIA_VON, NOI_SKU, CAMPAIGN, BANG_TINH). Ghi (`upsert` / `xoa`): admin mọi sheet; shopee chỉ `BANG_PHI_SHOPEE` + `DANH_MUC` loại `GIAN_SHOPEE`; tiktok chỉ `BANG_PHI` + `DANH_MUC` loại `GIAN` / `NGANH` (kiểm tra từng bản ghi / khóa, sai 1 là từ chối cả lệnh). Bảng tính, campaign, quản lý tài khoản: chỉ admin.
+- Admin đầu tiên: hàm `taoAdminDauTien()` chạy tay, đọc Script Properties `SETUP_ADMIN_TEN` / `SETUP_ADMIN_MAT_KHAU` rồi xóa chúng.
 - Ghi theo từng bản ghi (upsert theo khóa) trong `LockService`. Ghi lại y hệt dữ liệu cũ thì bỏ qua.
 - Mỗi thay đổi → 1 dòng `LICH_SU`. Campaign / bảng tính (nhiều dòng con) → 1 dòng tóm tắt.
 - Mọi ô lưu dạng chữ thuần để Sheets không tự đổi SKU ID 19 số hoặc "2026-10" thành số/ngày.
