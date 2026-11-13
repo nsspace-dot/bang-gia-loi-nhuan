@@ -23,7 +23,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 | Thành phần | Nằm ở đâu | Ghi chú |
 |---|---|---|
 | **App** (giao diện, cách tính) | GitHub Pages — một đường link web | Repo public: ai có link đều mở được app, nhưng **không thấy dữ liệu** nếu không có URL Apps Script |
-| **Dữ liệu dùng chung** (bảng phí, giá vốn, gán tay SKU, campaign, bảng tính đã lưu, lịch sử) | Google Sheets **của shop** | Truy cập qua Google Apps Script (Web App) |
+| **Dữ liệu dùng chung** (bảng phí, giá vốn, gán tay SKU, campaign, lịch sử) + **bảng tính riêng của từng người** | Google Sheets **của shop** | Truy cập qua Google Apps Script (Web App) |
 | **URL Apps Script + mật khẩu** | Trình duyệt **từng máy** (nhập ở ⚙️ Cài đặt) | Không bao giờ nằm trong code |
 | **File Excel** bạn thả vào (prefill, file sản phẩm, giá vốn…) | Chỉ trong trình duyệt | Không gửi lên máy chủ nào |
 
@@ -56,7 +56,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 1. Quay lại trình soạn thảo (biểu tượng `< >` bên trái).
 2. Ở thanh trên cùng, ô chọn hàm → chọn **`taoCacSheet`** → bấm ▶ **Chạy**.
 3. Lần đầu Google sẽ hỏi quyền: **Xem xét quyền** → chọn tài khoản → nếu thấy "Google chưa xác minh ứng dụng này" bấm **Nâng cao** → **Đi tới … (không an toàn)** → **Cho phép**. (Đây là script của chính bạn nên an toàn.)
-4. Mở lại file Sheets: sẽ có các sheet `DANH_MUC`, `BANG_PHI`, `GIA_VON`, `NOI_SKU`, `CAMPAIGN`, `CAMPAIGN_KQ`, `BANG_TINH`, `BANG_TINH_DONG`, `LICH_SU`.
+4. Mở lại file Sheets: sẽ có các sheet `DANH_MUC`, `BANG_PHI`, `GIA_VON`, `NOI_SKU`, `CAMPAIGN`, `CAMPAIGN_KQ`, `BANG_TINH`, `BANG_TINH_DONG`, `LICH_SU`, `NGUOI_DUNG`, `BANG_TINH_TIKTOK`, `BANG_TINH_SHOPEE`, `BANG_TINH_DONG_TIKTOK`, `BANG_TINH_DONG_SHOPEE`. (Không chạy cũng được: app tự tạo sheet khi cần.)
 
 > **Không sửa tay** tên sheet, dòng tiêu đề (dòng 1) hay thứ tự cột. Muốn sửa số liệu thì sửa trong app để có lịch sử.
 
@@ -112,6 +112,14 @@ Làm trên **mỗi máy** sẽ dùng app.
 
 ## 5. Cách dùng hằng ngày
 
+### 👤 Người dùng (không cần mật khẩu)
+- Lần đầu mở app trên một máy: chọn **tên của bạn** trong danh sách, hoặc **➕ Tên mới**. Máy nhớ lựa chọn.
+- Góc trên có **👤 Tên · Đổi** — bấm để đổi người.
+- Mỗi người có **bảng tính và bản nháp riêng**, tách theo **sàn** (TikTok / Shopee).
+- Máy đã nhập mật khẩu (⚙️ Cài đặt) thấy thêm **🔓 Quản lý danh sách tên**: đổi tên (bảng tính chuyển theo tên mới), ẩn / hiện lại tên.
+- Mật khẩu chỉ cần cho: **Bảng phí, Giá vốn, quản lý tên** (và các phần dùng chung khác). Bảng tính của mình thì **ai cũng lưu được**.
+- ⚠️ Tách theo **tên**, không phải tài khoản đăng nhập: ai chọn tên của người khác vẫn mở được bảng của người đó. Dùng cho làm việc nội bộ.
+
 ### Thanh trạng thái (góc phải trên)
 - 🟢 **Đã đồng bộ hh:mm** — dữ liệu mới nhất từ Google Sheets.
 - 🟡 **Đang đồng bộ…**
@@ -141,7 +149,11 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - Thả file Excel sản phẩm (cột: Tên sản phẩm | Phân loại | Ngành hàng | Giá vốn | Giá bán) hoặc **➕ Thêm dòng**. Bấm **📄 File mẫu** để lấy mẫu.
 - Lãi tính theo **bộ phí đang áp dụng hiện tại**, cho từng gian (bấm tên gian để ẩn / hiện).
 - **Chỉ dòng lỗ**: lọc nhanh. Bấm tiêu đề cột **Có QC / Không QC** của một gian để sắp xếp theo lãi.
-- **💾 Lưu lên Sheets**: đặt tên bảng tính để mở lại trên máy khác (**📂 Mở bảng tính**). Bản nháp vẫn tự giữ trên máy đang dùng.
+- Chọn **Sàn** (TikTok / Shopee) — mỗi sàn có bảng tính và bản nháp riêng.
+- **💾 Lưu lên Sheets** (không cần mật khẩu): nút luôn hiện — mờ **✓ Đã lưu** khi không có thay đổi, sáng khi có thay đổi. Bảng lưu kèm: sàn, người tạo, ngày tạo, ngày sửa cuối.
+- **📂 Mở bảng tính**: chỉ hiện bảng **của bạn, đúng sàn đang chọn**. Mở / ✏️ đổi tên / 🗑 xóa (có hỏi lại).
+- **📦 Bảng cũ chưa có chủ** (bảng lưu trước khi có tính năng người dùng): ai cũng thấy → **Nhận vào TikTok / Shopee** → thành bảng của bạn và biến khỏi danh sách của người khác. Dữ liệu cũ không bị xóa.
+- Gian nào **chưa có phí ngành đó** ở tháng mới nhất (vd gian đã có phí 10/2026 cho Tranh nhưng Trà chỉ có 08/2026): ô lãi có **⚠ phí tạm** và dưới bảng ghi *"Gian X chưa có phí ngành Y tháng Z – đang dùng tạm phí tháng …"*. Chưa có phí nào thì ghi *"chưa tính được lãi"*.
 - **📤 Xuất Excel**: 5 cột đầu đúng mẫu nhập (nhập lại được) + lãi từng gian.
 
 ### 🏷️ Set giá
@@ -184,6 +196,8 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 5. Ô **Phiên bản** (Version) → chọn **Phiên bản mới** (New version) → **Triển khai** (Deploy).
 6. URL **giữ nguyên** — không cần nhập lại ở các máy.
 7. Kiểm tra: mở app → ⚙️ Cài đặt → **Kiểm tra kết nối** → xem số phiên bản.
+
+> Bản **1.2.0** (người dùng + bảng tính riêng theo sàn): **không cần chạy hàm nào**. Các sheet mới (`NGUOI_DUNG`, `BANG_TINH_TIKTOK`, `BANG_TINH_SHOPEE`, `BANG_TINH_DONG_TIKTOK`, `BANG_TINH_DONG_SHOPEE`) và 3 cột mới cuối sheet `BANG_TINH` tự tạo khi dùng lần đầu. Muốn tạo sẵn thì chạy `taoCacSheet`.
 
 > ❌ Nếu lỡ bấm "Tùy chọn triển khai mới" thì sẽ ra **URL mới**; các máy phải nhập lại URL. Bản cũ vẫn chạy code cũ.
 

@@ -37,18 +37,19 @@ after(async () => {
   mayChu?.kill();
 });
 
-async function moTrang(matKhau = 'mat-khau-thu') {
+async function moTrang(matKhau = 'mat-khau-thu', nguoi = 'Lan') {
   const p = await trinhDuyet.newPage();
   const loi = [];
   p.on('pageerror', (e) => loi.push(String(e)));
-  await p.addInitScript(([url, mk]) => {
+  await p.addInitScript(([url, mk, nguoi]) => {
     if (!sessionStorage.getItem('da-khoi-tao')) {
       localStorage.clear();
       localStorage.setItem('bggl.caidat.v1', JSON.stringify({ url }));
-      sessionStorage.setItem('bggl.matkhau.v1', mk);
+      if (mk) sessionStorage.setItem('bggl.matkhau.v1', mk);
+      if (nguoi) localStorage.setItem('bggl.nguoi.v1', nguoi);
       sessionStorage.setItem('da-khoi-tao', '1');
     }
-  }, [`${URL_APP}/gas`, matKhau]);
+  }, [`${URL_APP}/gas`, matKhau, nguoi]);
   await p.goto(`${URL_APP}/#loi-nhuan`);
   await p.waitForSelector('.dong-bo-xong');
   return { p, loi };
@@ -107,33 +108,65 @@ test('LỖI 1 + 2 + 3 trên giao diện: tên có ngoặc kép giữ nguyên, gi
   await p.close();
 });
 
-test('LỖI 5 + 6 trên giao diện: sai mật khẩu → báo lỗi, không báo "đã lưu"; đúng mật khẩu → lưu và mở lại được', { skip: boQua }, async () => {
-  let { p } = await moTrang('sai');
-  await napFile(p, taoFile('b.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['A', 1000, 5000], ['B', 2000, 9000]]));
-  await p.click('text=💾 Lưu lên Sheets');
-  await p.fill('dialog[open] input', 'Bảng thử nghiệm');
+test('2 người trên 2 trình duyệt: bảng tính riêng theo người + sàn, không thấy bảng của nhau; lưu không cần mật khẩu; nhận bảng cũ', { skip: boQua }, async () => {
+  // Tên không có trong danh sách → Apps Script từ chối → KHÔNG báo đã lưu
+  let { p } = await moTrang('', 'Người lạ');
+  await napFile(p, taoFile('b.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['A', 1000, 5000]]));
+  await p.click('.nut-luu-sheets');
+  await p.fill('dialog[open] input', 'Bảng lạ');
   await p.click('dialog[open] >> text=Lưu');
   await p.waitForSelector('.thong-bao-loi');
-  assert.match(await p.textContent('.thong-bao-loi'), /CHƯA lưu được: Sai mật khẩu/);
+  assert.match(await p.textContent('.thong-bao-loi'), /CHƯA lưu được: .*không có trong danh sách/);
   assert.equal(await p.locator('.chuc-mung', { hasText: 'Đã lưu' }).count(), 0, 'không được báo đã lưu');
-  assert.match(await p.textContent('.the-dau'), /chưa lưu lên Sheets/);
   await p.close();
 
-  ({ p } = await moTrang('mat-khau-thu'));
-  await napFile(p, taoFile('c.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], [TEN_KHO, 1000, 5000], ['B', 2000, '']]));
-  await p.click('text=💾 Lưu lên Sheets');
-  await p.fill('dialog[open] input', 'Bảng thử nghiệm');
-  await p.click('dialog[open] >> text=Lưu');
-  await p.waitForSelector('.chuc-mung >> text=Đã lưu');
-  assert.match(await p.textContent('.the-dau'), /đã lưu/);
-  // bảng mới rồi mở lại
-  await p.click('text=🧹 Bảng mới');
-  await p.click('text=📂 Mở bảng tính');
-  await p.click('dialog[open] >> text=Mở');
-  await p.waitForSelector('[aria-label="Tên dòng 1"]');
-  assert.equal(await p.inputValue('[aria-label="Tên dòng 1"]'), TEN_KHO);
-  assert.equal(await p.inputValue('[aria-label="Giá bán dòng 2"]'), '');
-  await p.close();
+  // Lan (KHÔNG có mật khẩu) lưu bảng TikTok
+  const lan = (await moTrang('', 'Lan')).p;
+  assert.match(await lan.textContent('#nut-nguoi'), /Lan · Đổi/);
+  await napFile(lan, taoFile('c.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], [TEN_KHO, 1000, 5000], ['B', 2000, '']]));
+  assert.equal(await lan.textContent('.nut-luu-sheets'), '💾 Lưu lên Sheets');
+  assert.equal(await lan.isEnabled('.nut-luu-sheets'), true);
+  await lan.click('.nut-luu-sheets');
+  await lan.fill('dialog[open] input', 'Bảng của Lan');
+  await lan.click('dialog[open] >> text=Lưu');
+  await lan.waitForSelector('.chuc-mung >> text=Đã lưu');
+  assert.equal(await lan.textContent('.nut-luu-sheets'), '✓ Đã lưu');
+  assert.equal(await lan.isEnabled('.nut-luu-sheets'), false);
+  // sửa 1 ô → nút sáng lại
+  await lan.fill('[aria-label="Giá vốn dòng 2"]', '2500');
+  await lan.press('[aria-label="Giá vốn dòng 2"]', 'Tab');
+  assert.equal(await lan.textContent('.nut-luu-sheets'), '💾 Lưu lên Sheets');
+
+  // Minh (trình duyệt khác) KHÔNG thấy bảng của Lan; thấy mục "Bảng cũ chưa có chủ" → nhận vào Shopee
+  const minh = (await moTrang('', 'Minh')).p;
+  assert.equal(await minh.locator('.bang-ln tbody tr').count(), 0, 'bản nháp của Minh trống');
+  await minh.click('text=📂 Mở bảng tính');
+  await minh.waitForSelector('dialog[open] h2 >> text=Bảng tính của Minh · TikTok');
+  assert.doesNotMatch(await minh.textContent('dialog[open]'), /Bảng của Lan/);
+  assert.match(await minh.textContent('dialog[open] .muc-bang-cu'), /Bảng cũ \(thử\)/);
+  await minh.click('dialog[open] >> text=Nhận vào Shopee');
+  await minh.click('dialog.hop-thoai-nho button:has-text("Nhận bảng này")');
+  await minh.waitForSelector('dialog[open] h2 >> text=Bảng tính của Minh · Shopee');
+  assert.match(await minh.textContent('dialog[open]'), /Bảng cũ \(thử\)/);
+  assert.equal(await minh.locator('dialog[open] .muc-bang-cu').count(), 0);
+  await minh.click('dialog[open] >> text=Mở');
+  await minh.waitForSelector('[aria-label="Tên dòng 1"]');
+  assert.equal(await minh.inputValue('[aria-label="Tên dòng 1"]'), 'Tranh thử A');
+  await minh.close();
+
+  // Lan: danh sách TikTok chỉ có bảng của Lan; bảng cũ đã có chủ → không còn; Shopee của Lan trống
+  await lan.click('text=📂 Mở bảng tính');
+  await lan.waitForSelector('dialog[open] h2 >> text=Bảng tính của Lan · TikTok');
+  const dsLan = await lan.textContent('dialog[open]');
+  assert.match(dsLan, /Bảng của Lan/);
+  assert.doesNotMatch(dsLan, /Bảng cũ \(thử\)/);
+  await lan.click('dialog[open] .nut-dong');
+  // bản nháp tách theo sàn: Shopee của Lan trống, quay lại TikTok vẫn còn
+  await lan.click('.chip-san:has-text("Shopee")');
+  assert.equal(await lan.locator('.bang-ln tbody tr').count(), 0);
+  await lan.click('.chip-san:has-text("TikTok")');
+  assert.equal(await lan.inputValue('[aria-label="Tên dòng 1"]'), TEN_KHO);
+  await lan.close();
 });
 
 test('Set giá: chọn nhóm → có giá đề xuất, cảnh báo bậc giá, giá chốt tay, xuất file đúng mẫu nhập', { skip: boQua }, async () => {
@@ -386,6 +419,27 @@ test('Bảng phí: ngành thiếu Chi phí QC → ô tô vàng + cảnh báo; nh
   await p.fill('[aria-label="Chi phí QC — Trà"]', '6');
   assert.equal(await p.locator('.bang-phi td.o-thieu-qc').count(), 0);
   assert.ok(await p.locator('.canh-bao-qc').isHidden());
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('Lần đầu mở app: hỏi tên (chọn trong danh sách / ➕ Tên mới); "👤 Tên · Đổi"; cảnh báo ⚠ khi dùng tạm phí khác', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('', '');
+  await p.waitForSelector('dialog.hop-thoai-nguoi');
+  assert.match(await p.textContent('dialog.hop-thoai-nguoi'), /Bạn là ai\?/);
+  assert.match(await p.textContent('dialog.hop-thoai-nguoi .ds-ten'), /Lan.*Minh/);
+  // không có mật khẩu → không có phần quản lý tên
+  assert.equal(await p.locator('dialog.hop-thoai-nguoi details').count(), 0);
+  await p.fill('[aria-label="Tên mới"]', 'Hoa');
+  await p.click('dialog.hop-thoai-nguoi >> text=Thêm & chọn');
+  await p.waitForSelector('#nut-nguoi >> text=Hoa');
+  assert.equal(await p.evaluate(() => localStorage.getItem('bggl.nguoi.v1')), 'Hoa');
+  // Tường Vip có phí tháng 10/2026 cho Tranh/Decal nhưng Trà chỉ có tháng 08/2026 → ⚠ phí tạm
+  await napFile(p, taoFile('tra.xlsx', [['Tên sản phẩm', 'Ngành hàng', 'Giá vốn', 'Giá bán'], ['Trà thử', 'Trà', 30000, 99000]]));
+  const o = p.locator('.bang-ln tbody tr:first-child td.co-canh-bao-phi');
+  assert.ok(await o.count() >= 1);
+  assert.match(await o.first().getAttribute('title'), /Gian .+ chưa có phí ngành Trà tháng \d\d\/2026 – đang dùng tạm phí tháng 08\/2026/);
+  assert.match(await p.textContent('.ghi-chu-phi'), /Gian Tường Vip chưa có phí ngành Trà tháng 10\/2026 – đang dùng tạm phí tháng 08\/2026/);
   assert.deepEqual(loi, []);
   await p.close();
 });

@@ -12,10 +12,11 @@ const KHOA_SHEET = {
   GIA_VON: ['nhom', 'phan_loai'],
   NOI_SKU: ['sku_id'],
   CAMPAIGN: ['id'],
-  BANG_TINH: ['id'],
+  NGUOI_DUNG: ['ten'],
 };
 
-const rong = () => ({ DANH_MUC: [], BANG_PHI: [], GIA_VON: [], NOI_SKU: [], CAMPAIGN: [], BANG_TINH: [] });
+// Bảng tính KHÔNG nằm trong dữ liệu chung: mỗi người chỉ tải bảng của mình khi bấm "Mở bảng tính".
+const rong = () => ({ DANH_MUC: [], BANG_PHI: [], GIA_VON: [], NOI_SKU: [], CAMPAIGN: [], NGUOI_DUNG: [] });
 
 const trangThai = {
   duLieu: rong(),
@@ -187,35 +188,104 @@ export function xoaCacheMay() {
   baoThayDoi({ duLieuDoi: true, nguon: 'cache' });
 }
 
-// ---------- Bảng tính đã lưu (tab Tính lợi nhuận) ----------
+// ---------- Người dùng (không mật khẩu) ----------
 
-/** Lưu bảng tính + toàn bộ dòng. Chỉ cập nhật danh sách trên máy SAU KHI Apps Script xác nhận. */
-export async function luuBangTinh(bangTinh, dong) {
-  const r = await goiGhi({
-    action: 'luuBangTinh',
-    bangTinh: { ...bangTinh, so_dong: dong.length },
-    dong: dong.map((d, i) => ({ stt: i + 1, ten: d.ten, phan_loai: d.phan_loai, nganh: d.nganh, gia_von: d.gia_von, gia_ban: d.gia_ban })),
-  });
-  const ds = trangThai.duLieu.BANG_TINH;
-  const i = ds.findIndex((b) => b.id === r.banGhi.id);
-  if (i >= 0) ds[i] = r.banGhi; else ds.push(r.banGhi);
+const KHOA_NGUOI = 'bggl.nguoi.v1';
+export const SAN = { TIKTOK: 'TikTok', SHOPEE: 'Shopee' };
+
+/** Tên người dùng đang chọn trên máy này ('' nếu chưa chọn). */
+export function layNguoi() {
+  try { return localStorage.getItem(KHOA_NGUOI) || ''; } catch { return ''; }
+}
+
+export function chonNguoi(ten) {
+  try { localStorage.setItem(KHOA_NGUOI, ten); } catch { /* bỏ qua */ }
+  baoThayDoi({ duLieuDoi: false, nguoiDoi: true });
+}
+
+/** Danh sách tên đang dùng (theo thứ tự). */
+export function dsNguoi({ caAn = false } = {}) {
+  return [...trangThai.duLieu.NGUOI_DUNG]
+    .filter((n) => caAn || n.dang_dung !== 'khong')
+    .sort((a, b) => (a.thu_tu ?? 0) - (b.thu_tu ?? 0) || String(a.ten).localeCompare(String(b.ten), 'vi'));
+}
+
+function capNhatNguoi(banGhi) {
+  const ds = trangThai.duLieu.NGUOI_DUNG;
+  const i = ds.findIndex((n) => n.ten === banGhi.ten);
+  if (i >= 0) ds[i] = banGhi; else ds.push(banGhi);
   luuCache();
   baoThayDoi(DA_GHI);
+}
+
+/** Ai cũng tự thêm được tên mình. */
+export async function themNguoi(ten) {
+  const r = await goiPost(layCaiDat().url, { action: 'themNguoi', ten });
+  capNhatNguoi(r.banGhi);
   return r.banGhi;
 }
 
-export async function docBangTinh(id) {
-  const r = await goiGet(layCaiDat().url, { action: 'docBangTinh', id });
-  return r.duLieu
-    .sort((a, b) => (a.stt ?? 0) - (b.stt ?? 0))
-    .map((d) => ({ ten: d.ten ?? '', phan_loai: d.phan_loai ?? '', nganh: d.nganh ?? '', gia_von: d.gia_von ?? null, gia_ban: d.gia_ban ?? null }));
+/** Cần mật khẩu: đổi tên (bảng tính đổi chủ theo). */
+export async function doiTenNguoi(tenCu, tenMoi) {
+  const r = await goiGhi({ action: 'doiTenNguoi', tenCu, tenMoi });
+  trangThai.duLieu.NGUOI_DUNG = trangThai.duLieu.NGUOI_DUNG.filter((n) => n.ten !== tenCu);
+  capNhatNguoi(r.banGhi);
+  if (layNguoi() === tenCu) chonNguoi(r.banGhi.ten);
+  return r.banGhi;
 }
 
-export async function xoaBangTinh(id) {
-  await goiGhi({ action: 'xoaBangTinh', id });
-  trangThai.duLieu.BANG_TINH = trangThai.duLieu.BANG_TINH.filter((b) => b.id !== id);
-  luuCache();
-  baoThayDoi(DA_GHI);
+// ---------- Bảng tính riêng của người đang chọn, theo sàn (tab Tính lợi nhuận) ----------
+
+function canNguoi() {
+  const nguoi = layNguoi();
+  if (!nguoi) throw new LoiApi('Chưa chọn tên người dùng (bấm 👤 ở góc trên).');
+  return nguoi;
+}
+
+const chuanDong = (ds) => ds
+  .sort((a, b) => (a.stt ?? 0) - (b.stt ?? 0))
+  .map((d) => ({ ten: d.ten ?? '', phan_loai: d.phan_loai ?? '', nganh: d.nganh ?? '', gia_von: d.gia_von ?? null, gia_ban: d.gia_ban ?? null }));
+
+/** Bảng tính CỦA TÔI trên sàn này (Apps Script chỉ trả bảng của đúng tên này). */
+export async function dsBangTinhCuaToi(san) {
+  const r = await goiGet(layCaiDat().url, { action: 'dsBangTinhCuaToi', nguoi: canNguoi(), san });
+  return r.duLieu;
+}
+
+export async function docBangTinhCuaToi(san, id) {
+  const r = await goiGet(layCaiDat().url, { action: 'docBangTinhCuaToi', nguoi: canNguoi(), san, id });
+  return chuanDong(r.duLieu);
+}
+
+/** Lưu bảng của mình — KHÔNG cần mật khẩu. Chỉ trả về khi Apps Script xác nhận. */
+export async function luuBangTinhCuaToi(san, bangTinh, dong) {
+  const r = await goiPost(layCaiDat().url, {
+    action: 'luuBangTinhCuaToi', nguoi: canNguoi(), san,
+    bangTinh,
+    dong: dong.map((d, i) => ({ stt: i + 1, ten: d.ten, phan_loai: d.phan_loai, nganh: d.nganh, gia_von: d.gia_von, gia_ban: d.gia_ban })),
+  });
+  return r.banGhi;
+}
+
+export async function doiTenBangTinhCuaToi(san, id, ten) {
+  const r = await goiPost(layCaiDat().url, { action: 'doiTenBangTinhCuaToi', nguoi: canNguoi(), san, id, ten });
+  return r.banGhi;
+}
+
+export async function xoaBangTinhCuaToi(san, id) {
+  const r = await goiPost(layCaiDat().url, { action: 'xoaBangTinhCuaToi', nguoi: canNguoi(), san, id });
+  return r.daXoa;
+}
+
+/** Bảng cũ (trước khi có người dùng) chưa có chủ — mọi người đều thấy để nhận. */
+export async function dsBangTinhCu() {
+  const r = await goiGet(layCaiDat().url, { action: 'dsBangTinhCu' });
+  return r.duLieu;
+}
+
+export async function nhanBangTinhCu(id, san) {
+  const r = await goiPost(layCaiDat().url, { action: 'nhanBangTinhCu', nguoi: canNguoi(), san, id });
+  return r.banGhi;
 }
 
 // ---------- Campaign ----------

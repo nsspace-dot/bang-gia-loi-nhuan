@@ -88,6 +88,13 @@ Phí: KHÔNG có ô chọn tháng — luôn dùng bộ phí đang áp dụng t�
 - **Bố cục cố định**: thanh trạng thái đồng bộ rộng cố định; nhãn "chưa lưu/đã lưu" chừa sẵn chỗ; toast & thông báo dữ liệu mới ở vị trí cố định; bảng phí `table-layout: fixed`; ô số dùng chữ số đều nhau.
 - Test trình duyệt: sửa liên tục 10 ô, lăn chuột, ↑↓, Esc, Enter, đồng bộ nền khi đang sửa, Lưu → vị trí cuộn không đổi, bảng không bị vẽ lại; Tính lợi nhuận sửa giá khi đang sắp xếp → dòng không nhảy.
 
+## Người dùng + bảng tính riêng theo người / sàn (Code.gs 1.2.0)
+- Chọn tên (không mật khẩu), lưu ở máy `bggl.nguoi.v1`; sheet `NGUOI_DUNG` (ten, dang_dung, thu_tu…). Thêm tên: không mật khẩu; đổi tên / ẩn: cần mật khẩu.
+- Bảng tính: `BANG_TINH_TIKTOK|SHOPEE` (+ `nguoi_tao`, `san`, `tao_luc`, `cap_nhat_luc`) và `BANG_TINH_DONG_TIKTOK|SHOPEE`. Apps Script chỉ trả bảng của người hỏi; lưu / đổi tên / xóa bảng của mình không cần mật khẩu.
+- `BANG_TINH` cũ giữ nguyên, thêm cột `da_nhan_boi`, `nhan_vao_san`, `nhan_luc`; "Nhận" = sao chép sang sheet sàn, không xóa.
+- Nháp: `bggl.loinhuan.v2:<người>:<sàn>` (nháp cũ `bggl.loinhuan.v1` chuyển 1 lần).
+- Thiếu phí ngành ở tháng mới nhất của gian → ⚠ "phí tạm" + ghi chú (`chonBoPhiCanhBao`).
+
 ## Kiến trúc
 
 - **Web tĩnh, không cần build**, host bằng **GitHub Pages** (Settings → Pages → Deploy from a branch → chọn nhánh → thư mục `/ (root)`). File `.nojekyll` để GitHub phục vụ nguyên trạng.

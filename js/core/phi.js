@@ -47,6 +47,28 @@ export function chonBoPhi(dsPhi, gian, nganh, thang) {
   return tot;
 }
 
+/**
+ * Chọn bộ phí + cảnh báo khi phải dùng TẠM bộ phí khác (không lặng lẽ):
+ *  - Gian chưa có phí ngành này ở bất kỳ tháng nào ≤ tháng tính → phi = null + cảnh báo.
+ *  - Gian đã có bộ phí MỚI HƠN cho ngành khác, nhưng ngành này chỉ có bộ cũ → dùng tạm bộ cũ + cảnh báo.
+ * @returns {{ phi: object|null, canhBao: string|null }}
+ */
+export function chonBoPhiCanhBao(dsPhi, gian, nganh, thang) {
+  const phi = chonBoPhi(dsPhi, gian, nganh, thang);
+  if (!phi) {
+    return { phi: null, canhBao: `Gian ${gian} chưa có phí ngành ${nganh || '(trống)'} tháng ${hienThiThang(thang)} – chưa tính được lãi` };
+  }
+  let moiNhat = null; // tháng mới nhất (≤ tháng tính) mà gian này đã có bộ phí, xét mọi ngành
+  for (const p of dsPhi || []) {
+    if (p.gian !== gian || !laThangHopLe(p.thang) || p.thang > thang) continue;
+    if (!moiNhat || p.thang > moiNhat) moiNhat = p.thang;
+  }
+  if (moiNhat && phi.thang < moiNhat) {
+    return { phi, canhBao: `Gian ${gian} chưa có phí ngành ${nganh} tháng ${hienThiThang(moiNhat)} – đang dùng tạm phí tháng ${hienThiThang(phi.thang)}` };
+  }
+  return { phi, canhBao: null };
+}
+
 /** Danh sách tháng đã có bộ phí của một gian (mới nhất trước). */
 export function cacThangCoPhi(dsPhi, gian) {
   const s = new Set((dsPhi || []).filter((p) => p.gian === gian).map((p) => p.thang));

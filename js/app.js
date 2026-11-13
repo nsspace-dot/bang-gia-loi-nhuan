@@ -7,6 +7,7 @@ import { taoTabGiaVon } from './ui/tab-gia-von.js';
 import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
 import { taoTabSetGia } from './ui/tab-set-gia.js';
 import { taoTabCampaign } from './ui/tab-campaign.js';
+import { ganNutNguoi, hoiTenLanDau } from './ui/nguoi-dung.js';
 import * as kho from './data/kho.js';
 
 const KHOA_TAB = 'bggl.tab.v1';
@@ -61,6 +62,9 @@ function khoiDong() {
   document.getElementById('nut-cai-dat').addEventListener('click', moCaiDat);
   document.getElementById('trang-thai-dong-bo').addEventListener('click', () => (kho.layCaiDat().url ? kho.dongBo() : moCaiDat()));
   kho.dangKy(veTrangThai);
+  ganNutNguoi(document.querySelector('.dau-phai'));
+  // Lần đầu: sau khi tải xong danh sách tên mà máy chưa chọn tên → hỏi
+  kho.dangKy((ts) => { if (ts.dongBo === 'xong') hoiTenLanDau(); });
 
   let tab = location.hash.slice(1);
   if (!TAO_TAB[tab]) { try { tab = localStorage.getItem(KHOA_TAB) || 'loi-nhuan'; } catch { tab = 'loi-nhuan'; } }

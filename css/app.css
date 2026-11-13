@@ -514,3 +514,23 @@ main { overflow-anchor: none; }
 .canh-bao-qc { margin-top: 10px; }
 .canh-bao-qc[hidden] { display: none; }
 .dau-canh-bao-qc { color: var(--vang); cursor: help; }
+
+/* ---------- Người dùng ---------- */
+.nut-nguoi {
+  border: 2px solid var(--vien); background: var(--the); border-radius: 999px; padding: 6px 14px; cursor: pointer;
+  font-size: 13px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; color: var(--chu);
+}
+.nut-nguoi:hover { background: var(--nen-2); }
+.ds-ten { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.chip-ten { border: 2px solid var(--vien); background: #fff; border-radius: 14px; padding: 8px 16px; cursor: pointer; font-weight: 700; font-size: 15px; }
+.chip-ten:hover { background: var(--chinh-nhat); }
+.chip-ten.dang-chon { border-color: var(--chinh); background: var(--chinh-nhat); color: var(--chinh-dam); }
+.hang-ten-moi { margin-top: 8px; }
+.hang-ten-moi .o-nhap { flex: 1; min-width: 160px; }
+.bang-ten td { padding: 6px 8px; }
+.chip-san { border: 2px solid var(--vien); background: #fff; border-radius: 999px; padding: 5px 14px; cursor: pointer; font-weight: 700; font-size: 13px; color: var(--chu-phu); }
+.chip-san.dang-chon { background: var(--tim-nen); border-color: #cbbcf3; color: var(--tim); }
+.nut-luu-sheets:disabled { opacity: .55; }
+.dau-canh-bao-phi { color: var(--vang); font-weight: 700; }
+.o-lai.co-canh-bao-phi { background: #fffbeb; }
+.muc-bang-cu { margin-top: 16px; border-top: 2px dashed var(--vien); padding-top: 10px; }

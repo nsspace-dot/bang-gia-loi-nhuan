@@ -97,14 +97,14 @@ test('LỖI 4: không có URL Apps Script / mật khẩu ghi cứng trong code',
   }
 });
 
-test('LỖI 4: ghi bảng tính không có mật khẩu → Apps Script từ chối', () => {
+test('LỖI 4: Bảng phí / Giá vốn / quản lý tên vẫn cần mật khẩu; bảng tính CỦA MÌNH lưu không cần mật khẩu nhưng phải đúng tên trong danh sách', () => {
   const g = taoMoiTruong();
-  const r = g.post({ action: 'luuBangTinh', bangTinh: { id: 'b', ten: 'x' }, dong: [] });
-  assert.equal(r.ok, false);
-  assert.equal(g.get({ action: 'docTatCa' }).duLieu.BANG_TINH.length, 0);
+  assert.equal(g.post({ action: 'upsert', sheet: 'GIA_VON', banGhi: [{ nhom: 'N', phan_loai: '1x1', gia_von: 1 }] }).ok, false);
+  assert.equal(g.post({ action: 'upsert', sheet: 'NGUOI_DUNG', banGhi: [{ ten: 'X' }] }).ok, false);
+  assert.match(g.post({ action: 'luuBangTinhCuaToi', nguoi: 'Không có', san: 'TIKTOK', bangTinh: { id: 'b', ten: 'x' }, dong: [] }).loi, /không có trong danh sách/);
+  g.post({ action: 'themNguoi', ten: 'Lan' });
+  assert.equal(g.post({ action: 'luuBangTinhCuaToi', nguoi: 'Lan', san: 'TIKTOK', bangTinh: { id: 'b', ten: 'x' }, dong: [] }).ok, true);
 });
-
-// ---------- LỖI 5 + 6: chỉ báo "đã lưu" khi lưu thật; lưu bảng tính lên Sheets ----------
 
 function boNho() {
   const m = new Map();
@@ -134,47 +134,49 @@ const DONG = [
   { ten: 'Decal B', phan_loai: '', nganh: 'Decal', gia_von: 9000, gia_ban: 45000 },
 ];
 
-test('LỖI 6: lưu bảng tính lên Sheets (đặt tên), mở lại đúng dữ liệu, xóa', async () => {
+test('LỖI 6: lưu bảng tính CỦA MÌNH lên Sheets theo sàn (không mật khẩu), mở lại đúng dữ liệu, đổi tên, xóa', async () => {
   const gas = taoMoiTruong();
+  gas.post({ action: 'themNguoi', ten: 'Lan' });
   const kho = await taoKho(fetchQuaGas(gas));
-  kho.luuMatKhau('mat-khau-thu', false);
-  const bt = await kho.luuBangTinh({ id: 'bt1', ten: 'Bảng tháng 10', gian_hien_thi: 'G1,G2', thang_phi: '2026-10' }, DONG);
+  kho.chonNguoi('Lan');
+  const bt = await kho.luuBangTinhCuaToi('TIKTOK', { id: 'bt1', ten: 'Bảng tháng 10', gian_hien_thi: 'G1,G2' }, DONG);
   assert.equal(bt.so_dong, 2);
-  assert.equal(kho.duLieu().BANG_TINH.length, 1);
-  assert.deepEqual(await kho.docBangTinh('bt1'), DONG);
+  assert.equal(bt.nguoi_tao, 'Lan');
+  assert.deepEqual((await kho.dsBangTinhCuaToi('TIKTOK')).map((b) => b.id), ['bt1']);
+  assert.deepEqual(await kho.dsBangTinhCuaToi('SHOPEE'), []);
+  assert.deepEqual(await kho.docBangTinhCuaToi('TIKTOK', 'bt1'), DONG);
   // lưu lại với ít dòng hơn → thay toàn bộ dòng cũ
-  await kho.luuBangTinh({ id: 'bt1', ten: 'Bảng tháng 10' }, DONG.slice(1));
-  assert.deepEqual(await kho.docBangTinh('bt1'), DONG.slice(1));
-  assert.equal(kho.duLieu().BANG_TINH.length, 1);
-  await kho.xoaBangTinh('bt1');
-  assert.equal(kho.duLieu().BANG_TINH.length, 0);
-  assert.deepEqual(await kho.docBangTinh('bt1'), []);
+  await kho.luuBangTinhCuaToi('TIKTOK', { id: 'bt1', ten: 'Bảng tháng 10' }, DONG.slice(1));
+  assert.deepEqual(await kho.docBangTinhCuaToi('TIKTOK', 'bt1'), DONG.slice(1));
+  assert.equal((await kho.doiTenBangTinhCuaToi('TIKTOK', 'bt1', 'Tên mới')).ten, 'Tên mới');
+  assert.equal(await kho.xoaBangTinhCuaToi('TIKTOK', 'bt1'), 1);
+  assert.deepEqual(await kho.dsBangTinhCuaToi('TIKTOK'), []);
+  // dữ liệu chung tải về KHÔNG chứa bảng tính của ai
+  await kho.dongBo();
+  assert.equal(kho.duLieu().BANG_TINH, undefined);
 });
 
-test('LỖI 5: sai mật khẩu → báo lỗi, KHÔNG coi là đã lưu', async () => {
+test('LỖI 5: tên không hợp lệ → Apps Script từ chối → báo lỗi, KHÔNG coi là đã lưu', async () => {
   const gas = taoMoiTruong();
   const kho = await taoKho(fetchQuaGas(gas));
-  kho.luuMatKhau('sai-roi', false);
-  await assert.rejects(kho.luuBangTinh({ id: 'bt1', ten: 'X' }, DONG), /Sai mật khẩu/);
-  assert.equal(kho.duLieu().BANG_TINH.length, 0);
+  kho.chonNguoi('Người lạ');
+  await assert.rejects(kho.luuBangTinhCuaToi('TIKTOK', { id: 'bt1', ten: 'X' }, DONG), /không có trong danh sách/);
 });
 
-test('LỖI 5: chưa nhập mật khẩu → báo lỗi trước khi gửi', async () => {
+test('LỖI 5: chưa chọn tên → báo lỗi trước khi gửi', async () => {
   let daGoi = false;
   const kho = await taoKho(async () => { daGoi = true; throw new Error('không được gọi'); });
-  await assert.rejects(kho.luuBangTinh({ id: 'bt1', ten: 'X' }, DONG), /Chưa nhập mật khẩu/);
+  await assert.rejects(kho.luuBangTinhCuaToi('TIKTOK', { id: 'bt1', ten: 'X' }, DONG), /Chưa chọn tên/);
   assert.equal(daGoi, false);
 });
 
 test('LỖI 5: mất mạng / Apps Script trả trang HTML → báo lỗi rõ, không lưu', async () => {
   let kho = await taoKho(async () => { throw new TypeError('Failed to fetch'); });
-  kho.luuMatKhau('x', false);
-  await assert.rejects(kho.luuBangTinh({ id: 'a', ten: 'X' }, DONG), /Không kết nối được/);
-  assert.equal(kho.duLieu().BANG_TINH.length, 0);
+  kho.chonNguoi('Lan');
+  await assert.rejects(kho.luuBangTinhCuaToi('TIKTOK', { id: 'a', ten: 'X' }, DONG), /Không kết nối được/);
   kho = await taoKho(async () => ({ ok: true, status: 200, text: async () => '<html>Đăng nhập Google</html>' }));
-  kho.luuMatKhau('x', false);
-  await assert.rejects(kho.luuBangTinh({ id: 'a', ten: 'X' }, DONG), /trang web/);
-  assert.equal(kho.duLieu().BANG_TINH.length, 0);
+  kho.chonNguoi('Lan');
+  await assert.rejects(kho.luuBangTinhCuaToi('TIKTOK', { id: 'a', ten: 'X' }, DONG), /trang web/);
 });
 
 // ---------- Tính lãi, lọc, sắp xếp, tổng kết ----------
@@ -207,6 +209,24 @@ test('sắp xếp theo lãi (tăng/giảm); dòng chưa tính được lãi nằ
 
 test('tìm kiếm không dấu', () => {
   assert.deepEqual(locVaSapXep(DS, { gians: ['G1'], dsPhi: PHI, thang: '2026-10', tim: 'chua gia' }), [2]);
+});
+
+test('thiếu phí: ngành chưa có bộ phí tháng mới của gian → dùng tạm bộ cũ + CẢNH BÁO (không lặng lẽ)', () => {
+  const ds = [
+    { gian: 'CN1', nganh: 'Tranh', thang: '2026-10', phi_san: 20, phi_vc: 1000, phi_xl: 1000, phi_qc: 5, aff_qc: 5, aff_noqc: 5 },
+    { gian: 'CN1', nganh: 'Trà', thang: '2026-08', phi_san: 18, phi_vc: 1000, phi_xl: 1000, phi_qc: 5, aff_qc: 5, aff_noqc: 5 },
+  ];
+  const tra = laiTaiGian({ nganh: 'Trà', gia_von: 1000, gia_ban: 10000 }, 'CN1', ds, '2026-11');
+  assert.equal(tra.trangThai, 'ok');
+  assert.equal(tra.phi.thang, '2026-08');
+  assert.equal(tra.canhBaoPhi, 'Gian CN1 chưa có phí ngành Trà tháng 10/2026 – đang dùng tạm phí tháng 08/2026');
+  assert.equal(laiTaiGian({ nganh: 'Tranh', gia_von: 1000, gia_ban: 10000 }, 'CN1', ds, '2026-11').canhBaoPhi, null);
+  const sach = laiTaiGian({ nganh: 'Sách', gia_von: 1000, gia_ban: 10000 }, 'CN1', ds, '2026-11');
+  assert.equal(sach.trangThai, 'thieu-phi');
+  assert.match(sach.canhBaoPhi, /Gian CN1 chưa có phí ngành Sách tháng 11\/2026/);
+  // cả gian đều dùng bộ cũ (chưa ngành nào có bộ mới) → bình thường, không cảnh báo
+  assert.equal(laiTaiGian({ nganh: 'Trà', gia_von: 1, gia_ban: 10 }, 'CN1', ds.slice(1), '2026-11').canhBaoPhi, null);
+  assert.equal(tongKet([{ nganh: 'Trà', gia_von: 1000, gia_ban: 10000 }], ['CN1'], ds, '2026-11').theoGian.CN1.phiTam, 1);
 });
 
 test('tổng kết: trung bình chỉ tính dòng có giá bán + có phí', () => {
