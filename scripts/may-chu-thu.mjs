@@ -34,7 +34,7 @@ if (process.argv.includes('--du-lieu-gia')) {
   von.find((v) => v.phan_loai === '60x90').gia_von = 19011; // cố ý tạo 1 cảnh báo bậc vốn
   gas.post({ action: 'upsert', matKhau: MK, sheet: 'GIA_VON', banGhi: von });
   // Người dùng giả + 1 bảng tính "cũ" chưa có chủ (để thử nút "Nhận bảng này")
-  for (const ten of ['Lan', 'Minh']) gas.post({ action: 'themNguoi', ten });
+  for (const ten of ['Lan', 'Minh', 'Hà']) gas.post({ action: 'themNguoi', ten });
   gas.post({ action: 'luuBangTinh', matKhau: MK, bangTinh: { id: 'bt_cu_1', ten: 'Bảng cũ (thử)', so_dong: 2 },
     dong: [{ stt: 1, ten: 'Tranh thử A', phan_loai: '30x40', nganh: 'Tranh', gia_von: 20000, gia_ban: 89000 },
       { stt: 2, ten: 'Trà thử B', phan_loai: '', nganh: 'Trà', gia_von: 30000, gia_ban: 99000 }] });

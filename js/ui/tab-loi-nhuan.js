@@ -17,6 +17,7 @@ const KHOA_NHAP_CU = 'bggl.loinhuan.v1';      // bản nháp chung cả máy (tr
 const KHOA_SAN = 'bggl.san.v1';
 const khoaNhap = (nguoi, san) => `bggl.loinhuan.v2:${nguoi || '_'}:${san}`; // bản nháp riêng theo người + sàn
 const MOI_TRANG = 100;
+const TU_LUU_MS = 3000; // tự lưu lên Sheets sau 3 giây kể từ lần sửa cuối
 
 let soId = 0;
 const moiId = () => ++soId;
@@ -25,6 +26,10 @@ const st = {
   ds: [],              // { _id, ten, phan_loai, nganh, gia_von, gia_ban }
   san: 'TIKTOK',        // sàn đang chọn: TIKTOK | SHOPEE
   khoaNhap: null,       // khóa bản nháp đang dùng (người + sàn)
+  nguoi: '',            // người của bản nháp đang mở (giữ lại để lưu đúng chủ khi vừa đổi người)
+  dsBang: [],           // các bảng của người + sàn này (mới sửa trước)
+  luu: { tt: '', luc: null, loi: '' }, // trạng thái lưu Sheets: '' | 'dang' | 'xong' | 'loi'
+  phienSua: 0,          // tăng mỗi lần sửa — biết có sửa thêm trong lúc đang lưu / đang tải
   bangTinh: null,      // { id, ten } khi đang mở bảng tính đã lưu (của người + sàn hiện tại)
   thayDoi: false,      // có thay đổi chưa lưu lên Sheets
   gianXem: null,       // null = tất cả gian
@@ -35,6 +40,9 @@ const st = {
   trang: 0,
 };
 let goc;
+let henLuu = null;      // hẹn giờ tự lưu
+let dangLuuP = null;    // lần lưu đang chạy
+let phien = 0;          // tăng khi đổi người / sàn / bảng → bỏ kết quả tải cũ
 
 export function taoTabLoiNhuan(phanTu) {
   goc = phanTu;
@@ -42,19 +50,158 @@ export function taoTabLoiNhuan(phanTu) {
   docNhap();
   kho.dangKy((_, ct) => {
     // Đổi người dùng → cất bản nháp của người cũ, mở bản nháp của người mới
-    if (ct.nguoiDoi) { luuNhap(); docNhap(); veLai(); return; }
+    if (ct.nguoiDoi) { roiBang(); docNhap(); veLai(); batDauPhien(); return; }
     if (!ct.duLieuDoi) return;
     if (dangGoDo(goc) && ct.nguon !== 'cache') { baoDuLieuMoi('loi-nhuan', veLai); return; }
     veLai();
   });
   veLai();
+  batDauPhien();
+}
+
+// ---------- tự mở bảng gần nhất / tự lưu ----------
+
+const tenMacDinh = () => `Bảng của ${st.nguoi} – ${kho.SAN[st.san]}`;
+const idMoi = () => `bt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const coSheets = () => !!(st.nguoi && kho.layCaiDat().url);
+const gioPhut = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''; };
+function tenKhongTrung(ten) {
+  const co = new Set(st.dsBang.map((b) => b.ten));
+  if (!co.has(ten)) return ten;
+  for (let i = 2; ; i++) if (!co.has(`${ten} (${i})`)) return `${ten} (${i})`;
+}
+const sapXepBang = (ds) => ds.sort((a, b) => String(b.cap_nhat_luc).localeCompare(String(a.cap_nhat_luc)));
+
+/** Rời bảng hiện tại (đổi người / sàn): cất nháp, có thay đổi thì lưu ngay lên Sheets. */
+function roiBang() {
+  luuNhap();
+  if (st.thayDoi && st.bangTinh && coSheets()) luuNgay();
+  else clearTimeout(henLuu);
+}
+
+/**
+ * Mở app / đổi người / đổi sàn: mở bảng dùng gần nhất của người + sàn đó.
+ * Bản nháp trên máy nhớ bảng gần nhất; máy mới thì lấy bảng sửa gần nhất trên Sheets.
+ * Chưa có bảng nào → tạo "Bảng của <Tên> – <Sàn>" trống.
+ */
+async function batDauPhien() {
+  const ma = ++phien;
+  const khoa = st.khoaNhap;
+  if (!coSheets()) { capNhatDau(); return; }
+  let ds;
+  try { ds = sapXepBang(await kho.dsBangTinhCuaToi(st.san, st.nguoi)); } catch (e) {
+    if (ma === phien) { st.luu = { tt: 'loi', loi: e.message }; capNhatDau(); }
+    return;
+  }
+  if (ma !== phien || st.khoaNhap !== khoa) return;
+  st.dsBang = ds;
+  const daCo = st.bangTinh && ds.find((b) => b.id === st.bangTinh.id);
+  if (st.bangTinh && st.thayDoi) { capNhatDau(); henTuLuu(); return; }           // còn sửa dở → tự lưu tiếp
+  if (daCo) { await taiBang(daCo, ma); return; }                                  // bảng gần nhất → lấy bản mới nhất
+  if (st.ds.length && !st.bangTinh) {                                             // nháp chưa thuộc bảng nào → thành bảng mới
+    st.bangTinh = { id: idMoi(), ten: tenKhongTrung(tenMacDinh()) };
+    st.thayDoi = true; luuNhap(); veLai(); henTuLuu(); return;
+  }
+  if (ds.length) { await taiBang(ds[0], ma); return; }
+  Object.assign(st, { ds: [], bangTinh: { id: idMoi(), ten: tenMacDinh() }, thayDoi: true, trang: 0 });
+  luuNhap(); veLai(); luuNgay();
+}
+
+/** Tải 1 bảng từ Sheets vào tab. Bỏ qua nếu người dùng đã đổi bảng / đang sửa trong lúc chờ. */
+async function taiBang(b, ma) {
+  const khoa = st.khoaNhap;
+  const v = st.phienSua;
+  try {
+    const dong = await kho.docBangTinhCuaToi(st.san, b.id, st.nguoi);
+    if (ma !== phien || st.khoaNhap !== khoa || st.phienSua !== v) return false;
+    const tat = tatCaGian();
+    const gianLuu = String(b.gian_hien_thi || '').split(',').filter((g) => tat.includes(g));
+    Object.assign(st, {
+      ds: dong.map((r) => ({ ...r, _id: moiId() })), bangTinh: { id: b.id, ten: b.ten }, thayDoi: false,
+      gianXem: gianLuu.length && gianLuu.length < tat.length ? gianLuu : null,
+      tim: '', chiLo: false, sapXep: null, trang: 0, luu: { tt: 'xong', luc: b.cap_nhat_luc, loi: '' },
+    });
+    luuNhap();
+    veLai();
+    return true;
+  } catch (e) {
+    if (ma === phien) thongBao(`Không mở được "${b.ten}": ${e.message}`, 'loi');
+    return false;
+  }
+}
+
+/** Mỗi lần sửa: hẹn tự lưu sau 3 giây (sửa tiếp thì hẹn lại). */
+function henTuLuu() {
+  clearTimeout(henLuu);
+  henLuu = null;
+  if (!st.bangTinh || !coSheets()) return;
+  henLuu = setTimeout(() => luuNgay(), TU_LUU_MS);
+}
+
+/** Lưu bảng đang mở lên Sheets ngay. Chụp dữ liệu trước rồi mới gửi (đổi người / sàn giữa chừng vẫn lưu đúng bảng). */
+async function luuNgay({ thuCong = false } = {}) {
+  clearTimeout(henLuu);
+  henLuu = null;
+  if (!st.bangTinh || !coSheets()) return false;
+  const chup = {
+    nguoi: st.nguoi, san: st.san, khoa: st.khoaNhap, v: st.phienSua,
+    bang: { id: st.bangTinh.id, ten: st.bangTinh.ten, gian_hien_thi: gianDangXem().join(',') },
+    dong: st.ds.map(({ _id, ...r }) => r),
+  };
+  st.luu = { ...st.luu, tt: 'dang' };
+  capNhatDau();
+  const truoc = dangLuuP;
+  const lan = (async () => {
+    if (truoc) await truoc.catch(() => {});
+    return kho.luuBangTinhCuaToi(chup.san, chup.bang, chup.dong, chup.nguoi);
+  })();
+  dangLuuP = lan;
+  const conLaBangNay = () => st.khoaNhap === chup.khoa && st.bangTinh?.id === chup.bang.id;
+  try {
+    const kq = await lan;
+    if (conLaBangNay()) {
+      st.bangTinh.ten = kq.ten;
+      if (st.phienSua === chup.v) st.thayDoi = false;
+      st.luu = { tt: 'xong', luc: kq.cap_nhat_luc || new Date().toISOString(), loi: '' };
+      st.dsBang = sapXepBang([kq, ...st.dsBang.filter((b) => b.id !== kq.id)]);
+      luuNhap();
+      capNhatDau();
+      if (st.thayDoi) henTuLuu(); // có sửa thêm trong lúc lưu
+    } else {
+      // đã rời bảng này: đánh dấu bản nháp của nó là đã lưu
+      try {
+        const d = JSON.parse(localStorage.getItem(chup.khoa) || 'null');
+        if (d && d.bangTinh?.id === chup.bang.id && JSON.stringify(d.ds) === JSON.stringify(chup.dong)) { d.thayDoi = false; localStorage.setItem(chup.khoa, JSON.stringify(d)); }
+      } catch { /* bỏ qua */ }
+    }
+    return true;
+  } catch (e) {
+    if (conLaBangNay()) { st.luu = { ...st.luu, tt: 'loi', loi: e.message }; capNhatDau(); }
+    if (thuCong) thongBao(`CHƯA lưu được: ${e.message}`, 'loi');
+    return false;
+  } finally {
+    if (dangLuuP === lan) dangLuuP = null;
+  }
+}
+
+/** Trước khi rời bảng (mở bảng khác / tạo mới): lưu xong, hoặc người dùng đồng ý bỏ thay đổi. */
+async function xongLuuHoacBo(viec) {
+  if (!st.thayDoi || (!st.ds.length && !st.bangTinh)) return true;
+  if (st.bangTinh && coSheets() && await luuNgay()) return true;
+  return xacNhan(`Bảng hiện tại chưa lưu được lên Sheets. Bỏ thay đổi và ${viec}?`, { nutDongY: 'Bỏ thay đổi', nguyHiem: true });
+}
+
+async function taiDsBang() {
+  if (!coSheets()) return;
+  try { st.dsBang = sapXepBang(await kho.dsBangTinhCuaToi(st.san, st.nguoi)); capNhatDau(); } catch { /* giữ danh sách cũ */ }
 }
 
 // ---------- lưu tạm trên máy (bản nháp) ----------
 
 function docNhap() {
-  Object.assign(st, { ds: [], bangTinh: null, thayDoi: false, tim: '', chiLo: false, sapXep: null, trang: 0 });
-  st.khoaNhap = khoaNhap(kho.layNguoi(), st.san);
+  Object.assign(st, { ds: [], bangTinh: null, thayDoi: false, tim: '', chiLo: false, sapXep: null, trang: 0, dsBang: [], luu: { tt: '', luc: null, loi: '' } });
+  st.nguoi = kho.layNguoi();
+  st.khoaNhap = khoaNhap(st.nguoi, st.san);
   try {
     let tho = localStorage.getItem(st.khoaNhap);
     // Bản nháp cũ (chung cả máy) → chuyển 1 lần vào bản nháp của người + sàn đang chọn, không mất
@@ -87,17 +234,20 @@ function luuNhap() {
 
 function doiSan(san) {
   if (san === st.san) return;
-  luuNhap();
+  roiBang();
   st.san = san;
   try { localStorage.setItem(KHOA_SAN, san); } catch { /* bỏ qua */ }
   docNhap();
   veLai();
+  batDauPhien();
 }
 
 function daSua() {
   st.thayDoi = true;
+  st.phienSua++;
   luuNhap();
-  capNhatNhanLuu();
+  henTuLuu();
+  capNhatDau();
 }
 
 /** Vẽ lại tab, giữ vị trí cuộn, ô đang focus và con trỏ. */
@@ -134,13 +284,29 @@ function ve() {
   thayNoiDung(goc, the, st.ds.length ? [veTongKet(gians, dsPhi), veBang(gians, dsPhi)] : veTrong());
 }
 
-/** Nhãn "chưa lưu / đã lưu" — luôn chiếm chỗ cố định, chỉ đổi chữ, không đẩy bố cục. */
-function capNhatNhanLuu() {
-  const el = goc.querySelector('.nhan-trang-thai-luu');
-  if (!el) return;
-  el.textContent = st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : '';
-  el.className = ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'].join(' ');
-  const nut = goc.querySelector('.nut-luu-sheets');
+/** Trạng thái lưu: "Đang lưu…" / "✓ Đã lưu lúc hh:mm" / "⚠ Chưa lưu được – bấm để thử lại". */
+function trangThaiLuu() {
+  if (st.luu.tt === 'dang') return { chu: 'Đang lưu…', lop: 'nhan-tim' };
+  if (st.luu.tt === 'loi') return { chu: '⚠ Chưa lưu được – bấm để thử lại', lop: 'nhan-do', loi: true };
+  if (st.thayDoi) return { chu: st.bangTinh && coSheets() ? 'Sẽ tự lưu…' : 'chưa lưu lên Sheets', lop: 'nhan-vang' };
+  if (st.bangTinh) return { chu: st.luu.luc ? `✓ Đã lưu lúc ${gioPhut(st.luu.luc)}` : '✓ Đã lưu', lop: 'nhan-xanh' };
+  return { chu: '', lop: 'nhan-an' };
+}
+
+function veTrangThaiLuu() {
+  const t = trangThaiLuu();
+  return h('button', { type: 'button', class: ['nhan-nho', 'nhan-trang-thai-luu', t.lop], disabled: !t.loi, title: t.loi ? st.luu.loi : '',
+    onclick: () => luuNgay({ thuCong: true }) }, t.chu);
+}
+
+/** Cập nhật phần đầu tab (tên bảng, danh sách bảng, trạng thái lưu) — không đụng tới bảng sản phẩm. */
+function capNhatDau() {
+  const cu = goc?.querySelector('.the-dau');
+  if (!cu) return;
+  const dangChon = cu.contains(document.activeElement) && document.activeElement.tagName === 'SELECT';
+  if (!dangChon) { cu.replaceWith(veDau()); return; }
+  cu.querySelector('.nhan-trang-thai-luu')?.replaceWith(veTrangThaiLuu());
+  const nut = cu.querySelector('.nut-luu-sheets');
   if (nut) { const t = trangThaiNutLuu(); nut.disabled = t.tat; nut.textContent = t.chu; }
 }
 
@@ -158,21 +324,44 @@ function capNhatDong(i) {
 
 /** Nút Lưu luôn hiện: có thay đổi → sáng "💾 Lưu lên Sheets"; không có → mờ "✓ Đã lưu". */
 function trangThaiNutLuu() {
-  if (!st.ds.length) return { tat: true, chu: '💾 Lưu lên Sheets' };
-  if (st.thayDoi || !st.bangTinh) return { tat: false, chu: '💾 Lưu lên Sheets' };
+  if (!st.ds.length && !st.bangTinh) return { tat: true, chu: '💾 Lưu lên Sheets' };
+  if (st.thayDoi || !st.bangTinh || st.luu.tt === 'loi') return { tat: false, chu: '💾 Lưu lên Sheets' };
   return { tat: true, chu: '✓ Đã lưu' };
+}
+
+/** Chọn nhanh bảng của mình (cùng người + sàn) — không cần mở hộp "Mở bảng tính". */
+function veChonBang() {
+  const ds = [...st.dsBang];
+  if (st.bangTinh && !ds.some((b) => b.id === st.bangTinh.id)) ds.unshift({ id: st.bangTinh.id, ten: st.bangTinh.ten });
+  const hienTai = st.bangTinh?.id || '';
+  return h('select', {
+    class: 'o-nhap chon-bang', 'aria-label': 'Chọn bảng tính', title: 'Chọn nhanh bảng của bạn', disabled: !coSheets(),
+    onchange: async (e) => {
+      const v = e.target.value;
+      e.target.value = hienTai;
+      e.target.blur();
+      if (v === '__moi') { taoMoi(); return; }
+      if (v === '__ds') { moDanhSach(); return; }
+      const b = st.dsBang.find((x) => x.id === v);
+      if (b) moBangTinh(b);
+    },
+  },
+  hienTai ? null : h('option', { value: '' }, '— chọn bảng —'),
+  ds.map((b) => h('option', { value: b.id, selected: b.id === hienTai }, b.ten)),
+  h('option', { value: '__moi' }, '➕ Bảng mới…'),
+  h('option', { value: '__ds' }, '📂 Quản lý bảng tính…'));
 }
 
 function veDau() {
   const ten = st.bangTinh ? st.bangTinh.ten : 'Bảng tính mới';
   const nut = trangThaiNutLuu();
-  const nguoi = kho.layNguoi();
   return h('div', { class: 'the-dau' },
     h('div', null,
       h('h2', null, 'Tính lợi nhuận'),
-      h('p', { class: 'mo-ta' }, '📄 ', h('b', null, ten),
-        h('span', { class: ['nhan-nho', 'nhan-trang-thai-luu', st.thayDoi ? 'nhan-vang' : st.bangTinh ? 'nhan-xanh' : 'nhan-an'] }, st.thayDoi ? 'chưa lưu lên Sheets' : st.bangTinh ? 'đã lưu' : ''),
-        h('span', { class: 'chu-nhat' }, ` · ${st.ds.length} dòng · ${kho.SAN[st.san]} · ${nguoi ? `của ${nguoi}` : 'chưa chọn tên'} · bản nháp tự lưu trên máy này`))),
+      h('p', { class: 'mo-ta dong-phien' },
+        '👤 ', h('b', null, st.nguoi || 'chưa chọn tên'), ' · ', h('b', null, kho.SAN[st.san]), ' · 📄 ', h('b', { class: 'ten-bang' }, ten), ' ',
+        veChonBang(), ' ', veTrangThaiLuu(),
+        h('span', { class: 'chu-nhat' }, ` · ${st.ds.length} dòng`))),
     h('div', { class: 'hang-nut' },
       h('button', { class: 'nut', onclick: moDanhSach }, '📂 Mở bảng tính'),
       h('button', { class: 'nut nut-chinh nut-luu-sheets', onclick: () => luuLenSheets(false), disabled: nut.tat }, nut.chu),
@@ -440,10 +629,18 @@ function xuatExcel(gians) {
 }
 
 async function taoMoi() {
-  if (st.thayDoi && st.ds.length && !(await xacNhan('Bảng hiện tại có thay đổi chưa lưu lên Sheets. Bỏ và tạo bảng mới?', { nutDongY: 'Bỏ thay đổi', nguyHiem: true }))) return;
-  Object.assign(st, { ds: [], bangTinh: null, thayDoi: false, tim: '', chiLo: false, sapXep: null, trang: 0 });
+  if (!(await xongLuuHoacBo('tạo bảng mới'))) return;
+  let bang = null;
+  if (coSheets()) {
+    const ten = await nhapChu('Tên bảng mới:', tenKhongTrung(tenMacDinh()), { nutDongY: 'Tạo' });
+    if (!ten) return;
+    bang = { id: idMoi(), ten };
+  }
+  ++phien;
+  Object.assign(st, { ds: [], bangTinh: bang, thayDoi: !!bang, tim: '', chiLo: false, sapXep: null, trang: 0, luu: { tt: '', luc: null, loi: '' } });
   luuNhap();
   veLai();
+  if (bang) luuNgay();
 }
 
 /** Cần tên người dùng trước khi làm việc với bảng tính trên Sheets. */
@@ -455,31 +652,20 @@ function canTen() {
 }
 
 // Lưu bảng CỦA MÌNH: không cần mật khẩu.
+// Nút 💾: lưu ngay, không chờ 3 giây.
 async function luuLenSheets(banMoi) {
-  if (!st.ds.length || !canTen()) return;
-  let { bangTinh } = st;
-  if (!bangTinh || banMoi) {
-    const ten = await nhapChu('Đặt tên cho bảng tính:', bangTinh && banMoi ? `${bangTinh.ten} (bản sao)` : `Bảng tính ${hienThiThang(thangNay())}`, { nutDongY: 'Lưu' });
+  if (!canTen()) return;
+  if (!st.bangTinh || banMoi) {
+    if (!st.ds.length) return;
+    const ten = await nhapChu('Đặt tên cho bảng tính:', st.bangTinh && banMoi ? `${st.bangTinh.ten} (bản sao)` : tenKhongTrung(tenMacDinh()), { nutDongY: 'Lưu' });
     if (!ten) return;
-    bangTinh = { id: `bt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ten };
-  }
-  const san = st.san;
-  const khoa = st.khoaNhap;
-  const dangLuu = thongBao(`Đang lưu "${bangTinh.ten}" (${st.ds.length} dòng, ${kho.SAN[san]})…`, 'tt');
-  try {
-    const kq = await kho.luuBangTinhCuaToi(san, { id: bangTinh.id, ten: bangTinh.ten, gian_hien_thi: gianDangXem().join(',') },
-      st.ds.map(({ _id, ...r }) => r));
-    if (st.khoaNhap !== khoa) return; // người dùng đã đổi người / sàn trong lúc chờ
-    st.bangTinh = { id: kq.id, ten: kq.ten };
-    st.thayDoi = false;
+    ++phien;
+    st.bangTinh = { id: idMoi(), ten };
+    st.thayDoi = true;
     luuNhap();
-    veLai();
-    chucMung(`Đã lưu "${kq.ten}" lên Google Sheets!`);
-  } catch (e) {
-    thongBao(`CHƯA lưu được: ${e.message}`, 'loi');
-  } finally {
-    dangLuu.dong();
   }
+  const ten = st.bangTinh.ten;
+  if (await luuNgay({ thuCong: true })) { veLai(); chucMung(`Đã lưu "${ten}" lên Google Sheets!`); }
 }
 
 const ngayGio = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'; };
@@ -493,7 +679,8 @@ async function moDanhSach() {
   try {
     [ds, cu] = await Promise.all([kho.dsBangTinhCuaToi(san), kho.dsBangTinhCu().catch(() => [])]);
   } catch (e) { thongBao(`Không tải được danh sách: ${e.message}`, 'loi'); return; }
-  ds.sort((a, b) => String(b.cap_nhat_luc).localeCompare(String(a.cap_nhat_luc)));
+  sapXepBang(ds);
+  if (san === st.san && nguoi === st.nguoi) { st.dsBang = [...ds]; capNhatDau(); }
   document.querySelector('dialog.hop-thoai-bang-tinh')?.remove();
   const dlg = h('dialog', { class: 'hop-thoai hop-thoai-rong hop-thoai-bang-tinh', 'aria-labelledby': 'bt-tieu-de' },
     h('div', { class: 'hop-thoai-dau' },
@@ -534,7 +721,7 @@ async function nhanBangCu(b, san, dlg) {
     const kq = await kho.nhanBangTinhCu(b.id, san);
     dlg.close();
     thongBao(`Đã nhận "${kq.ten}" vào ${kho.SAN[san]}.`);
-    if (san !== st.san) doiSan(san);
+    if (san !== st.san) doiSan(san); else await taiDsBang();
     moDanhSach();
   } catch (e) {
     thongBao(`Chưa nhận được: ${e.message}`, 'loi');
@@ -542,22 +729,11 @@ async function nhanBangCu(b, san, dlg) {
 }
 
 async function moBangTinh(b, dlg) {
-  if (st.thayDoi && st.ds.length && !(await xacNhan('Bảng hiện tại có thay đổi chưa lưu lên Sheets. Bỏ và mở bảng khác?', { nutDongY: 'Bỏ thay đổi', nguyHiem: true }))) return;
-  try {
-    const dong = await kho.docBangTinhCuaToi(st.san, b.id);
-    const tat = tatCaGian();
-    const gianLuu = String(b.gian_hien_thi || '').split(',').filter((g) => tat.includes(g));
-    Object.assign(st, {
-      ds: dong.map((r) => ({ ...r, _id: moiId() })), bangTinh: { id: b.id, ten: b.ten }, thayDoi: false,
-      gianXem: gianLuu.length && gianLuu.length < tat.length ? gianLuu : null,
-      tim: '', chiLo: false, sapXep: null, trang: 0,
-    });
-    luuNhap();
-    dlg.close();
-    veLai();
-    thongBao(`Đã mở "${b.ten}" (${dong.length} dòng).`);
-  } catch (e) {
-    thongBao(`Không mở được: ${e.message}`, 'loi');
+  if (b.id === st.bangTinh?.id && !st.thayDoi) { dlg?.close(); return; }
+  if (!(await xongLuuHoacBo('mở bảng khác'))) return;
+  if (await taiBang(b, ++phien)) {
+    dlg?.close();
+    thongBao(`Đã mở "${b.ten}" (${st.ds.length} dòng).`);
   }
 }
 
@@ -566,7 +742,10 @@ async function doiTenBangTinh(b, dlg) {
   if (!moi || moi === b.ten) return;
   try {
     await kho.doiTenBangTinhCuaToi(st.san, b.id, moi);
-    if (st.bangTinh?.id === b.id) { st.bangTinh.ten = moi; luuNhap(); veLai(); }
+    const o = st.dsBang.find((x) => x.id === b.id);
+    if (o) o.ten = moi;
+    if (st.bangTinh?.id === b.id) { st.bangTinh.ten = moi; luuNhap(); }
+    capNhatDau();
     dlg.close();
     thongBao(`Đã đổi tên thành "${moi}".`);
     moDanhSach();
@@ -579,7 +758,13 @@ async function xoaBangTinh(b, dlg) {
   if (!(await xacNhan(`Xóa bảng tính "${b.ten}" khỏi Google Sheets? Không khôi phục được (lịch sử vẫn ghi trong LICH_SU).`, { nutDongY: 'Xóa', nguyHiem: true }))) return;
   try {
     await kho.xoaBangTinhCuaToi(st.san, b.id);
-    if (st.bangTinh?.id === b.id) { st.bangTinh = null; st.thayDoi = st.ds.length > 0; luuNhap(); veLai(); }
+    st.dsBang = st.dsBang.filter((x) => x.id !== b.id);
+    if (st.bangTinh?.id === b.id) {
+      // xóa bảng đang mở → mở bảng gần nhất còn lại (hoặc tạo bảng trống)
+      clearTimeout(henLuu);
+      Object.assign(st, { ds: [], bangTinh: null, thayDoi: false });
+      luuNhap(); veLai(); batDauPhien();
+    } else capNhatDau();
     dlg.close();
     thongBao(`Đã xóa "${b.ten}".`);
     moDanhSach();

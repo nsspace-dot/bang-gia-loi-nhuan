@@ -93,6 +93,7 @@ Phí: KHÔNG có ô chọn tháng — luôn dùng bộ phí đang áp dụng t�
 - Bảng tính: `BANG_TINH_TIKTOK|SHOPEE` (+ `nguoi_tao`, `san`, `tao_luc`, `cap_nhat_luc`) và `BANG_TINH_DONG_TIKTOK|SHOPEE`. Apps Script chỉ trả bảng của người hỏi; lưu / đổi tên / xóa bảng của mình không cần mật khẩu.
 - `BANG_TINH` cũ giữ nguyên, thêm cột `da_nhan_boi`, `nhan_vao_san`, `nhan_luc`; "Nhận" = sao chép sang sheet sàn, không xóa.
 - Nháp: `bggl.loinhuan.v2:<người>:<sàn>` (nháp cũ `bggl.loinhuan.v1` chuyển 1 lần).
+- Tự mở bảng gần nhất (nháp nhớ bảng; máy mới lấy `cap_nhat_luc` mới nhất; chưa có → tạo "Bảng của <Tên> – <Sàn>"); dropdown chọn nhanh; tự lưu 3 giây sau lần sửa cuối (`luuNgay` chụp dữ liệu trước khi gửi).
 - Thiếu phí ngành ở tháng mới nhất của gian → ⚠ "phí tạm" + ghi chú (`chonBoPhiCanhBao`).
 
 ## Kiến trúc

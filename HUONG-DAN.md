@@ -150,7 +150,10 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - Lãi tính theo **bộ phí đang áp dụng hiện tại**, cho từng gian (bấm tên gian để ẩn / hiện).
 - **Chỉ dòng lỗ**: lọc nhanh. Bấm tiêu đề cột **Có QC / Không QC** của một gian để sắp xếp theo lãi.
 - Chọn **Sàn** (TikTok / Shopee) — mỗi sàn có bảng tính và bản nháp riêng.
-- **💾 Lưu lên Sheets** (không cần mật khẩu): nút luôn hiện — mờ **✓ Đã lưu** khi không có thay đổi, sáng khi có thay đổi. Bảng lưu kèm: sàn, người tạo, ngày tạo, ngày sửa cuối.
+- Mở app / đổi tên / đổi sàn → **tự mở bảng bạn dùng gần nhất** của sàn đó (máy mới thì mở bảng sửa gần nhất). Chưa có bảng nào thì tự tạo **"Bảng của <Tên> – <Sàn>"** trống.
+- Đầu tab hiện **👤 Tên · Sàn · 📄 Tên bảng** + ô chọn nhanh bảng của bạn (có **➕ Bảng mới…** và **📂 Quản lý bảng tính…**).
+- **Tự lưu** lên Sheets 3 giây sau lần sửa cuối: *Đang lưu…* → *✓ Đã lưu lúc hh:mm*. Thấy **⚠ Chưa lưu được – bấm để thử lại** thì bấm vào đó (rê chuột xem lý do). Đổi bảng / đổi sàn / đổi người khi đang sửa: app lưu ngay trước khi đổi.
+- **💾 Lưu lên Sheets** (không cần mật khẩu): lưu ngay không chờ — mờ **✓ Đã lưu** khi không có thay đổi. Bảng lưu kèm: sàn, người tạo, ngày tạo, ngày sửa cuối.
 - **📂 Mở bảng tính**: chỉ hiện bảng **của bạn, đúng sàn đang chọn**. Mở / ✏️ đổi tên / 🗑 xóa (có hỏi lại).
 - **📦 Bảng cũ chưa có chủ** (bảng lưu trước khi có tính năng người dùng): ai cũng thấy → **Nhận vào TikTok / Shopee** → thành bảng của bạn và biến khỏi danh sách của người khác. Dữ liệu cũ không bị xóa.
 - Gian nào **chưa có phí ngành đó** ở tháng mới nhất (vd gian đã có phí 10/2026 cho Tranh nhưng Trà chỉ có 08/2026): ô lãi có **⚠ phí tạm** và dưới bảng ghi *"Gian X chưa có phí ngành Y tháng Z – đang dùng tạm phí tháng …"*. Chưa có phí nào thì ghi *"chưa tính được lãi"*.

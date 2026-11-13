@@ -247,20 +247,20 @@ const chuanDong = (ds) => ds
   .map((d) => ({ ten: d.ten ?? '', phan_loai: d.phan_loai ?? '', nganh: d.nganh ?? '', gia_von: d.gia_von ?? null, gia_ban: d.gia_ban ?? null }));
 
 /** Bảng tính CỦA TÔI trên sàn này (Apps Script chỉ trả bảng của đúng tên này). */
-export async function dsBangTinhCuaToi(san) {
-  const r = await goiGet(layCaiDat().url, { action: 'dsBangTinhCuaToi', nguoi: canNguoi(), san });
+export async function dsBangTinhCuaToi(san, nguoi = canNguoi()) {
+  const r = await goiGet(layCaiDat().url, { action: 'dsBangTinhCuaToi', nguoi, san });
   return r.duLieu;
 }
 
-export async function docBangTinhCuaToi(san, id) {
-  const r = await goiGet(layCaiDat().url, { action: 'docBangTinhCuaToi', nguoi: canNguoi(), san, id });
+export async function docBangTinhCuaToi(san, id, nguoi = canNguoi()) {
+  const r = await goiGet(layCaiDat().url, { action: 'docBangTinhCuaToi', nguoi, san, id });
   return chuanDong(r.duLieu);
 }
 
 /** Lưu bảng của mình — KHÔNG cần mật khẩu. Chỉ trả về khi Apps Script xác nhận. */
-export async function luuBangTinhCuaToi(san, bangTinh, dong) {
+export async function luuBangTinhCuaToi(san, bangTinh, dong, nguoi = canNguoi()) {
   const r = await goiPost(layCaiDat().url, {
-    action: 'luuBangTinhCuaToi', nguoi: canNguoi(), san,
+    action: 'luuBangTinhCuaToi', nguoi, san,
     bangTinh,
     dong: dong.map((d, i) => ({ stt: i + 1, ten: d.ten, phan_loai: d.phan_loai, nganh: d.nganh, gia_von: d.gia_von, gia_ban: d.gia_ban })),
   });

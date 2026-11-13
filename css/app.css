@@ -534,3 +534,9 @@ main { overflow-anchor: none; }
 .dau-canh-bao-phi { color: var(--vang); font-weight: 700; }
 .o-lai.co-canh-bao-phi { background: #fffbeb; }
 .muc-bang-cu { margin-top: 16px; border-top: 2px dashed var(--vien); padding-top: 10px; }
+/* Đầu tab Tính lợi nhuận: 👤 Tên · Sàn · 📄 Bảng + chọn nhanh bảng + trạng thái lưu */
+.dong-phien { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.dong-phien .chon-bang { width: auto; max-width: 240px; padding: 3px 8px; font-size: 13px; }
+button.nhan-trang-thai-luu { border: 0; font: inherit; font-size: 11px; font-weight: 700; min-width: 150px; cursor: default; }
+button.nhan-trang-thai-luu:not(:disabled) { cursor: pointer; text-decoration: underline; }
+button.nhan-trang-thai-luu:disabled { opacity: 1; }
