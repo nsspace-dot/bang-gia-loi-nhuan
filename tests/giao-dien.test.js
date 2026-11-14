@@ -68,18 +68,30 @@ async function moTrang(dangNhap = 'admin') {
  */
 async function batDauBangTrong(p) {
   if (!(await p.locator('#tab-loi-nhuan:not([hidden])').count())) return;
-  await p.waitForSelector('#tab-loi-nhuan .nhan-trang-thai-luu >> text=/Đã lưu|Chưa lưu được/');
+  await p.waitForSelector('#tab-loi-nhuan[data-da-mo="true"]', { state: 'attached' });
   if (!(await p.locator('#tab-loi-nhuan .bang-ln tbody tr').count())) return;
-  await p.selectOption('#tab-loi-nhuan .chon-bang', '__moi');
-  await p.click('dialog[open] >> text=Tạo');
+  await p.click('#tab-loi-nhuan >> text=🧹 Bảng mới'); // → bảng nháp trống
+  if (await p.locator('dialog.hop-thoai-nhap').count()) await p.click('dialog.hop-thoai-nhap >> text=🗑 Bỏ, không lưu');
   await p.waitForSelector('#tab-loi-nhuan .vung-tha');
-  await p.waitForSelector('#tab-loi-nhuan .nhan-trang-thai-luu >> text=/Đã lưu lúc/');
 }
 
 async function dienDangNhap(p, ten, mk) {
   await p.fill('#dn-ten', ten);
   await p.fill('#dn-mk', mk);
   await p.click('.hop-dang-nhap button[type=submit]');
+}
+
+/** Đổi sàn khi đang ở bảng nháp có dữ liệu → app hỏi "Bảng nháp này chưa lưu": chọn 💾 Lưu với tên cho trước. */
+async function doiSanLuuNhap(p, san, ten) {
+  await p.click(`[data-nen-tang="${san}"]`);
+  const hoi = await p.waitForSelector('dialog.hop-thoai-nhap', { timeout: 3000 }).catch(() => null);
+  if (hoi) {
+    await p.click('dialog.hop-thoai-nhap >> text=💾 Lưu');
+    await p.fill('dialog[open] input', ten);
+    await p.click('dialog[open] >> text=Lưu');
+  }
+  await p.waitForSelector(`[data-nen-tang="${san}"][aria-selected="true"]`);
+  await p.waitForSelector('#tab-loi-nhuan[data-da-mo="true"]', { state: 'attached' });
 }
 
 /** Gọi Apps Script giả lập từ Node (không qua trình duyệt). */
@@ -165,7 +177,6 @@ test('LỖI 5 + 6 trên giao diện: sai mật khẩu → không vào được; 
   const tenBang = await p.textContent('.ten-bang');
   // bảng mới rồi mở lại
   await p.click('text=🧹 Bảng mới');
-  await p.click('dialog[open] >> text=Tạo');
   await p.waitForSelector('.vung-tha');
   await p.click('text=📂 Mở bảng tính');
   await p.click(`dialog[open] tr:has(b:text-is("${tenBang}")) >> text=Mở`);
@@ -495,7 +506,7 @@ test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gia
   assert.deepEqual(await gianDau(), [['Nhà Sách', 2], ['Sách Hay', 2], ['Tranh Lịch', 2], ['Tường Vip', 2]]);
   assert.equal(await p.locator('.bang-ln tbody tr:first-child .o-lai').count(), 8);
 
-  await p.click('[data-nen-tang="shopee"]');
+  await doiSanLuuNhap(p, 'shopee', 'Bảng TikTok thử');
   assert.equal(await chon('shopee'), 'true');
   // mỗi sàn có bảng tính riêng → bảng Shopee nhập lại cùng file
   await batDauBangTrong(p);
@@ -525,7 +536,7 @@ test('Tính lợi nhuận: chọn nền tảng Shopee | TikTok; Shopee mỗi gia
   await p.waitForSelector('.bang-ln .th-gian');
   assert.equal(await p.locator('.bang-ln .th-gian').count(), 6);
   // quay lại TikTok → mở lại bảng TikTok (dùng gần nhất)
-  await p.click('[data-nen-tang="tiktok"]');
+  await doiSanLuuNhap(p, 'tiktok', 'Bảng Shopee thử');
   await p.waitForSelector('.bang-ln .th-gian');
   assert.deepEqual((await gianDau()).map(([, n]) => n), [2, 2, 2, 2]);
   assert.deepEqual(loi, []);
@@ -1006,7 +1017,7 @@ test('Giá cần đạt: mỗi sàn có ô nhập riêng; cột giá cần đạ
   });
   assert.match(await p.textContent('.luoi-tong-ket'), /🎯 1 dòng dưới giá cần đạt/);
   // Shopee: ô nhập riêng, còn tắt; bật với 10.000 đ / đơn
-  await p.click('[data-nen-tang="shopee"]');
+  await doiSanLuuNhap(p, 'shopee', 'GCĐ TikTok');
   assert.equal(await p.isChecked('[aria-label="Hiện giá cần đạt (Shopee)"]'), false, 'Shopee có thiết lập riêng');
   assert.equal(await p.locator('[aria-label="Kịch bản QC (Shopee)"]').count(), 0, 'Shopee không có kịch bản QC');
   await p.check('[aria-label="Hiện giá cần đạt (Shopee)"]');
@@ -1024,7 +1035,7 @@ test('Giá cần đạt: mỗi sàn có ô nhập riêng; cột giá cần đạ
     else assert.ok(os[j].startsWith(r.gia.toLocaleString('vi-VN')), `${g}: ${os[j]} ≠ ${r.gia}`);
   });
   // quay lại TikTok: thiết lập TikTok còn nguyên (15%)
-  await p.click('[data-nen-tang="tiktok"]');
+  await doiSanLuuNhap(p, 'tiktok', 'GCĐ Shopee');
   assert.equal(await p.inputValue('[aria-label="Lãi mong muốn (TikTok)"]'), '15');
   assert.equal(await p.inputValue('[aria-label="Đơn vị lãi (TikTok)"]'), 'pt');
   // tải lại trang → nhớ riêng từng sàn
@@ -1237,11 +1248,15 @@ test('Chọn nhanh bảng (dropdown); đổi bảng / đổi sàn khi đang sử
   await napFile(p, taoFile('hoa.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['Bảng một', 1000, 5000]]));
   // tạo bảng 2 từ dropdown ngay khi đang sửa (chưa đủ 3 giây) → bảng 1 được lưu trước
   await p.selectOption('.chon-bang', '__moi');
+  await p.waitForSelector('.ten-bang >> text=Bảng nháp');
+  assert.equal(await p.locator('.bang-ln tbody tr').count(), 0);
+  // bảng nháp: nhập rồi bấm 💾 mới hỏi tên
+  await napFile(p, taoFile('hoa2.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['Dòng bảng hai', 1000, 5000]]));
+  await p.click('.nut-luu-sheets');
   await p.fill('dialog[open] input', 'Bảng hai');
-  await p.click('dialog[open] >> text=Tạo');
+  await p.click('dialog[open] >> text=Lưu');
   await p.waitForSelector('.ten-bang >> text=Bảng hai');
   await p.waitForSelector('.nhan-trang-thai-luu >> text=/✓ Đã lưu lúc/');
-  assert.equal(await p.locator('.bang-ln tbody tr').count(), 0);
   const tuy = await p.$$eval('.chon-bang option', (o) => o.map((x) => x.textContent));
   assert.ok(tuy.includes('Bảng hai') && tuy.includes('Bảng của hoa – TikTok') && tuy.includes('➕ Bảng mới…'), tuy.join('|'));
   // chọn lại bảng 1 → có dữ liệu đã lưu
@@ -1269,5 +1284,76 @@ test('Chọn nhanh bảng (dropdown); đổi bảng / đổi sàn khi đang sử
   await p.waitForSelector('.ten-bang >> text=Bảng của hoa – TikTok');
   await p.waitForSelector('[aria-label="Tên dòng 1"]');
   assert.equal(await p.inputValue('[aria-label="Tên dòng 1"]'), 'Bảng một (sửa)');
+  await p.close();
+});
+
+test('Bảng nháp: 🧹 Bảng mới không hỏi tên, KHÔNG tự lưu; rời nháp có dữ liệu → hỏi Lưu / Bỏ / Ở lại; 💾 mới hỏi tên', { skip: boQua }, async () => {
+  const { p, loi } = await moTrangTK('nhap1', 'admin');
+  await p.waitForSelector('.ten-bang >> text=Bảng của nhap1 – TikTok');
+  await p.click('text=🧹 Bảng mới');
+  await p.waitForSelector('.ten-bang >> text=Bảng nháp');
+  assert.equal(await p.locator('dialog[open]').count(), 0, 'không hỏi tên');
+  assert.match(await p.textContent('.nhan-trang-thai-luu'), /📝 Nháp – chưa lưu/);
+  await napFile(p, taoFile('nhap.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['SP nháp', 1000, 5000]]));
+  await p.waitForTimeout(4000);
+  assert.match(await p.textContent('.nhan-trang-thai-luu'), /📝 Nháp – chưa lưu/, 'nháp không tự lưu');
+  const ds = (await goiGas({ action: 'dsBangTinhCuaToi', token: (await goiGas({ action: 'dangNhap', ten: 'nhap1', matKhau: 'mat-khau-gia' })).token, san: 'tiktok' })).duLieu;
+  assert.equal(ds.length, 1, 'trên Sheets vẫn chỉ có 1 bảng');
+  // tải lại trang → nháp vẫn còn trên máy
+  await p.reload();
+  await p.waitForSelector('.dong-bo-xong');
+  await p.waitForSelector('.ten-bang >> text=Bảng nháp');
+  assert.equal(await p.inputValue('[aria-label="Tên dòng 1"]'), 'SP nháp');
+  // rời nháp (đổi sàn) → hỏi; "Ở lại" → không đổi
+  await p.click('[data-nen-tang="shopee"]');
+  await p.waitForSelector('dialog.hop-thoai-nhap >> text=Bảng nháp này chưa lưu');
+  await p.click('dialog.hop-thoai-nhap >> text=Ở lại');
+  assert.equal(await p.getAttribute('[data-nen-tang="tiktok"]', 'aria-selected'), 'true');
+  // mở bảng khác → "💾 Lưu" → hỏi tên → lưu rồi mới mở
+  await p.selectOption('.chon-bang', { label: 'Bảng của nhap1 – TikTok' });
+  await p.click('dialog.hop-thoai-nhap >> text=💾 Lưu');
+  await p.fill('dialog[open] input', 'Nháp đã lưu');
+  await p.click('dialog[open] >> text=Lưu');
+  await p.waitForSelector('.ten-bang >> text=Nháp đã lưu');
+  // Bảng mới (nháp trống) → đổi sàn không hỏi; nháp có dữ liệu → "Bỏ, không lưu"
+  await p.click('text=🧹 Bảng mới');
+  await p.waitForSelector('.ten-bang >> text=Bảng nháp');
+  await p.click('text=➕ Thêm dòng');
+  await p.click('text=🧹 Bảng mới');
+  await p.click('dialog.hop-thoai-nhap >> text=🗑 Bỏ, không lưu');
+  await p.waitForSelector('.vung-tha');
+  await p.click('[data-nen-tang="shopee"]');
+  await p.waitForSelector('[data-nen-tang="shopee"][aria-selected="true"]');
+  assert.equal(await p.locator('dialog.hop-thoai-nhap').count(), 0, 'nháp trống không hỏi');
+  assert.deepEqual(loi, []);
+  await p.close();
+});
+
+test('🗑 Xóa hết dòng: hỏi 1 lần, ↩ Hoàn tác trong 10 giây; bảng đã lưu tự lưu sau khi xóa; "Xóa bảng" trong danh sách', { skip: boQua }, async () => {
+  const { p, loi } = await moTrangTK('xoa1', 'tiktok');
+  await p.waitForSelector('.ten-bang >> text=Bảng của xoa1 – TikTok');
+  await napFile(p, taoFile('xoa.xlsx', [['Tên sản phẩm', 'Giá vốn', 'Giá bán'], ['A', 1000, 5000], ['B', 2000, 6000], ['C', 3000, 7000]]));
+  await p.click('.nut-luu-sheets');
+  await p.waitForSelector('.chuc-mung >> text=Đã lưu');
+  await p.click('text=🗑 Xóa hết dòng');
+  await p.click('dialog[open] button:text-is("Xóa hết")');
+  await p.waitForSelector('.vung-tha');
+  assert.match(await p.textContent('.thong-bao:has(.thong-bao-nut)'), /Đã xóa 3 dòng ·.*↩ Hoàn tác/);
+  await p.waitForSelector('.nhan-trang-thai-luu >> text=/✓ Đã lưu lúc/', { timeout: 8000 }); // tự lưu sau khi xóa
+  const tk = (await goiGas({ action: 'dangNhap', ten: 'xoa1', matKhau: 'mat-khau-gia' })).token;
+  const id = (await goiGas({ action: 'dsBangTinhCuaToi', token: tk, san: 'tiktok' })).duLieu[0].id;
+  assert.equal((await goiGas({ action: 'docBangTinhCuaToi', token: tk, san: 'tiktok', id })).duLieu.length, 0);
+  // hoàn tác (vẫn trong 10 giây) → 3 dòng quay lại, tự lưu lại
+  await p.click('.thong-bao-nut >> text=↩ Hoàn tác');
+  await p.waitForSelector('[aria-label="Tên dòng 3"]');
+  await p.waitForSelector('.nhan-trang-thai-luu >> text=/✓ Đã lưu lúc/', { timeout: 8000 });
+  assert.equal((await goiGas({ action: 'docBangTinhCuaToi', token: tk, san: 'tiktok', id })).duLieu.length, 3);
+  // Xóa bảng trong danh sách (hỏi lại trước khi xóa)
+  await p.click('text=📂 Mở bảng tính');
+  await p.click('dialog[open] button:has-text("Xóa bảng")');
+  await p.click('dialog.hop-thoai-nho button:text-is("Xóa")');
+  await p.waitForSelector('.thong-bao >> text=/Đã xóa "Bảng của xoa1 – TikTok"/');
+  assert.equal((await goiGas({ action: 'dsBangTinhCuaToi', token: tk, san: 'tiktok' })).duLieu.filter((b) => b.id === id).length, 0);
+  assert.deepEqual(loi, []);
   await p.close();
 });

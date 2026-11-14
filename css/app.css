@@ -686,3 +686,5 @@ button.nhan-trang-thai-luu:disabled { opacity: 1; }
 .o-lai.co-canh-bao-phi { background: var(--vang-nen); }
 .chu-canh-bao { color: var(--vang); font-weight: 700; }
 .ghi-chu-phi { margin: 10px 12px 4px; }
+/* Nút hành động trong thông báo nổi (vd "↩ Hoàn tác") */
+.thong-bao-nut { border: 0; background: transparent; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; color: inherit; padding: 0 4px; white-space: nowrap; }

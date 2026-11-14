@@ -185,7 +185,10 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
   - Đầu tab: **👤 tên · Sàn · 📄 Tên bảng** + ô **chọn nhanh** các bảng của bạn (có **➕ Bảng mới…**, **📂 Quản lý bảng tính…**).
   - **Tự lưu** lên Sheets 3 giây sau lần sửa cuối: *Đang lưu…* → *✓ Đã lưu lúc hh:mm*. Thấy **⚠ Chưa lưu được – bấm để thử lại** thì bấm vào đó (rê chuột xem lý do). Đổi bảng / đổi sàn khi đang sửa: app lưu ngay trước khi đổi.
   - **💾 Lưu lên Sheets**: lưu ngay không chờ (mờ **✓ Đã lưu** khi không có thay đổi). **Lưu thành bản mới**: tách 1 bản sao.
-  - **📂 Mở bảng tính**: bảng của bạn ở sàn đang chọn (tên, số dòng, ngày tạo, sửa cuối) — Mở / ✏️ đổi tên / 🗑 xóa (có hỏi lại).
+  - **🧹 Bảng mới** → mở ngay **bảng nháp** trống (không hỏi tên), nhãn **📝 Nháp – chưa lưu**. Bảng nháp **không tự lưu** lên Sheets (chỉ giữ tạm trên máy, lỡ tải lại trang không mất). Muốn giữ thì bấm **💾 Lưu lên Sheets** → lúc đó mới đặt tên; từ đó bảng tự lưu như bảng thường.
+  - Rời bảng nháp có dữ liệu (Bảng mới, mở bảng khác, đổi sàn, đăng xuất) → app hỏi **"Bảng nháp này chưa lưu"**: **💾 Lưu** / **🗑 Bỏ, không lưu** / **Ở lại**. Nháp trống thì không hỏi.
+  - **🗑 Xóa hết dòng**: hỏi lại 1 lần, sau đó hiện **"Đã xóa n dòng · ↩ Hoàn tác"** trong 10 giây. Bảng đã lưu thì tự lưu sau khi xóa (hoàn tác thì tự lưu lại).
+  - **📂 Mở bảng tính**: bảng của bạn ở sàn đang chọn (tên, số dòng, ngày tạo, sửa cuối) — Mở / ✏️ đổi tên / **Xóa bảng** (có hỏi lại).
   - **📦 Bảng cũ chưa có chủ** (lưu trước khi có bảng riêng): ai cũng thấy → **Nhận vào TikTok / Shopee** (sàn mình được dùng) → thành bảng của bạn, biến khỏi danh sách người khác. Dữ liệu cũ không bị xóa.
 - **⚠ phí tạm**: gian đã có bộ phí tháng mới hơn cho ngành khác nhưng ngành của dòng này chỉ có phí tháng cũ (vd Trà) → ô lãi có **⚠ phí tạm MM/YYYY**, dưới bảng ghi *"Gian X chưa có phí ngành Y tháng Z – đang dùng tạm phí tháng …"*, ô tổng kết đếm số dòng dùng phí tạm. Vào Bảng phí lưu phí ngành đó cho tháng mới để hết cảnh báo.
 - **📤 Xuất Excel**: 5 cột đầu đúng mẫu nhập (nhập lại được) + lãi từng gian.
