@@ -4,7 +4,7 @@ import { linhVat, manTrong } from './ui/linh-vat.js';
 import { moCaiDat } from './ui/cai-dat.js';
 import { taoTabBangPhiSan } from './ui/tab-bang-phi-san.js';
 import { taoTabGiaVon } from './ui/tab-gia-von.js';
-import { taoTabLoiNhuan } from './ui/tab-loi-nhuan.js';
+import { taoTabLoiNhuan, truocKhiRoiTab } from './ui/tab-loi-nhuan.js';
 import { taoTabSetGia } from './ui/tab-set-gia.js';
 import { taoTabCampaign } from './ui/tab-campaign.js';
 import { taoTabTaiKhoan } from './ui/tab-tai-khoan.js';
@@ -77,7 +77,10 @@ function khoiDong() {
   document.getElementById('logo-meo').append(linhVat('nho'));
   const phien = kho.layPhien();
   apDungPhien(phien);
-  document.getElementById('nut-dang-xuat').addEventListener('click', () => kho.dangXuat().finally(() => location.reload()));
+  document.getElementById('nut-dang-xuat').addEventListener('click', async () => {
+    if (!(await truocKhiRoiTab())) return; // bảng nháp chưa lưu → hỏi trước
+    kho.dangXuat().finally(() => location.reload());
+  });
   kho.dangKyHetPhien((phienCu) => moDangNhap({ lyDo: 'Phiên đăng nhập đã hết hạn hoặc tài khoản đã đổi — đăng nhập lại.', phienCu }));
   // Có URL nhưng chưa đăng nhập: chỉ hiện màn đăng nhập, không dựng tab nào
   if (kho.layCaiDat().url && !phien) {
