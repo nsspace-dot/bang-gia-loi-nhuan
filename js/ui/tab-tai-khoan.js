@@ -7,6 +7,7 @@ const VAI_TRO = [
   ['admin', 'admin — xem + sửa tất cả, quản lý tài khoản'],
   ['shopee', 'shopee — xem + sửa bảng phí Shopee'],
   ['tiktok', 'tiktok — xem + sửa bảng phí TikTok'],
+  ['ctv', 'ctv — cộng tác viên: tự nhập giá, tính lợi nhuận; chỉ xem bảng phí'],
 ];
 
 let goc;
@@ -48,7 +49,7 @@ function ve() {
     h('div', { class: 'the' },
       h('div', { class: 'the-dau' },
         h('div', null, h('h2', null, 'Tài khoản'),
-          h('p', { class: 'mo-ta' }, 'admin: xem + sửa tất cả, quản lý tài khoản. shopee / tiktok: xem phần của nền tảng đó và sửa bảng phí + gian của nền tảng đó; không đụng được nền tảng kia (Apps Script kiểm tra).'))),
+          h('p', { class: 'mo-ta' }, 'admin: xem + sửa tất cả, quản lý tài khoản. shopee / tiktok: xem phần của nền tảng đó và sửa bảng phí + gian của nền tảng đó; không đụng được nền tảng kia. ctv: chỉ tab Tính lợi nhuận (tự nhập giá vốn, giá bán, lưu bảng của mình) + xem bảng phí 2 sàn, không sửa (Apps Script kiểm tra).'))),
       h('div', { class: 'khung-bang' }, h('table', { class: 'bang bang-tai-khoan' },
         h('thead', null, h('tr', null, h('th', null, 'Tên đăng nhập'), h('th', null, 'Vai trò'), h('th', null, 'Tạo lúc'), h('th', null, h('span', { class: 'an-chu' }, 'Thao tác')))),
         h('tbody', null, ds.map((tk) => {

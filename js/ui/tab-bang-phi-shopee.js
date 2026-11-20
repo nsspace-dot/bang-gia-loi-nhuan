@@ -106,7 +106,7 @@ function ve() {
       h('summary', null, 'Gian hàng & ngành Shopee (thêm / bớt)'),
       h('div', { class: 'luoi-2' }, khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'), khoiDanhMuc('NGANH_SHOPEE', 'Ngành Shopee')),
       h('p', { class: 'goi-y' }, 'Bỏ một gian / ngành chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets. Ngành mới chưa lưu phí thì bảng phí hiện giá trị mặc định — sửa rồi Lưu.')),
-    kho.layPhien() ? veLichSuPhi({ nenTang: 'shopee', gian: st.gian, thang: st.thang }) : null);
+    kho.layPhien() && kho.vaiTro() !== 'ctv' ? veLichSuPhi({ nenTang: 'shopee', gian: st.gian, thang: st.thang }) : null);
 }
 
 async function doiGianThang(gian, thang) {

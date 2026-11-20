@@ -298,3 +298,32 @@ test('docLichSuPhi: mới nhất trước, lọc gian / tháng, có tên ngườ
   assert.ok(g.post({ action: 'docLichSuPhi', token: ad, nenTang: 'tiktok' }).duLieu.length > 0);
   assert.ok(g.post({ action: 'docLichSuPhi', token: ad, nenTang: 'shopee' }).duLieu.length > 0);
 });
+
+test('ctv: chỉ XEM bảng phí 2 sàn + gian / ngành; không giá vốn / campaign / bảng cũ / lịch sử phí; không sửa gì; lưu được bảng tính của mình (cả 2 sàn)', () => {
+  const { g, ad } = moiTruongDayDu();
+  assert.equal(g.post({ action: 'themTaiKhoan', token: ad, ten: 'ctv-lan', matKhau: 'ctv-12345', vaiTro: 'ctv' }).ok, true);
+  const ctv = g.dangNhap('ctv-lan', 'ctv-12345');
+  const du = g.post({ action: 'docTatCa', token: ctv }).duLieu;
+  assert.equal(du.BANG_PHI.length, 1);
+  assert.equal(du.BANG_PHI_SHOPEE.length, 1);
+  assert.deepEqual(du.DANH_MUC.map((d) => d.loai).sort(), ['GIAN', 'GIAN_SHOPEE', 'NGANH']);
+  for (const k of ['GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH']) assert.deepEqual(du[k], [], k);
+  // không sửa được gì dùng chung (bảng phí 2 sàn, danh mục, giá vốn, campaign, bảng cũ, tài khoản)
+  for (const { ten, body } of [...GHI_SHOPEE, ...GHI_TIKTOK]) tuChoi(g, ctv, body, `ctv → ${ten}`);
+  tuChoi(g, ctv, { action: 'upsert', sheet: 'GIA_VON', banGhi: [{ nhom: 'N', phan_loai: '30x40', gia_von: 1 }] }, 'ctv sửa giá vốn');
+  tuChoi(g, ctv, { action: 'luuBangTinh', bangTinh: { id: 'b1', ten: 'x' }, dong: [] }, 'ctv ghi đè bảng cũ');
+  tuChoi(g, ctv, { action: 'dsTaiKhoan' }, 'ctv xem tài khoản');
+  tuChoi(g, ctv, { action: 'docCampaignKQ', id: 'c1' }, 'ctv xem campaign');
+  tuChoi(g, ctv, { action: 'docBangTinh', id: 'b1' }, 'ctv xem bảng cũ');
+  tuChoi(g, ctv, { action: 'dsBangTinhCu' }, 'ctv xem danh sách bảng cũ');
+  tuChoi(g, ctv, { action: 'nhanBangTinhCu', id: 'b1', san: 'tiktok' }, 'ctv nhận bảng cũ');
+  tuChoi(g, ctv, { action: 'docLichSuPhi', nenTang: 'tiktok' }, 'ctv xem lịch sử phí');
+  // bảng tính của mình: cả 2 sàn
+  for (const san of ['tiktok', 'shopee']) {
+    const r = g.post({ action: 'luuBangTinhCuaToi', token: ctv, san, bangTinh: { id: `bt_${san}`, ten: `Bảng ${san}` }, dong: [{ stt: 1, ten: 'SP', gia_von: 1, gia_ban: 2 }] });
+    assert.equal(r.ok, true, r.loi);
+    assert.equal(g.post({ action: 'dsBangTinhCuaToi', token: ctv, san }).duLieu.length, 1);
+  }
+  // admin không thấy bảng của ctv
+  assert.deepEqual(g.post({ action: 'dsBangTinhCuaToi', token: ad, san: 'tiktok' }).duLieu, []);
+});

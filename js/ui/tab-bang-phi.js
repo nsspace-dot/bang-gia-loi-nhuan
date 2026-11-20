@@ -102,7 +102,7 @@ function ve() {
       veBang(),
       coSua() ? veHangLuu() : veChiXem()),
     coSua() ? veDanhMuc() : null,
-    kho.layPhien() ? veLichSuPhi({ nenTang: 'tiktok', gian: st.gian, thang: st.thang }) : null);
+    kho.layPhien() && kho.vaiTro() !== 'ctv' ? veLichSuPhi({ nenTang: 'tiktok', gian: st.gian, thang: st.thang }) : null);
 }
 
 async function doiGianThang(gian, thang) {
