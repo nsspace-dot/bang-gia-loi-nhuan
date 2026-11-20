@@ -16,7 +16,7 @@
  *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '2.3.0';
+var PHIEN_BAN = '2.4.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -113,14 +113,14 @@ var VAI_TRO = ['admin', 'shopee', 'tiktok'];
 // Dữ liệu mỗi vai trò được ĐỌC. DANH_MUC chỉ trả các loại danh mục của nền tảng đó.
 var QUYEN_DOC = {
   admin: { sheet: SHEET_DOC, danhMuc: null },
-  shopee: { sheet: ['DANH_MUC', 'BANG_PHI_SHOPEE', 'BANG_TINH'], danhMuc: ['GIAN_SHOPEE'] },
+  shopee: { sheet: ['DANH_MUC', 'BANG_PHI_SHOPEE', 'BANG_TINH'], danhMuc: ['GIAN_SHOPEE', 'NGANH_SHOPEE'] },
   tiktok: { sheet: ['DANH_MUC', 'BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'], danhMuc: ['GIAN', 'NGANH'] },
 };
 
 // Dữ liệu vai trò không phải admin được GHI (upsert / xoa): bảng phí + loại danh mục của đúng nền tảng.
 // Mọi lệnh ghi khác (bảng tính, campaign, giá vốn, tài khoản…) chỉ admin.
 var QUYEN_GHI = {
-  shopee: { sheet: ['BANG_PHI_SHOPEE'], danhMuc: ['GIAN_SHOPEE'] },
+  shopee: { sheet: ['BANG_PHI_SHOPEE'], danhMuc: ['GIAN_SHOPEE', 'NGANH_SHOPEE'] }, // 2.4.0: thêm / bớt ngành Shopee
   tiktok: { sheet: ['BANG_PHI'], danhMuc: ['GIAN', 'NGANH'] },
 };
 

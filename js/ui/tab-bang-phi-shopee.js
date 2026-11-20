@@ -9,7 +9,7 @@ import * as kho from '../data/kho.js';
 import { KHOAN_PHI_SHOPEE, phiShopeeMacDinh, tyLePhiShopee } from '../core/cong-thuc.js';
 import { chonBoPhi, cacThangCoPhi, thangHienTai, hienThiThang, chuanHoaThang } from '../core/phi.js';
 import { docSo, dinhDangTien, dinhDangSo, dinhDangPhanTram } from '../core/so.js';
-import { NGANH_SHOPEE, layDanhSach, mauGian } from '../core/danh-muc.js';
+import { layDanhSach, mauGian } from '../core/danh-muc.js';
 import { khoiDanhMuc } from './danh-muc.js';
 import { veLichSuPhi } from './lich-su-phi.js';
 import { docBang } from '../excel/doc.js';
@@ -39,6 +39,7 @@ function veLai() {
 
 const dsPhi = () => kho.duLieu()[SHEET] || [];
 const dsGian = () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE');
+const dsNganh = () => layDanhSach(kho.duLieu().DANH_MUC, 'NGANH_SHOPEE');
 
 function coThayDoi() {
   return Object.values(st.nhap).some((o) => Object.keys(o).length);
@@ -102,9 +103,9 @@ function ve() {
       veBang(),
       coSua() ? veHangLuu() : veChiXem()),
     coSua() && h('details', { class: 'the the-phu' },
-      h('summary', null, 'Gian hàng Shopee (thêm / bớt)'),
-      khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'),
-      h('p', { class: 'goi-y' }, 'Ngành Shopee cố định: Sách, Tranh, Lịch, Decal, Trà. Bỏ một gian chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets.')),
+      h('summary', null, 'Gian hàng & ngành Shopee (thêm / bớt)'),
+      h('div', { class: 'luoi-2' }, khoiDanhMuc('GIAN_SHOPEE', 'Gian hàng Shopee'), khoiDanhMuc('NGANH_SHOPEE', 'Ngành Shopee')),
+      h('p', { class: 'goi-y' }, 'Bỏ một gian / ngành chỉ ẩn khỏi danh sách; phí đã lưu vẫn còn trong Google Sheets. Ngành mới chưa lưu phí thì bảng phí hiện giá trị mặc định — sửa rồi Lưu.')),
     kho.layPhien() ? veLichSuPhi({ nenTang: 'shopee', gian: st.gian, thang: st.thang }) : null);
 }
 
@@ -128,7 +129,7 @@ function veChonThang() {
 
 function veThongBaoNguon() {
   const coDungThang = dsPhi().some((p) => p.gian === st.gian && p.thang === st.thang);
-  const cuNhat = NGANH_SHOPEE.map(daLuu).filter(Boolean).map((r) => r.thang).sort().at(-1);
+  const cuNhat = dsNganh().map(daLuu).filter(Boolean).map((r) => r.thang).sort().at(-1);
   if (coDungThang) {
     return h('div', { class: 'ghi-chu ghi-chu-xanh' }, `Đang xem bộ phí Shopee tháng ${hienThiThang(st.thang)} của ${st.gian}. Ngành nào chưa có phí riêng tháng này sẽ dùng bộ phí gần nhất trước đó (hoặc mặc định).`);
   }
@@ -148,7 +149,7 @@ function veBang() {
     b.textContent = coLoi ? '—' : `${dinhDangTien(p.phi_ha_tang)} đ`;
   };
 
-  const dauCot = NGANH_SHOPEE.map((n) => {
+  const dauCot = dsNganh().map((n) => {
     const r = daLuu(n);
     const chu = !r ? 'mặc định' : r.thang === st.thang ? `tháng ${hienThiThang(r.thang)}` : `dùng ${hienThiThang(r.thang)}`;
     return h('th', { class: 'so', scope: 'col' }, h('div', null, n), h('div', { class: ['chu-nhat', (!r || r.thang !== st.thang) && 'chu-ke-thua'] }, chu));
@@ -156,7 +157,7 @@ function veBang() {
 
   const hang = KHOAN_PHI_SHOPEE.map((k) => h('tr', null,
     h('th', { scope: 'row' }, k.ten, h('span', { class: 'don-vi' }, ` (${k.donVi})`)),
-    NGANH_SHOPEE.map((n) => {
+    dsNganh().map((n) => {
       const inp = oSo({
         giaTri: nguon(n)[k.khoa] ?? null,
         giaTriGo: st.nhap[n]?.[k.khoa],
@@ -183,15 +184,15 @@ function veBang() {
     })));
 
   const hangTong = [['Tổng phí %', 0], ['Phí hạ tầng / đơn', 1]].map(([ten, i]) => h('tr', { class: 'hang-tong' }, h('th', { scope: 'row' }, ten),
-    NGANH_SHOPEE.map((n) => { const td = h('td', { class: 'so' }); (oTong[n] ||= [])[i] = td; return td; })));
+    dsNganh().map((n) => { const td = h('td', { class: 'so' }); (oTong[n] ||= [])[i] = td; return td; })));
 
   const bang = h('div', { class: 'khung-bang', 'data-cuon': 'bang-phi-shopee', 'data-dieu-huong': '' },
     h('table', { class: 'bang bang-phi-shopee' },
-      h('colgroup', null, h('col', { class: 'cot-ten-phi' }), NGANH_SHOPEE.map(() => h('col'))),
+      h('colgroup', null, h('col', { class: 'cot-ten-phi' }), dsNganh().map(() => h('col'))),
       h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Khoản phí'), dauCot)),
       h('tbody', null, hang),
       h('tfoot', null, hangTong)));
-  NGANH_SHOPEE.forEach(capNhatTong);
+  dsNganh().forEach(capNhatTong);
   return bang;
 }
 
@@ -209,7 +210,7 @@ function danhDau(inp, nganh, khoa) {
 let nutLuu, chuLuu;
 /** Ngành cần lưu: đã sửa so với bộ đang hiển thị, hoặc chưa từng lưu (đang dùng mặc định). */
 function nganhCanLuu() {
-  return NGANH_SHOPEE.filter((n) => {
+  return dsNganh().filter((n) => {
     const r = nguon(n);
     if (r.macDinh) return true;
     if (!st.nhap[n] || !Object.keys(st.nhap[n]).length) return false;
@@ -217,7 +218,7 @@ function nganhCanLuu() {
   });
 }
 function coLoiNhap() {
-  return NGANH_SHOPEE.some((n) => KHOAN_PHI_SHOPEE.some((k) => loiO(k.khoa, soCuaO(n, k.khoa))));
+  return dsNganh().some((n) => KHOAN_PHI_SHOPEE.some((k) => loiO(k.khoa, soCuaO(n, k.khoa))));
 }
 function capNhatNutLuu() {
   const ds = nganhCanLuu();
@@ -299,11 +300,11 @@ function ghiFile(tenFile, mang, tenSheet) {
 }
 
 function xuatExcel() {
-  ghiFile(`bang-phi-shopee_${thangHienTai()}.xlsx`, bangXuatPhiShopee(dsPhi()), 'Bảng phí Shopee');
+  ghiFile(`bang-phi-shopee_${thangHienTai()}.xlsx`, bangXuatPhiShopee(dsPhi(), dsNganh()), 'Bảng phí Shopee');
 }
 
 function taiFileMau() {
-  ghiFile('mau_bang_phi_shopee.xlsx', bangMauPhiShopee(dsGian()[0], thangHienTai()), 'Bảng phí Shopee');
+  ghiFile('mau_bang_phi_shopee.xlsx', bangMauPhiShopee(dsGian()[0], thangHienTai(), dsNganh()), 'Bảng phí Shopee');
 }
 
 async function nhapExcel() {
@@ -311,7 +312,7 @@ async function nhapExcel() {
   if (!f) return;
   let kq;
   try {
-    kq = docNhapPhiShopee(docBang(await f.arrayBuffer()).dong, { dsHienCo: dsPhi(), gians: dsGian() });
+    kq = docNhapPhiShopee(docBang(await f.arrayBuffer()).dong, { dsHienCo: dsPhi(), gians: dsGian(), nganhs: dsNganh() });
   } catch (e) { thongBao(`Không đọc được file: ${e.message}`, 'loi'); return; }
   if (kq.loiFile) { thongBao(kq.loiFile, 'loi'); return; }
   if (!kq.moi.length && !kq.doi.length && !kq.loi.length) { thongBao(kq.giongCu ? `File có ${kq.giongCu} dòng, đều giống bảng phí hiện có — không có gì để lưu.` : 'File không có dòng phí nào.', 'tt'); return; }

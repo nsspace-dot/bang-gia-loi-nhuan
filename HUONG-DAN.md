@@ -160,7 +160,7 @@ App **chỉ báo "Đã lưu"** khi Google Sheets xác nhận thành công. Thấ
 - **Gian hàng & ngành (thêm / bớt)** ở cuối trang.
 
 **Shopee**
-- Gian mặc định: Nhà Sách, CN1, CN2, Tường Vip, Tranh Vip, Tường Vip New. Thêm / bớt gian ở mục **Gian hàng Shopee (thêm / bớt)** cuối trang (lưu ở sheet `DANH_MUC`, loại `GIAN_SHOPEE`); gian mới tự hiện ở Tính lợi nhuận chế độ Shopee. Ngành cố định: Sách, Tranh, Lịch, Decal, Trà.
+- Gian mặc định: Nhà Sách, CN1, CN2, Tường Vip, Tranh Vip, Tường Vip New. Thêm / bớt gian và ngành ở mục **Gian hàng & ngành Shopee (thêm / bớt)** cuối trang (lưu ở sheet `DANH_MUC`, loại `GIAN_SHOPEE` / `NGANH_SHOPEE`); gian / ngành mới tự hiện ở Tính lợi nhuận chế độ Shopee. Ngành mặc định: Sách, Tranh, Lịch, Decal, Trà. Ngành mới chưa lưu phí thì bảng phí hiện giá trị mặc định — sửa rồi Lưu.
 - 9 khoản phí: Phí cố định, Voucher Xtra, Phí hạ tầng (đ/đơn), Phí xử lý, Phí dịch vụ, Quảng cáo, Voucher shop, AFF, Phí hoàn V/C KTC.
 - Gian/ngành chưa lưu bộ phí nào thì hiện **giá trị mặc định** (cột ghi "mặc định"): Phí cố định 18,7% (Lịch) / 19,1% (ngành khác), Voucher Xtra 5,5%, Phí hạ tầng 3.000 đ, Phí xử lý 6%, Phí dịch vụ 7,5%, Quảng cáo 8,2%, Voucher shop 1,2%, AFF 2%, Phí hoàn V/C KTC 0,5%. Bấm **Lưu** để lưu thành bộ phí của tháng đang chọn.
 - Lãi Shopee = Giá bán − Giá vốn − Phí hạ tầng − Giá bán × (tổng 8 khoản %).
@@ -242,6 +242,8 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 7. Kiểm tra: mở app → ⚙️ Cài đặt → **Kiểm tra kết nối** → xem số phiên bản.
 
 > ❌ Nếu lỡ bấm "Tùy chọn triển khai mới" thì sẽ ra **URL mới**; các máy phải nhập lại URL. Bản cũ vẫn chạy code cũ.
+
+> Bản **2.4.0**: tài khoản `shopee` được thêm / bớt **ngành Shopee** (admin không cần bản này). Không cần chạy hàm nào.
 
 > Bản **2.3.0** (bảng tính riêng từng người theo sàn): **không cần chạy hàm nào**. Sheet mới `BANG_TINH_TIKTOK`, `BANG_TINH_SHOPEE`, `BANG_TINH_DONG_TIKTOK`, `BANG_TINH_DONG_SHOPEE` và 3 cột mới cuối sheet `BANG_TINH` (`da_nhan_boi`, `nhan_vao_san`, `nhan_luc`) tự tạo khi dùng lần đầu. Muốn tạo sẵn thì chạy `taoCacSheet`. Không cột cũ nào bị đổi / xóa.
 

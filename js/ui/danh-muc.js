@@ -1,4 +1,4 @@
-// Thêm / bớt gian hàng, ngành trong sheet DANH_MUC. Dùng chung cho Bảng phí TikTok (GIAN, NGANH) và Shopee (GIAN_SHOPEE).
+// Thêm / bớt gian hàng, ngành trong sheet DANH_MUC. Dùng chung cho Bảng phí TikTok (GIAN, NGANH) và Shopee (GIAN_SHOPEE, NGANH_SHOPEE).
 import { h, xacNhan } from './dom.js';
 import { thongBao } from './thong-bao.js';
 import * as kho from '../data/kho.js';
