@@ -287,13 +287,13 @@ const thangNay = () => thangHienTai();
 // Mỗi nền tảng: danh sách gian, bảng phí, các cột lãi của 1 gian ([kịch bản, tiêu đề, chữ trên chip sắp xếp]) và bộ hàm tính riêng.
 const NEN_TANG = {
   tiktok: {
-    ten: 'TikTok', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN'), dsPhi: () => kho.duLieu().BANG_PHI,
+    ten: 'TikTok', loaiNganh: 'NGANH', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN'), dsPhi: () => kho.duLieu().BANG_PHI,
     cot: [['qc', 'Có QC', 'có QC'], ['khongqc', 'Không QC', 'không QC']], khoaGianXem: 'gianXem',
     laiTaiGian, laDongLo, locVaSapXep, tongKet, bangXuat, giaCanDat: giaCanDatTikTok, coKichBan: true,
     congThuc: 'Lãi = Giá − Vốn − Phí cố định − Giá × tổng phí %.',
   },
   shopee: {
-    ten: 'Shopee', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE'), dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
+    ten: 'Shopee', loaiNganh: 'NGANH_SHOPEE', gians: () => layDanhSach(kho.duLieu().DANH_MUC, 'GIAN_SHOPEE'), dsPhi: () => kho.duLieu().BANG_PHI_SHOPEE || [],
     cot: [['lai', 'Lãi', 'lãi']], khoaGianXem: 'gianXemShopee',
     laiTaiGian: laiTaiGianShopee, laDongLo: laDongLoShopee, locVaSapXep: locVaSapXepShopee, tongKet: tongKetShopee, bangXuat: bangXuatShopee,
     giaCanDat: giaCanDatShopeeTaiGian, coKichBan: false,
@@ -306,7 +306,7 @@ const mtNay = () => st.mucTieu[st.nenTang];
 const giaCanDatDong = (d, g, dsPhi) => nt().giaCanDat(d, g, dsPhi, thangNay(), mtNay());
 
 const tatCaGian = () => nt().gians();
-const dsNganh = () => layDanhSach(kho.duLieu().DANH_MUC, 'NGANH');
+const dsNganh = () => layDanhSach(kho.duLieu().DANH_MUC, nt().loaiNganh); // ngành theo sàn đang xem
 function gianDangXem() {
   const tat = tatCaGian();
   const xem = st[nt().khoaGianXem];

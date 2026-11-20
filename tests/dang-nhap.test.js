@@ -112,6 +112,8 @@ const GHI_SHOPEE = [
     { gian: 'CN1', nganh: 'Lịch', thang: '2026-11', phi_co_dinh: 18.7 }, { gian: 'CN1', nganh: 'Trà', thang: '2026-11', phi_co_dinh: 19.1 }] } },
   { ten: 'Thêm gian Shopee', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN_SHOPEE', ten: 'CN9', thu_tu: 9, dang_dung: 'co' }] } },
   { ten: 'Bớt gian Shopee', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'GIAN_SHOPEE', ten: 'CN9', dang_dung: 'khong' }] } },
+  { ten: 'Thêm ngành Shopee', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH_SHOPEE', ten: 'Văn phòng phẩm', thu_tu: 6, dang_dung: 'co' }] } },
+  { ten: 'Bớt ngành Shopee', body: { action: 'upsert', sheet: 'DANH_MUC', banGhi: [{ loai: 'NGANH_SHOPEE', ten: 'Văn phòng phẩm', dang_dung: 'khong' }] } },
   { ten: 'Xóa bộ phí tháng Shopee', body: { action: 'xoa', sheet: 'BANG_PHI_SHOPEE', khoa: [{ gian: 'CN1', nganh: 'Tranh', thang: '2026-10' }] } },
 ];
 const GHI_TIKTOK = [

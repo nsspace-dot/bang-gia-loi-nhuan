@@ -547,7 +547,7 @@ test('Bảng phí Shopee: thêm gian mới → hiện ở Bảng phí và ở T�
   const { p, loi } = await moTrang();
   await p.click('[data-tab="bang-phi"]');
   await p.click('[data-san="shopee"]');
-  await p.click('#bang-phi-shopee summary:has-text("Gian hàng Shopee")');
+  await p.click('#bang-phi-shopee summary:has-text("(thêm / bớt)")');
   await p.fill('[aria-label="Thêm — Gian hàng Shopee"]', 'CN3');
   await p.click('#bang-phi-shopee .khoi-danh-muc button[type=submit]');
   await p.waitForSelector('#bang-phi-shopee .vien-gian:has-text("CN3")');
@@ -667,11 +667,11 @@ test('Vai trò shopee: chỉ thấy phần Shopee; SỬA được bảng phí + 
   await p.waitForSelector('#bang-phi-shopee button:has-text("Xóa bộ phí tháng")', { state: 'detached' });
   assert.ok(!(await docGas()).BANG_PHI_SHOPEE.some((x) => x.gian === 'Tường Vip New' && x.phi_xu_ly === 6.6));
   // Thêm rồi bớt gian Shopee
-  await p.click('#bang-phi-shopee summary:has-text("Gian hàng Shopee")');
+  await p.click('#bang-phi-shopee summary:has-text("(thêm / bớt)")');
   await p.fill('[aria-label="Thêm — Gian hàng Shopee"]', 'CN-NV');
   await p.click('#bang-phi-shopee .khoi-danh-muc button[type=submit]');
   await p.waitForSelector('#bang-phi-shopee .vien-gian:has-text("CN-NV")');
-  if (!(await p.locator('[aria-label="Bỏ CN-NV"]').isVisible())) await p.click('#bang-phi-shopee summary:has-text("Gian hàng Shopee")');
+  if (!(await p.locator('[aria-label="Bỏ CN-NV"]').isVisible())) await p.click('#bang-phi-shopee summary:has-text("(thêm / bớt)")');
   await p.click('[aria-label="Bỏ CN-NV"]');
   await p.click('dialog[open] button:has-text("Đồng ý")');
   await p.waitForSelector('#bang-phi-shopee .vien-gian:has-text("CN-NV")', { state: 'detached' });
@@ -1356,4 +1356,36 @@ test('🗑 Xóa hết dòng: hỏi 1 lần, ↩ Hoàn tác trong 10 giây; bản
   assert.equal((await goiGas({ action: 'dsBangTinhCuaToi', token: tk, san: 'tiktok' })).duLieu.filter((b) => b.id === id).length, 0);
   assert.deepEqual(loi, []);
   await p.close();
+});
+
+test('Ngành Shopee: vai trò shopee thêm / bớt ngành → cột mới ở Bảng phí Shopee + ô Ngành ở Tính lợi nhuận Shopee; không lẫn sang TikTok', { skip: boQua }, async () => {
+  const { p, loi } = await moTrang('shopee');
+  await p.click('[data-tab="bang-phi"]');
+  await p.click('#bang-phi-shopee summary:has-text("(thêm / bớt)")');
+  await p.fill('[aria-label="Thêm — Ngành Shopee"]', 'Văn phòng phẩm');
+  await p.click('#bang-phi-shopee .khoi-danh-muc:has(h4:text-is("Ngành Shopee")) button[type=submit]');
+  await p.waitForSelector('#bang-phi-shopee thead >> text=Văn phòng phẩm');
+  const du = await docGas();
+  assert.deepEqual(du.DANH_MUC.filter((d) => d.loai === 'NGANH_SHOPEE' && d.dang_dung !== 'khong').map((d) => d.ten),
+    ['Sách', 'Tranh', 'Lịch', 'Decal', 'Trà', 'Văn phòng phẩm']);
+  assert.ok(!du.DANH_MUC.some((d) => d.loai === 'NGANH' && d.ten === 'Văn phòng phẩm'), 'không lẫn sang ngành TikTok');
+  // Tính lợi nhuận (Shopee): ô Ngành của dòng có ngành mới
+  await p.click('[data-tab="loi-nhuan"]');
+  await p.click('#tab-loi-nhuan >> text=➕ Thêm dòng');
+  const tuy = await p.$$eval('[aria-label="Ngành dòng 1"] option', (o) => o.map((x) => x.textContent));
+  assert.ok(tuy.includes('Văn phòng phẩm'), tuy.join('|'));
+  // bớt ngành → hỏi lại → biến khỏi bảng phí
+  await p.click('[data-tab="bang-phi"]');
+  if (!(await p.locator('#bang-phi-shopee details[open]').count())) await p.click('#bang-phi-shopee summary:has-text("(thêm / bớt)")');
+  await p.click('#bang-phi-shopee .khoi-danh-muc [aria-label="Bỏ Văn phòng phẩm"]');
+  await p.click('dialog.hop-thoai-nho button:text-is("Đồng ý")');
+  await p.waitForSelector('#bang-phi-shopee thead >> text=Văn phòng phẩm', { state: 'detached' });
+  assert.deepEqual(loi, []);
+  await p.close();
+  // TikTok (admin, sàn TikTok): ô Ngành KHÔNG có ngành Shopee
+  const q = (await moTrang('admin')).p;
+  await q.click('[data-nen-tang="tiktok"]');
+  await q.click('#tab-loi-nhuan >> text=➕ Thêm dòng');
+  assert.ok(!(await q.$$eval('[aria-label="Ngành dòng 1"] option', (o) => o.map((x) => x.textContent))).includes('Văn phòng phẩm'));
+  await q.close();
 });

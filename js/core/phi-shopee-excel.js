@@ -11,15 +11,15 @@ export const COT_EXCEL_SHOPEE = ['Gian hàng', 'Ngành', 'Tháng áp dụng', ..
 const dongPhi = (p) => [p.gian, p.nganh, hienThiThang(p.thang), ...KHOAN_PHI_SHOPEE.map((k) => p[k.khoa] ?? 0)];
 
 /** Toàn bộ bảng phí Shopee → mảng dòng (có tiêu đề), sắp theo gian, tháng, ngành. */
-export function bangXuatPhiShopee(ds) {
+export function bangXuatPhiShopee(ds, nganhs = NGANH_SHOPEE) {
   const sx = [...ds].sort((a, b) => a.gian.localeCompare(b.gian, 'vi') || a.thang.localeCompare(b.thang)
-    || NGANH_SHOPEE.indexOf(a.nganh) - NGANH_SHOPEE.indexOf(b.nganh));
+    || nganhs.indexOf(a.nganh) - nganhs.indexOf(b.nganh));
   return [COT_EXCEL_SHOPEE, ...sx.map(dongPhi)];
 }
 
-/** File mẫu: tiêu đề + 5 ngành của 1 gian, giá trị mặc định, tháng cho trước. */
-export function bangMauPhiShopee(gian, thang) {
-  return [COT_EXCEL_SHOPEE, ...NGANH_SHOPEE.map((n) => dongPhi({ gian, nganh: n, thang, ...phiShopeeMacDinh(n) }))];
+/** File mẫu: tiêu đề + các ngành Shopee của 1 gian, giá trị mặc định, tháng cho trước. */
+export function bangMauPhiShopee(gian, thang, nganhs = NGANH_SHOPEE) {
+  return [COT_EXCEL_SHOPEE, ...nganhs.map((n) => dongPhi({ gian, nganh: n, thang, ...phiShopeeMacDinh(n) }))];
 }
 
 /** Ô tháng: "10/2026", "2026-10", hoặc số ngày kiểu Excel (ô bị Excel tự đổi thành ngày). */
@@ -41,13 +41,13 @@ function loiSo(k, so) {
 /**
  * Đọc file nhập, so với bảng phí đang có. KHÔNG ghi gì.
  * @param mang  mảng dòng của sheet (dòng đầu là tiêu đề)
- * @param opts  { dsHienCo: bản ghi BANG_PHI_SHOPEE hiện có, gians: danh sách gian Shopee đang dùng }
+ * @param opts  { dsHienCo: bản ghi BANG_PHI_SHOPEE hiện có, gians: danh sách gian Shopee đang dùng, nganhs: danh sách ngành Shopee đang dùng }
  * @returns {{ loiFile?: string, moi: Array, doi: Array, giongCu: number, loi: Array }}
  *   moi:  [{ soDong, banGhi }]                  — bộ (gian, ngành, tháng) chưa có
  *   doi:  [{ soDong, banGhi, cu, oDoi:[khoa] }]  — đã có, khác giá trị
  *   loi:  [{ soDong, loi:[chuỗi] }]              — số dòng tính như Excel (dòng tiêu đề = 1)
  */
-export function docNhapPhiShopee(mang, { dsHienCo = [], gians = [] } = {}) {
+export function docNhapPhiShopee(mang, { dsHienCo = [], gians = [], nganhs = NGANH_SHOPEE } = {}) {
   const kq = { moi: [], doi: [], giongCu: 0, loi: [] };
   const tieuDe = (mang[0] || []).map((x) => String(x).trim().toLowerCase());
   const viTri = COT_EXCEL_SHOPEE.map((c) => tieuDe.indexOf(c.toLowerCase()));
@@ -67,7 +67,7 @@ export function docNhapPhiShopee(mang, { dsHienCo = [], gians = [] } = {}) {
     if (!gian) loi.push('thiếu gian');
     else if (!gians.includes(gian)) loi.push(`gian "${gian}" chưa có trong danh sách gian Shopee (thêm gian trước)`);
     if (!nganh) loi.push('thiếu ngành');
-    else if (!NGANH_SHOPEE.includes(nganh)) loi.push(`ngành "${nganh}" không hợp lệ (${NGANH_SHOPEE.join(', ')})`);
+    else if (!nganhs.includes(nganh)) loi.push(`ngành "${nganh}" không hợp lệ (${nganhs.join(', ')})`);
     if (!laThangHopLe(thang)) loi.push(`tháng "${thoThang}" không hợp lệ (vd 10/2026)`);
     const banGhi = { gian, nganh, thang };
     KHOAN_PHI_SHOPEE.forEach((k, j) => {

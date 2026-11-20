@@ -60,7 +60,7 @@ export const coQuyenGhi = () => vaiTro() === 'admin';
 
 // Giống QUYEN_GHI trong Code.gs: vai trò không phải admin chỉ sửa bảng phí + danh mục gian của nền tảng mình.
 const QUYEN_GHI = {
-  shopee: { sheet: ['BANG_PHI_SHOPEE'], danhMuc: ['GIAN_SHOPEE'] },
+  shopee: { sheet: ['BANG_PHI_SHOPEE'], danhMuc: ['GIAN_SHOPEE', 'NGANH_SHOPEE'] },
   tiktok: { sheet: ['BANG_PHI'], danhMuc: ['GIAN', 'NGANH'] },
 };
 /** Được sửa bảng phí (Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian) của nền tảng 'shopee' | 'tiktok'? */
