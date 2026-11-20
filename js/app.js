@@ -31,6 +31,7 @@ const TAB_THEO_VAI_TRO = {
   admin: Object.keys(TAO_TAB),
   tiktok: ['loi-nhuan', 'bang-phi', 'set-gia', 'campaign', 'gia-von'],
   shopee: ['loi-nhuan', 'bang-phi'],
+  ctv: ['loi-nhuan', 'bang-phi'], // CTV: tính lợi nhuận + xem bảng phí (không sửa)
 };
 const duocMo = (ten) => (TAB_THEO_VAI_TRO[kho.vaiTro()] || ['loi-nhuan', 'bang-phi']).includes(ten);
 

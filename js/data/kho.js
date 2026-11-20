@@ -47,7 +47,7 @@ export function luuCaiDat(cd) {
 
 // ---------- Phiên đăng nhập ----------
 
-const NEN_TANG_THEO_VAI_TRO = { admin: ['shopee', 'tiktok'], shopee: ['shopee'], tiktok: ['tiktok'] };
+const NEN_TANG_THEO_VAI_TRO = { admin: ['shopee', 'tiktok'], shopee: ['shopee'], tiktok: ['tiktok'], ctv: ['shopee', 'tiktok'] };
 const khiHetPhien = new Set();
 
 export function layPhien() {

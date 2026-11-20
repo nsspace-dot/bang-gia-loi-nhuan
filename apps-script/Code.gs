@@ -5,6 +5,8 @@
  * - GET ?action=ping (không cần đăng nhập). Mọi lệnh khác: POST (Content-Type text/plain) body JSON { action, token, ... }
  * - Đăng nhập: POST { action: 'dangNhap', ten, matKhau } → token (giữ 6 giờ trong CacheService).
  *   Tài khoản ở sheet TAI_KHOAN: mật khẩu lưu dạng hash SHA-256 + salt, không lưu mật khẩu thô.
+ * - Vai trò ctv (2.5.0): chỉ xem bảng phí 2 sàn (không sửa, không xem lịch sử phí) + tự nhập giá, tính lợi nhuận và
+ *   lưu bảng tính CỦA MÌNH (cả 2 sàn). Không xem giá vốn, campaign, bảng cũ, tài khoản.
  * - Vai trò: admin (xem + sửa tất cả, quản lý tài khoản); shopee / tiktok: xem dữ liệu nền tảng của mình và
  *   SỬA bảng phí + danh mục gian của đúng nền tảng đó (QUYEN_GHI). Không đụng được nền tảng kia.
  *   Quyền được kiểm tra ở đây cho MỌI lệnh đọc và ghi, không dựa vào giao diện.
@@ -16,7 +18,7 @@
  *   (TikTok) và LICH_SU_BANG_PHI_SHOPEE (Shopee).
  */
 
-var PHIEN_BAN = '2.4.0';
+var PHIEN_BAN = '2.5.0';
 
 // Cấu trúc các sheet. khoa = các cột tạo nên khóa duy nhất. so = cột kiểu số.
 var CAU_TRUC = {
@@ -108,13 +110,15 @@ var SAI_TOI_DA = 5;          // đăng nhập sai quá số lần này (theo tê
 var KHOA_GIAY = 10 * 60;     // ... thì khóa 10 phút
 var PHIEN_GIAY = 6 * 60 * 60; // token hết hạn sau 6 giờ (tối đa của CacheService)
 var SO_VONG_HASH = 500;       // SHA-256 lặp lại để dò mật khẩu chậm hơn
-var VAI_TRO = ['admin', 'shopee', 'tiktok'];
+var VAI_TRO = ['admin', 'shopee', 'tiktok', 'ctv'];
 
 // Dữ liệu mỗi vai trò được ĐỌC. DANH_MUC chỉ trả các loại danh mục của nền tảng đó.
 var QUYEN_DOC = {
   admin: { sheet: SHEET_DOC, danhMuc: null },
   shopee: { sheet: ['DANH_MUC', 'BANG_PHI_SHOPEE', 'BANG_TINH'], danhMuc: ['GIAN_SHOPEE', 'NGANH_SHOPEE'] },
   tiktok: { sheet: ['DANH_MUC', 'BANG_PHI', 'GIA_VON', 'NOI_SKU', 'CAMPAIGN', 'BANG_TINH'], danhMuc: ['GIAN', 'NGANH'] },
+  // CTV: chỉ bảng phí 2 sàn + danh sách gian / ngành (để tính lãi). Không ghi được gì ngoài bảng tính của mình.
+  ctv: { sheet: ['DANH_MUC', 'BANG_PHI', 'BANG_PHI_SHOPEE'], danhMuc: ['GIAN', 'NGANH', 'GIAN_SHOPEE', 'NGANH_SHOPEE'] },
 };
 
 // Dữ liệu vai trò không phải admin được GHI (upsert / xoa): bảng phí + loại danh mục của đúng nền tảng.
@@ -550,6 +554,7 @@ function docLichSuPhi_(phien, body) {
   var nt = LICH_SU_THEO_NEN_TANG[body.nenTang];
   if (!nt) throw loi_('Nền tảng không hợp lệ.');
   canDoc_(phien, nt.bangPhi);
+  if (phien.vaiTro === 'ctv') throw loi_('Tài khoản CTV không xem lịch sử sửa phí.', 'KHONG_CO_QUYEN');
   var gioiHan = Math.min(Math.max(Number(body.gioiHan) || 300, 1), 2000);
   var ds = docSheet_(nt.lichSu).ds.map(bo_).filter(function (o) {
     return (!body.gian || o.gian === String(body.gian)) && (!body.thang || o.thang === String(body.thang));
@@ -763,7 +768,7 @@ function sanCuaToi_(phien, san) {
   var k = String(san || '').toUpperCase();
   var s = SAN_BANG_TINH[k];
   if (!s) throw loi_('Sàn không hợp lệ: ' + san);
-  if (phien.vaiTro !== 'admin' && phien.vaiTro !== s.vaiTro) {
+  if (phien.vaiTro !== 'admin' && phien.vaiTro !== 'ctv' && phien.vaiTro !== s.vaiTro) {
     throw loi_('Tài khoản "' + phien.ten + '" (' + phien.vaiTro + ') không dùng sàn ' + s.ten + '.', 'KHONG_CO_QUYEN');
   }
   return k;

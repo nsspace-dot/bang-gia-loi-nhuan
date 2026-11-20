@@ -36,6 +36,7 @@ Tài liệu dành cho người **không biết code**. Làm lần lượt từ t
 | `admin` | Tất cả (Shopee + TikTok) | Bảng phí, danh mục, bảng tính… + **quản lý tài khoản** (tab 👥 Tài khoản) |
 | `shopee` | Bảng phí Shopee, Tính lợi nhuận chế độ Shopee | **Bảng phí Shopee**: sửa ô, Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian Shopee. Không xem / sửa được gì của TikTok |
 | `tiktok` | Bảng phí TikTok, Tính lợi nhuận chế độ TikTok | **Bảng phí TikTok**: sửa ô, Lưu, Xóa bộ phí tháng, Nhập Excel, thêm / bớt gian và ngành TikTok. Không xem / sửa được gì của Shopee |
+| `ctv` (cộng tác viên) | Tính lợi nhuận (cả 2 sàn), Bảng phí 2 sàn **chỉ xem** | Chỉ bảng tính **của mình**: tự nhập giá vốn, giá bán, xem lãi, lưu. Không xem giá vốn của shop, campaign, lịch sử sửa phí, tài khoản; không sửa bảng phí / gian / ngành |
 
 **Bảng tính ở Tính lợi nhuận**: mỗi tài khoản (cả shopee / tiktok) có bảng **riêng của mình**, tự lưu, chỉ mình thấy — kể cả admin cũng không xem được bảng của người khác. Tab Tài khoản: chỉ admin. Mọi lần sửa đều ghi tên người sửa vào lịch sử.
 
@@ -242,6 +243,8 @@ Chỉ làm khi được báo **"Code.gs có thay đổi"**. **KHÔNG tạo tri�
 7. Kiểm tra: mở app → ⚙️ Cài đặt → **Kiểm tra kết nối** → xem số phiên bản.
 
 > ❌ Nếu lỡ bấm "Tùy chọn triển khai mới" thì sẽ ra **URL mới**; các máy phải nhập lại URL. Bản cũ vẫn chạy code cũ.
+
+> Bản **2.5.0**: thêm vai trò `ctv` (tạo ở tab 👥 Tài khoản). Không cần chạy hàm nào.
 
 > Bản **2.4.0**: tài khoản `shopee` được thêm / bớt **ngành Shopee** (admin không cần bản này). Không cần chạy hàm nào.
 

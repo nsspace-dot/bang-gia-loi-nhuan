@@ -1389,3 +1389,25 @@ test('Ngành Shopee: vai trò shopee thêm / bớt ngành → cột mới ở B�
   assert.ok(!(await q.$$eval('[aria-label="Ngành dòng 1"] option', (o) => o.map((x) => x.textContent))).includes('Văn phòng phẩm'));
   await q.close();
 });
+
+test('CTV: chỉ tab Tính lợi nhuận + Bảng phí (chỉ xem, không lịch sử phí); tự nhập giá → thấy lãi; lưu bảng của mình; dùng cả 2 sàn', { skip: boQua }, async () => {
+  const { p, loi } = await moTrangTK('ctv-thu', 'ctv');
+  assert.match(await p.textContent('#nguoi-dung'), /ctv-thu\s*\(ctv\)/);
+  assert.deepEqual(await p.$$eval('.thanh-tab [role=tab]:not([hidden])', (ds) => ds.map((b) => b.dataset.tab)), ['loi-nhuan', 'bang-phi']);
+  assert.deepEqual(await p.$$eval('#tab-loi-nhuan [data-nen-tang]', (ds) => ds.map((b) => b.dataset.nenTang)), ['shopee', 'tiktok']);
+  // tự nhập giá vốn + giá bán → thấy lãi (số tiền); lưu bảng của mình
+  await p.waitForSelector('.ten-bang >> text=Bảng của ctv-thu – TikTok');
+  await napFile(p, taoFile('ctv.xlsx', [['Tên sản phẩm', 'Ngành hàng', 'Giá vốn', 'Giá bán'], ['Tranh CTV', 'Tranh', 20000, 100000]]));
+  assert.match(await p.textContent('.bang-ln tbody tr:first-child td.o-lai'), /\d{1,3}(\.\d{3})+/);
+  await p.click('.nut-luu-sheets');
+  await p.waitForSelector('.chuc-mung >> text=Đã lưu');
+  // Bảng phí: xem được cả 2 sàn, chỉ xem, không có lịch sử phí, không có thêm / bớt gian
+  await p.click('[data-tab="bang-phi"]');
+  assert.deepEqual(await p.$$eval('#tab-bang-phi .tab-con-san [role=tab]', (ds) => ds.map((b) => b.textContent)), ['Shopee', 'TikTok']);
+  await p.waitForSelector('#tab-bang-phi .chi-xem');
+  assert.equal(await p.locator('#tab-bang-phi summary:has-text("(thêm / bớt)")').count(), 0);
+  assert.equal(await p.locator('#tab-bang-phi button:has-text("Lưu bộ phí")').count(), 0);
+  assert.equal(await p.locator('#tab-bang-phi .lich-su-phi, #tab-bang-phi summary:has-text("Lịch sử")').count(), 0);
+  assert.deepEqual(loi, []);
+  await p.close();
+});
